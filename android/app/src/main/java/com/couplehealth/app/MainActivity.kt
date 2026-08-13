@@ -158,7 +158,15 @@ class MainActivity : AppCompatActivity(), BridgeHost {
                 onPageCommit = { runOnUiThread { hideLoading(); pushSafeAreaToWeb() } },
                 onError = { runOnUiThread { showError() } },
                 onRebind = { runOnUiThread { recreateWebContainer() } },
-                onPageLoaded = { runOnUiThread { pushSafeAreaToWeb() } }
+                onPageLoaded = {
+                    runOnUiThread {
+                        pushSafeAreaToWeb()
+                        // Delayed re-push: handles race condition where page JS
+                        // might reset CSS variables after initial injection
+                        webView.postDelayed({ pushSafeAreaToWeb() }, 500)
+                        webView.postDelayed({ pushSafeAreaToWeb() }, 1500)
+                    }
+                }
             )
 
             // Second-layer defense: suppress native long-press context menu on non-editable
@@ -286,9 +294,12 @@ class MainActivity : AppCompatActivity(), BridgeHost {
         ViewCompat.requestApplyInsets(contentView)
     }
 
-    /** Proactively inject --android-safe-top/bottom CSS variables into the web page. */
+    /** Proactively inject --android-safe-top/bottom CSS variables into the web page.
+     *  Also adds 'android-app' class to <html> for targeted CSS rules.
+     *  This is the SOLE safe-area data source — web side only reads, never writes. */
     private fun pushSafeAreaToWeb() {
         val js = "try{" +
+            "document.documentElement.classList.add('android-app');" +
             "document.documentElement.style.setProperty('--android-safe-top','${safeTopDp}px');" +
             "document.documentElement.style.setProperty('--android-safe-bottom','${safeBottomDp}px');" +
             "}catch(e){}"

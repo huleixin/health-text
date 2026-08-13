@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首页交互地图 V2 — Interaction Map</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --card-2: #222222;
+    --border: #2e2e2e;
+    --gold: #F2C94C;
+    --gold-soft: rgba(242, 201, 76, 0.12);
+    --gold-line: rgba(242, 201, 76, 0.35);
+    --text: #f5f5f5;
+    --text-dim: #a8a8a8;
+    --text-mute: #6f6f6f;
+    --green: #6ee7a8;
+    --red: #ff6b6b;
+    --orange: #ffa94d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  /* Header */
+  .hero {
+    position: relative;
+    background: linear-gradient(160deg, #1a1a1a 0%, #141414 100%);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 40px 36px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(242,201,76,0.18) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .hero-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--gold-soft);
+    border: 1px solid var(--gold-line);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+  }
+  .hero h1 .accent { color: var(--gold); }
+  .hero p.sub {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 680px;
+  }
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin-top: 26px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .hero-meta .item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+  .hero-meta .item svg { width: 16px; height: 16px; color: var(--gold); }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat .label {
+    font-size: 12px;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat .num {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+  .stat.gold .num { color: var(--gold); }
+  .stat.green .num { color: var(--green); }
+  .stat.red .num { color: var(--red); }
+  .stat.orange .num { color: var(--orange); }
+  .stat .dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+
+  /* Section title */
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 40px 0 18px;
+  }
+  .sec-head .idx {
+    width: 32px; height: 32px;
+    background: var(--gold-soft);
+    border: 1px solid var(--gold-line);
+    color: var(--gold);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .sec-head h2 {
+    font-size: 19px;
+    font-weight: 700;
+  }
+  .sec-head .count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-mute);
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+
+  /* Table */
+  .tbl-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  thead th {
+    background: #161616;
+    color: var(--gold);
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 15px 16px;
+    border-bottom: 1px solid #1f1f1f;
+    vertical-align: top;
+    color: var(--text);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #1d1d1d; }
+  td.elem { font-weight: 600; min-width: 160px; }
+  td.elem .ic { color: var(--gold); margin-right: 6px; vertical-align: middle; }
+  code, .mono {
+    font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
+    font-size: 12.5px;
+    background: #111;
+    color: var(--gold);
+    padding: 2px 7px;
+    border-radius: 5px;
+    border: 1px solid #262626;
+    display: inline-block;
+    line-height: 1.5;
+  }
+  td.handler code { color: #c9b87a; background: #161511; border-color: #2e2a18; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.4px;
+  }
+  .badge.valid { background: rgba(110,231,168,0.12); color: var(--green); border: 1px solid rgba(110,231,168,0.3); }
+  .badge.dead { background: rgba(255,107,107,0.12); color: var(--red); border: 1px solid rgba(255,107,107,0.3); }
+  .badge.disabled { background: rgba(255,169,77,0.12); color: var(--orange); border: 1px solid rgba(255,169,77,0.3); }
+  .ret { font-size: 12px; color: var(--text-dim); }
+  .ret .ok { color: var(--green); }
+  .ret .na { color: var(--text-mute); }
+  .dest { color: #e0e0e0; font-size: 13px; }
+  .params { color: var(--text-dim); font-size: 12.5px; }
+
+  /* Pages grid */
+  .pages {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .page-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .page-card .pname {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: 15px; margin-bottom: 6px;
+  }
+  .page-card .pname code { font-size: 12px; }
+  .page-card .pdata {
+    color: var(--text-dim); font-size: 12.5px;
+  }
+  .page-card .pdata span { color: var(--gold); }
+
+  /* Changes */
+  .changes {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 30px;
+    margin-top: 36px;
+  }
+  .changes h2 {
+    font-size: 20px; font-weight: 800; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .changes h2 .accent { color: var(--gold); }
+  .changes .lead { color: var(--text-dim); font-size: 13.5px; margin-bottom: 22px; }
+  .chg-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 28px;
+  }
+  .chg-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px dashed #232323;
+  }
+  .chg-item .ic {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--gold-soft);
+    color: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .chg-item .body { flex: 1; }
+  .chg-item .ttl { font-weight: 600; font-size: 13.5px; margin-bottom: 4px; }
+  .chg-item .desc { font-size: 12.5px; color: var(--text-dim); }
+  .chg-item .desc code { font-size: 11.5px; }
+
+  .footer {
+    text-align: center;
+    margin-top: 48px;
+    color: var(--text-mute);
+    font-size: 12px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .footer .accent { color: var(--gold); }
+
+  @media (max-width: 880px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .pages, .chg-grid { grid-template-columns: 1fr; }
+    .wrap { padding: 28px 16px 60px; }
+    .hero { padding: 28px 24px; }
+    .hero h1 { font-size: 26px; }
+    table { font-size: 12.5px; }
+    thead th, tbody td { padding: 11px 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-bar">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      INTERACTION MAP · V2
+    </div>
+    <h1>首页<span class="accent">交互地图</span> V2</h1>
+    <p class="sub">健康应用首页全部交互元素的处理函数、跳转目的地、传参、状态与返回路径的完整文档。涵盖一级首页与四个新建二级详情页。</p>
+    <div class="hero-meta">
+      <div class="item">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        页面范围: 首页 + 4 个二级页
+      </div>
+      <div class="item">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        交互元素: 27 项
+      </div>
+      <div class="item">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+        校验状态: 全部通过
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY STATS -->
+  <div class="stats">
+    <div class="stat gold">
+      <div class="label"><span class="dot" style="background:var(--gold)"></span>交互元素总数</div>
+      <div class="num">27</div>
+    </div>
+    <div class="stat green">
+      <div class="label"><span class="dot" style="background:var(--green)"></span>VALID 有效</div>
+      <div class="num">27</div>
+    </div>
+    <div class="stat red">
+      <div class="label"><span class="dot" style="background:var(--red)"></span>DEAD 死链</div>
+      <div class="num">0</div>
+    </div>
+    <div class="stat orange">
+      <div class="label"><span class="dot" style="background:var(--orange)"></span>DISABLED 禁用</div>
+      <div class="num">0</div>
+    </div>
+  </div>
+
+  <!-- NEW PAGES -->
+  <div class="sec-head">
+    <div class="idx"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+    <h2>新建二级详情页</h2>
+    <div class="count">4 个页面</div>
+  </div>
+  <div class="pages">
+    <div class="page-card">
+      <div class="pname"><code>health-analysis</code> 今日健康分析</div>
+      <div class="pdata">数据源: <span>getHealthScoreData</span>, <span>getDailyCalorieStatus</span>, <span>buildTodayHealthAiSummary</span></div>
+    </div>
+    <div class="page-card">
+      <div class="pname"><code>daily-tasks</code> 今日任务</div>
+      <div class="pdata">数据源: <span>getHealthScoreData</span>, <span>getDailyTasksDayCache</span></div>
+    </div>
+    <div class="page-card">
+      <div class="pname"><code>daily-advice</code> 今日建议</div>
+      <div class="pdata">数据源: <span>getHealthScoreData</span>, <span>buildTodayHealthAiSummary</span>, <span>getDailyCalorieStatus</span></div>
+    </div>
+    <div class="page-card">
+      <div class="pname"><code>trend-detail</code> 健康趋势详情</div>
+      <div class="pdata">数据源: <span>getHealthSnapshot</span> (按日期), <span>profile.weightRecords</span></div>
+    </div>
+  </div>
+
+  <!-- SECTION 1 -->
+  <div class="sec-head">
+    <div class="idx">1</div>
+    <h2>健康状态区域</h2>
+    <div class="count">1 项</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>元素 Element</th>
+          <th>处理 Handler</th>
+          <th>目的地 Destination</th>
+          <th>参数 Parameters</th>
+          <th>状态 Status</th>
+          <th>返回路径 Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>查看健康分析 (>)</td>
+          <td class="handler"><code>click → switchAppPage('health-analysis')</code></td>
+          <td class="dest">今日健康分析页</td>
+          <td class="params"><code>currentViewDate</code>, <code>activeProfile</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 2 -->
+  <div class="sec-head">
+    <div class="idx">2</div>
+    <h2>今日任务区域</h2>
+    <div class="count">4 项</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>元素 Element</th>
+          <th>处理 Handler</th>
+          <th>目的地 Destination</th>
+          <th>参数 Parameters</th>
+          <th>状态 Status</th>
+          <th>返回路径 Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>今日任务 - 查看全部</td>
+          <td class="handler"><code>click → switchAppPage('daily-tasks')</code></td>
+          <td class="dest">今日任务页</td>
+          <td class="params"><code>currentViewDate</code>, <code>activeProfile</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>饮水任务条目</td>
+          <td class="handler"><code>click → openQuickAddPanel('water')</code></td>
+          <td class="dest">饮水记录Modal (<code>qaWater</code>)</td>
+          <td class="params"><code>recordType='water'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closePanel / closeModal</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5.9C19 10.9 12 21 12 21S5 10.9 5 5.9A7 7 0 0 1 19 5.9z"/><path d="M9 7h6"/></svg>步数任务条目</td>
+          <td class="handler"><code>click → openQuickAddPanel('steps')</code></td>
+          <td class="dest">步数记录Modal (<code>qaSteps</code>)</td>
+          <td class="params"><code>recordType='steps'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closePanel / closeModal</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>蛋白质任务条目</td>
+          <td class="handler"><code>click → openQuickAddPanel('food')</code></td>
+          <td class="dest">饮食搜索Modal (<code>qaFood</code>)</td>
+          <td class="params"><code>recordType='food'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closePanel / closeModal</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 3 -->
+  <div class="sec-head">
+    <div class="idx">3</div>
+    <h2>今日建议区域</h2>
+    <div class="count">1 项</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>元素 Element</th>
+          <th>处理 Handler</th>
+          <th>目的地 Destination</th>
+          <th>参数 Parameters</th>
+          <th>状态 Status</th>
+          <th>返回路径 Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.96.31-1.74.64-2.31.36-.62.84-1.14 1.34-1.69A4.5 4.5 0 0 0 18 6.5a4.5 4.5 0 0 0-9 0c0 1.5.5 2.5 1.06 3.31.5.55.98 1.07 1.34 1.69.33.57.46 1.35.64 2.31"/></svg>今日建议卡片</td>
+          <td class="handler"><code>click → switchAppPage('daily-advice')</code></td>
+          <td class="dest">今日建议详情页</td>
+          <td class="params"><code>currentViewDate</code>, <code>activeProfile</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 4 -->
+  <div class="sec-head">
+    <div class="idx">4</div>
+    <h2>趋势速览区域</h2>
+    <div class="count">5 项</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>元素 Element</th>
+          <th>处理 Handler</th>
+          <th>目的地 Destination</th>
+          <th>参数 Parameters</th>
+          <th>状态 Status</th>
+          <th>返回路径 Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>趋势 - 查看更多</td>
+          <td class="handler"><code>click → switchAppPage('trend-detail')</code></td>
+          <td class="dest">健康趋势详情页</td>
+          <td class="params"><code>trendDetailMetric=lastViewed||'weight'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/></svg>体重趋势卡</td>
+          <td class="handler"><code>trendDetailMetric='weight'; switchAppPage('trend-detail')</code></td>
+          <td class="dest">健康趋势详情页</td>
+          <td class="params"><code>metric='weight'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>热量摄入趋势卡</td>
+          <td class="handler"><code>trendDetailMetric='calories'; switchAppPage('trend-detail')</code></td>
+          <td class="dest">健康趋势详情页</td>
+          <td class="params"><code>metric='calories'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l3 3"/></svg>运动消耗趋势卡</td>
+          <td class="handler"><code>trendDetailMetric='exercise'; switchAppPage('trend-detail')</code></td>
+          <td class="dest">健康趋势详情页</td>
+          <td class="params"><code>metric='exercise'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>睡眠时长趋势卡</td>
+          <td class="handler"><code>trendDetailMetric='sleep'; switchAppPage('trend-detail')</code></td>
+          <td class="dest">健康趋势详情页</td>
+          <td class="params"><code>metric='sleep'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 5 -->
+  <div class="sec-head">
+    <div class="idx">5</div>
+    <h2>二级详情页内部交互</h2>
+    <div class="count">11 项</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>元素 Element</th>
+          <th>处理 Handler</th>
+          <th>目的地 Destination</th>
+          <th>参数 Parameters</th>
+          <th>状态 Status</th>
+          <th>返回路径 Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>今日健康分析 - 返回箭头</td>
+          <td class="handler"><code>click → switchAppPage('home')</code></td>
+          <td class="dest">首页</td>
+          <td class="params"><code>restoreScroll</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="na">N/A (即返回)</span></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>今日任务 - 记录饮水按钮</td>
+          <td class="handler"><code>click → openQuickAddPanel('water')</code></td>
+          <td class="dest">饮水记录Modal</td>
+          <td class="params"><code>recordType='water'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closeModal</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>今日任务 - 记录饮食按钮</td>
+          <td class="handler"><code>click → openQuickAddPanel('food')</code></td>
+          <td class="dest">饮食搜索Modal</td>
+          <td class="params"><code>recordType='food'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closeModal</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5.9C19 10.9 12 21 12 21S5 10.9 5 5.9A7 7 0 0 1 19 5.9z"/></svg>今日任务 - 去完成(步数)按钮</td>
+          <td class="handler"><code>click → openQuickAddPanel('steps')</code></td>
+          <td class="dest">步数记录Modal</td>
+          <td class="params"><code>recordType='steps'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closeModal</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>今日任务 - 记录运动按钮</td>
+          <td class="handler"><code>click → openQuickAddPanel('exercise')</code></td>
+          <td class="dest">运动记录Modal</td>
+          <td class="params"><code>recordType='exercise'</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closeModal</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M15.09 14c.18-.96.31-1.74.64-2.31.36-.62.84-1.14 1.34-1.69A4.5 4.5 0 0 0 18 6.5a4.5 4.5 0 0 0-9 0c0 1.5.5 2.5 1.06 3.31.5.55.98 1.07 1.34 1.69.33.57.46 1.35.64 2.31"/></svg>今日建议 - 记录饮食/饮水/运动按钮</td>
+          <td class="handler"><code>click → openQuickAddPanel(recordType)</code></td>
+          <td class="dest">对应记录Modal</td>
+          <td class="params"><code>dynamic recordType</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closeModal</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>健康趋势 - 时间筛选(7/30/90天)</td>
+          <td class="handler"><code>trendDetailPeriod=val; renderTrendDetailPage()</code></td>
+          <td class="dest">同页刷新</td>
+          <td class="params"><code>period=7|30|90</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="na">N/A</span></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>健康趋势 - 指标切换(体重/热量/运动/睡眠)</td>
+          <td class="handler"><code>trendDetailMetric=key; renderTrendDetailPage()</code></td>
+          <td class="dest">同页刷新</td>
+          <td class="params"><code>metric=weight|calories|exercise|sleep</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="na">N/A</span></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>今日任务 - 返回箭头</td>
+          <td class="handler"><code>click → switchAppPage('home')</code></td>
+          <td class="dest">首页</td>
+          <td class="params"><code>restoreScroll</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="na">N/A</span></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>今日建议 - 返回箭头</td>
+          <td class="handler"><code>click → switchAppPage('home')</code></td>
+          <td class="dest">首页</td>
+          <td class="params"><code>restoreScroll</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="na">N/A</span></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>健康趋势 - 返回箭头</td>
+          <td class="handler"><code>click → switchAppPage('home')</code></td>
+          <td class="dest">首页</td>
+          <td class="params"><code>restoreScroll</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="na">N/A</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 6 -->
+  <div class="sec-head">
+    <div class="idx">6</div>
+    <h2>全局导航</h2>
+    <div class="count">5 项</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>元素 Element</th>
+          <th>处理 Handler</th>
+          <th>目的地 Destination</th>
+          <th>参数 Parameters</th>
+          <th>状态 Status</th>
+          <th>返回路径 Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>底部导航 - 首页Tab</td>
+          <td class="handler"><code>click → switchAppPage('home')</code></td>
+          <td class="dest">首页</td>
+          <td class="params"><span class="mono">-</span></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="na">N/A</span></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>底部导航 - 健康Tab</td>
+          <td class="handler"><code>click → switchAppPage('health')</code></td>
+          <td class="dest">健康主页面</td>
+          <td class="params"><span class="mono">-</span></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>底部导航 - 快捷记录FAB(+)</td>
+          <td class="handler"><code>click → openQuickAddPanel()</code></td>
+          <td class="dest">快捷记录面板</td>
+          <td class="params"><code>recordType=undefined</code></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>closePanel</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>底部导航 - 我们Tab</td>
+          <td class="handler"><code>click → switchAppPage('couple')</code></td>
+          <td class="dest">我们页面</td>
+          <td class="params"><span class="mono">-</span></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+        <tr>
+          <td class="elem"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>底部导航 - 设置Tab</td>
+          <td class="handler"><code>click → switchAppPage('settings')</code></td>
+          <td class="dest">设置页面</td>
+          <td class="params"><span class="mono">-</span></td>
+          <td><span class="badge valid">VALID</span></td>
+          <td class="ret"><span class="ok">✅</span> <code>switchAppPage('home')</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- CHANGES SUMMARY -->
+  <div class="changes">
+    <h2><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>变更<span class="accent">摘要</span></h2>
+    <p class="lead">本次迭代新增 4 个二级详情页与相关渲染/绑定逻辑，扩展了快捷记录与页面路由能力，未改动既有业务逻辑、数据接口与算法。</p>
+
+    <div class="chg-grid">
+      <div class="chg-item">
+        <div class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+        <div class="body">
+          <div class="ttl">新增页面</div>
+          <div class="desc">4 个二级详情页 (<code>health-analysis</code>, <code>daily-tasks</code>, <code>daily-advice</code>, <code>trend-detail</code>)</div>
+        </div>
+      </div>
+      <div class="chg-item">
+        <div class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+        <div class="body">
+          <div class="ttl">新增函数</div>
+          <div class="desc"><code>renderHealthAnalysisPage</code>, <code>renderDailyTasksPage</code>, <code>renderDailyAdvicePage</code>, <code>renderTrendDetailPage</code>, <code>bindHomeTrendOverview</code>, <code>_subPageHeader</code></div>
+        </div>
+      </div>
+      <div class="chg-item">
+        <div class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+        <div class="body">
+          <div class="ttl">修改函数</div>
+          <div class="desc"><code>openQuickAddPanel</code> (新增 recordType 参数), <code>switchAppPage</code> (新增子页路由), <code>setupAppPageShell</code> (新增子页创建), <code>buildHomeActionTasks</code> (修复步数动作), <code>renderHomeTrendOverview</code> (新增 data-trend-metric 属性)</div>
+        </div>
+      </div>
+      <div class="chg-item">
+        <div class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+        <div class="body">
+          <div class="ttl">新增 CSS</div>
+          <div class="desc"><code>.sub-page-header</code>, <code>.sub-page-content</code>, <code>.sub-page-section</code>, <code>.ha-*</code>, <code>.dt-*</code>, <code>.da-*</code>, <code>.td-*</code> 类</div>
+        </div>
+      </div>
+      <div class="chg-item">
+        <div class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg></div>
+        <div class="body">
+          <div class="ttl">新增图标</div>
+          <div class="desc"><code>check</code>, <code>arrow-left</code>, <code>alert-circle</code>, <code>alert-triangle</code>, <code>lightbulb</code> (已加入 ICON_PATHS)</div>
+        </div>
+      </div>
+      <div class="chg-item">
+        <div class="ic"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div class="body">
+          <div class="ttl">未变更项</div>
+          <div class="desc">未修改既有业务逻辑; 未变更既有数据 / API / 算法</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    首页交互地图 V2 · 共 <span class="accent">27</span> 项交互元素 · 全部 <span class="accent">VALID</span> · 生成于健康应用前端文档
+  </div>
+
+</div>
+</body>
+</html>

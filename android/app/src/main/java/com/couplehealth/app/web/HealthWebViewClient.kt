@@ -130,25 +130,9 @@ class HealthWebViewClient(
     new MutationObserver(function(){ notifyTheme(); })
       .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   }catch(e){}
-  /* Pass real safe-area insets from Android to web.
-     env(safe-area-inset-*) may return 0 in some WebView versions, causing status bar
-     overlap. We set CSS custom properties so the web page can use:
-     max(env(safe-area-inset-top,0px), var(--android-safe-top,0px)) */
-  function applySafeArea(){
-    try{
-      if(window.AndroidBridge){
-        if(typeof window.AndroidBridge.getSafeAreaTop==='function'){
-          var st=window.AndroidBridge.getSafeAreaTop();
-          if(st>0) document.documentElement.style.setProperty('--android-safe-top',st+'px');
-        }
-        if(typeof window.AndroidBridge.getSafeAreaBottom==='function'){
-          var sb=window.AndroidBridge.getSafeAreaBottom();
-          if(sb>0) document.documentElement.style.setProperty('--android-safe-bottom',sb+'px');
-        }
-      }
-    }catch(e){}
-  }
-  try{ applySafeArea(); }catch(e){}
+  /* Safe-area injection is handled solely by MainActivity.pushSafeAreaToWeb()
+     via evaluateJavascript() on the main thread. This avoids duplicate writes
+     to --android-safe-top/bottom from two different code paths. */
   window.__nativeBack=function(){
     try{
       var qa=document.getElementById('quickAddPanel');
