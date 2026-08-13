@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
@@ -3424,7 +3424,6 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
   background-clip:padding-box;
   scrollbar-width:thin;
   scrollbar-color:rgba(212,175,55,0.48) transparent;
-  -webkit-overflow-scrolling:touch;
   touch-action:pan-y;
 }
 .glass-menu::-webkit-scrollbar,
@@ -3455,23 +3454,23 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 }
 .glass-menu.time-wheel-menu{
   overflow:hidden;
-  -webkit-overflow-scrolling:auto;
   animation:none!important;
   opacity:1!important;
   filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
   transform:translateZ(0)!important;
   -webkit-transform:translateZ(0)!important;
   backface-visibility:hidden;
   -webkit-backface-visibility:hidden;
   isolation:isolate;
-  will-change:auto;
 }
 .time-wheel-scroll{
   width:100%;height:var(--time-wheel-scroll-height,auto);max-height:var(--time-wheel-scroll-height,inherit);overflow-x:hidden;overflow-y:auto;
-  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
   touch-action:pan-y;pointer-events:auto;
   scrollbar-width:thin;scrollbar-color:rgba(212,175,55,.48) transparent;
-  opacity:1;filter:none;transform:none;will-change:scroll-position;
+  opacity:1;filter:none;transform:none;
 }
 .time-wheel-scroll::-webkit-scrollbar{width:6px}
 .time-wheel-scroll::-webkit-scrollbar-track{background:transparent;margin:10px 0}
@@ -3512,16 +3511,14 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
   background:rgba(255,255,255,0.025);
   cursor:pointer;
   font-size:13px;
-  transition:transform .16s ease,background .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease;
+  transition:background .16s ease,color .16s ease,border-color .16s ease;
 }
 .glass-option:hover{
-  transform:translateY(-1px);
   color:var(--gold-l);
   background:var(--glass-hover);
   border-color:rgba(212,175,55,0.20);
 }
 .glass-option:active{
-  transform:scale(.985);
   background:rgba(212,175,55,0.16);
 }
 .glass-option.selected{
@@ -19451,6 +19448,11 @@ const GlassScrollLock=(()=>{
       e.preventDefault();
       return;
     }
+    // Fast path: time-wheel-scroll has overscroll-behavior:contain and
+    // its own overflow-y:auto — let the browser handle it natively.
+    // Running canScrollInside (getComputedStyle on every ancestor) here
+    // would add per-frame JS overhead that competes with iOS native scrolling.
+    if(root.classList?.contains('time-wheel-scroll')) return;
     const currentY=e.touches?.[0]?.clientY??touchLastY;
     const deltaY=touchLastY-currentY;
     touchLastY=currentY;
@@ -19642,18 +19644,6 @@ const GlassUI=(()=>{
       if(scroll){
         const menuMaxHeight=menu.style.maxHeight||`${desiredHeight}px`;
         scroll.style.setProperty('--time-wheel-scroll-height',menuMaxHeight);
-        console.debug('[TimeWheelDebug]',{
-          optionCount:visibleOptions,
-          firstOption:menu.querySelector('.glass-option')?.textContent?.trim()||'',
-          lastOption:(()=>{const opts=Array.from(menu.querySelectorAll('.glass-option'));return opts.length?opts[opts.length-1].textContent.trim():''})(),
-          scrollTop:scroll.scrollTop,
-          scrollHeight:scroll.scrollHeight,
-          clientHeight:scroll.clientHeight,
-          overflowY:getComputedStyle(scroll).overflowY,
-          touchAction:getComputedStyle(scroll).touchAction,
-          parentMaxHeight:getComputedStyle(menu).maxHeight,
-          glassScrollLockState:window.GlassScrollLock?.getState?.()
-        });
       }
     }
   }
@@ -19678,15 +19668,7 @@ const GlassUI=(()=>{
         touchMoved=false;
       },{passive:true});
       scroll?.addEventListener('touchmove',e=>{
-        const y=e.touches?.[0]?.clientY||touchStartY;
-        if(Math.abs(y-touchStartY)>6) touchMoved=true;
-        console.debug('[TimeWheelDebug]',{
-          phase:'touchmove',
-          scrollTop:scroll.scrollTop,
-          scrollHeight:scroll.scrollHeight,
-          clientHeight:scroll.clientHeight,
-          glassScrollLockState:window.GlassScrollLock?.getState?.()
-        });
+        if(Math.abs((e.touches?.[0]?.clientY||touchStartY)-touchStartY)>6) touchMoved=true;
       },{passive:true});
       scroll?.addEventListener('scroll',()=>{
         touchMoved=true;
@@ -19742,7 +19724,24 @@ const GlassUI=(()=>{
       wrap.classList.toggle('open',willOpen);
       menu.classList.toggle('open',willOpen);
       activeDropdown=willOpen?wrap:null;
-      if(willOpen) positionDropdownMenu(wrap);
+      if(willOpen){
+        positionDropdownMenu(wrap);
+        // Scroll selected option into view once on open (time-wheel only).
+        // Uses rAF to ensure layout is settled before computing positions.
+        // After this initial positioning, the user's manual scroll is never
+        // overridden — no subsequent scrollIntoView or scrollTop writes.
+        if(menu.classList.contains('time-wheel-menu')){
+          const scrollEl=menu.querySelector('.time-wheel-scroll');
+          const selOpt=menu.querySelector('.glass-option.selected');
+          if(scrollEl&&selOpt){
+            requestAnimationFrame(()=>{
+              const sr=scrollEl.getBoundingClientRect();
+              const or=selOpt.getBoundingClientRect();
+              scrollEl.scrollTop+=Math.round(or.top-sr.top-(sr.height-or.height)/2);
+            });
+          }
+        }
+      }
       syncPickerLock();
     });
     select.addEventListener('change',()=>buildSelectOptions(select,menu,label));
@@ -20201,12 +20200,16 @@ const GlassUI=(()=>{
     document.addEventListener('keydown',e=>{
       if(e.key==='Escape') closeAll();
     });
-    const reposition=()=>{
+    const reposition=(e)=>{
+      // Skip repositioning when scroll originates from inside a dropdown menu
+      // (e.g., user scrolling the time-wheel-scroll). Running placeFloatingPanel
+      // on every scroll frame would cause severe lag on iOS.
+      if(e&&e.type==='scroll'&&e.target?.closest?.('.glass-menu')) return;
       if(activeDropdown) positionDropdownMenu(activeDropdown);
       if(activeDatePanel&&activeDateAnchor) placePanel(activeDatePanel,activeDateAnchor);
     };
     window.addEventListener('resize',reposition,{passive:true});
-    window.addEventListener('scroll',reposition,true);
+    window.addEventListener('scroll',reposition,{passive:true,capture:true});
     enhance(document);
     observer=new MutationObserver(scheduleEnhance);
     observer.observe(document.body,{childList:true,subtree:true});
