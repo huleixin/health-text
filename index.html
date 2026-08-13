@@ -972,7 +972,7 @@ html.android-app .app{padding-top:calc(6px + var(--safe-top,0px))}
 .record-detail-content{padding:14px 18px 18px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .record-detail-modal .modal-close{position:static;flex:0 0 auto}
 .record-detail-summary-line{margin-bottom:10px;padding:9px 10px;border-radius:12px;border:1px solid rgba(212,175,55,.10);background:rgba(255,255,255,.025);font-size:12px;color:var(--txt2);line-height:1.5}
-.body-metric-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+.body-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
 .body-metric-card{min-width:0;height:98px;padding:11px 12px;display:grid;grid-template-columns:1fr 46%;grid-template-rows:auto auto 1fr;border-radius:14px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);box-sizing:border-box}
 [data-theme="light"] .body-metric-card{background:rgba(0,0,0,.015)}
 .body-metric-label{grid-column:1;grid-row:1;font-size:11px;color:var(--txt3);font-weight:600}
@@ -1574,6 +1574,48 @@ html.android-app .app{padding-top:calc(6px + var(--safe-top,0px))}
 .home-hero-empty-sub{font-size:12px;color:var(--home-text-caption);line-height:1.5}
 @media(max-width:390px){.home-hero-card{padding:18px 16px}.home-hero-ring{width:88px;height:88px}.home-hero-ring-num .num{font-size:28px}.home-hero-info .conclusion{font-size:13px}.home-metrics-grid{gap:5px}.home-metric{padding:7px 5px;min-height:60px;gap:4px}.home-metric-icon{width:22px;height:22px}.home-metric-icon .ui-icon{width:12px;height:12px}.home-metric-label{font-size:12px}.home-metric-value{font-size:13px}.home-metric-value .unit{font-size:11px}.home-metric-status{font-size:11px}.home-diet-card{padding:18px 14px}.home-diet-body{grid-template-columns:84px 96px minmax(52px,auto) minmax(0,1.5fr);column-gap:10px}.home-diet-ring{width:84px;height:84px}.home-diet-intake-val{font-size:24px}.home-task-card{padding:18px 14px}.home-task-item{padding:8px 0}.home-task-status{flex:0 0 24px}.home-task-check{width:18px;height:18px}.home-task-check .ui-icon{width:11px;height:11px}.home-task-icon{width:26px;height:26px}.home-task-icon .ui-icon{width:13px;height:13px}.home-advice-card{padding:14px 16px}.home-trend-grid{gap:5px}.home-trend-card{padding:8px 6px;min-height:78px}.home-trend-val{font-size:15px}.home-trend-spark{height:18px}}
 @media(max-width:360px){.home-hero-top{gap:14px}.home-hero-ring{width:80px;height:80px}.home-hero-ring-num .num{font-size:24px}.home-hero-ring-num .lbl{font-size:11px}.home-metrics-grid{gap:4px}.home-metric{padding:6px 4px;min-height:56px;gap:3px}.home-metric-icon{width:20px;height:20px}.home-metric-icon .ui-icon{width:11px;height:11px}.home-metric-label{font-size:12px}.home-metric-value{font-size:12px}.home-metric-value .unit{font-size:11px}.home-metric-value.empty{font-size:11px}.home-metric-status{font-size:11px}.home-diet-body{grid-template-columns:76px 88px minmax(48px,auto) minmax(0,1.5fr);column-gap:8px}.home-diet-ring{width:76px;height:76px}.home-diet-intake-val{font-size:22px}.home-diet-intake-val .unit{font-size:12px}.home-diet-nutrient-name-text{font-size:12px}.home-diet-nutrient-data-val{font-size:12px}.home-diet-nutrient-data-pct{font-size:11px}.home-task-item{padding:7px 0}.home-task-status{flex:0 0 22px}.home-task-check{width:16px;height:16px}.home-task-check .ui-icon{width:10px;height:10px}.home-task-name{font-size:13px}.home-task-detail{font-size:11px}.home-task-icon{width:24px;height:24px}.home-task-icon .ui-icon{width:12px;height:12px}.home-trend-grid{gap:4px}.home-trend-card{padding:7px 5px;min-height:72px}.home-trend-val{font-size:14px}.home-trend-spark{height:16px}}
+/* Home mobile layout only: preserve the existing cards and visual system. */
+@media(max-width:600px){
+  .home-metrics-grid,
+  .home-trend-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .home-diet-body{
+    grid-template-columns:minmax(0,40fr) minmax(52px,14fr) minmax(0,46fr);
+    grid-template-rows:auto auto;
+    column-gap:10px;
+    row-gap:10px;
+  }
+  .home-diet-ring-section{
+    grid-column:1;
+    grid-row:1;
+  }
+  .home-diet-calorie-section{
+    grid-column:1;
+    grid-row:2;
+  }
+  .home-diet-nutrient-names{
+    grid-column:2;
+    grid-row:1 / span 2;
+  }
+  .home-diet-nutrient-data{
+    grid-column:3;
+    grid-row:1 / span 2;
+  }
+  .home-diet-ring{
+    width:96px;
+    height:96px;
+  }
+  .home-diet-nutrient-name,
+  .home-diet-nutrient-data-head{
+    min-width:0;
+  }
+  .home-diet-nutrient-names,
+  .home-diet-nutrient-data{
+    gap:6px;
+    align-items:start;
+  }
+}
 /* AI Weekly Report — new presentation layer */
 .ai-weekly-report-card{position:relative;width:100%;box-sizing:border-box}
 .ai-report-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
@@ -6592,6 +6634,125 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
     font-size:16px!important;
   }
 }
+
+/* ===== Health page: final mobile layout closure ===== */
+@media(max-width:640px){
+  [data-app-page="health"] #chartCard{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-rows:auto auto auto auto;
+    gap:7px 8px;
+  }
+  [data-app-page="health"] #chartCard>.card-title{
+    grid-column:1;
+    grid-row:1;
+    align-self:center;
+    margin:0;
+  }
+  [data-app-page="health"] #chartCard>.chart-controls{
+    display:contents;
+  }
+  [data-app-page="health"] #periodSeg{
+    grid-column:2;
+    grid-row:1;
+  }
+  [data-app-page="health"] #metricSeg{
+    grid-column:1;
+    grid-row:2;
+    justify-self:start;
+  }
+  [data-app-page="health"] #compareSeg{
+    grid-column:2;
+    grid-row:2;
+    justify-self:end;
+    width:max-content;
+    max-width:100%;
+  }
+  [data-app-page="health"] #chartStats{
+    grid-column:1 / -1;
+    grid-row:3;
+    width:100%;
+    margin:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  [data-app-page="health"] #chartCanvasWrap{
+    grid-column:1 / -1;
+    grid-row:4;
+    width:100%;
+    height:216px;
+    min-width:0;
+  }
+  [data-app-page="health"] #chartCard .seg-btn{
+    min-height:30px;
+    padding:4px 8px;
+    white-space:nowrap;
+  }
+  [data-app-page="health"] .body-metric-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-auto-rows:98px;
+    gap:10px;
+  }
+  [data-app-page="health"] .body-metric-card{
+    width:100%;
+    height:98px;
+  }
+  [data-app-page="health"] .body-metric-value,
+  [data-app-page="health"] .body-metric-status{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  [data-app-page="health"] .ai-report-main{
+    grid-template-columns:minmax(92px,30fr) minmax(0,70fr);
+    gap:12px;
+  }
+  [data-app-page="health"] .ai-summary-text{
+    -webkit-line-clamp:4;
+  }
+  [data-app-page="health"] .ai-insight-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+  [data-app-page="health"] .ai-insight-card{
+    width:100%;
+    height:84px;
+  }
+  [data-app-page="health"] .ai-dimension-bar{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+  [data-app-page="health"] .health-record-entry-list{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-auto-rows:1fr;
+    gap:10px;
+  }
+  [data-app-page="health"] .health-record-entry{
+    width:100%;
+    height:100%;
+    min-width:0;
+  }
+}
+@media(max-width:370px){
+  [data-app-page="health"] #chartCard{
+    gap:6px;
+  }
+  [data-app-page="health"] #chartCard .seg-btn{
+    padding-left:6px;
+    padding-right:6px;
+  }
+  [data-app-page="health"] #metricSeg{
+    margin-right:-4px;
+  }
+  [data-app-page="health"] #compareSeg{
+    margin-left:-4px;
+    min-width:82px;
+  }
+  [data-app-page="health"] #compareSeg .seg-btn{
+    padding-left:4px;
+    padding-right:4px;
+  }
+}
 </style>
 </head>
 <body>
@@ -6761,11 +6922,11 @@ function abTestRestore(){
       <div class="qa-main-title">拍照识别</div>
       <div class="qa-main-sub">AI识别食物并估算热量</div>
     </div>
-    <div class="qa-main-arrow"><span class="ui-icon" data-icon="plus"></span></div>
+    <div class="qa-main-arrow"><span class="ui-icon" data-icon="camera"></span></div>
   </div>
   <div class="quick-add-grid">
     <button class="qa-item" id="qaFood" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="bowl"></span></div>
+      <div class="qa-item-icon"><span class="ui-icon" data-icon="utensils"></span></div>
       <span class="qa-item-label">搜索食物</span>
     </button>
     <button class="qa-item" id="qaVoice" type="button">
@@ -6773,7 +6934,7 @@ function abTestRestore(){
       <span class="qa-item-label">语音记录</span>
     </button>
     <button class="qa-item" id="qaWater" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="droplet"></span></div>
+      <div class="qa-item-icon"><span class="ui-icon" data-icon="droplets"></span></div>
       <span class="qa-item-label">记录饮水</span>
     </button>
     <button class="qa-item" id="qaWeight" type="button">
@@ -6781,7 +6942,7 @@ function abTestRestore(){
       <span class="qa-item-label">记录体重</span>
     </button>
     <button class="qa-item" id="qaExercise" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="footprints"></span></div>
+      <div class="qa-item-icon"><span class="ui-icon" data-icon="activity"></span></div>
       <span class="qa-item-label">记录运动</span>
     </button>
     <button class="qa-item" id="qaSteps" type="button">
@@ -7165,6 +7326,7 @@ const ICON_PATHS={
   edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
   sparkles:'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
   chart:'<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
   bot:'<path d="M12 8V4H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M2 14v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4"/><path d="M8 8V4h8v4"/><path d="M2 14h20"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/>',
   dna:'<path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="m17 6-2.5-2.5"/><path d="m14 8-1-1"/><path d="m7 18 2.5 2.5"/><path d="m3.5 14.5.5.5"/><path d="m20 9 .5.5"/><path d="m6.5 12.5 1 1"/><path d="m16.5 10.5 1 1"/><path d="m10 16 1.5 1.5"/>',
@@ -9820,6 +9982,13 @@ function renderWeeklyReportCard(profile,date=currentViewDate){
     ['睡眠','sleep',report.sleep.score],
     ['饮水','water',report.water.score]
   ];
+  const weeklyDisplayInput=buildWeeklyReportInput(profile,date);
+  const hasWeeklyLifestyleData=weeklyDisplayInput.daily.some(day=>
+    day.calories>0||day.exercise_count>0||day.sleep_minutes>0||day.water_ml>0
+  );
+  const weeklySummaryText=hasWeeklyLifestyleData
+    ? report.week_summary
+    : '本周记录数据不足，继续完成饮食、运动、睡眠和饮水记录后，可生成更完整的健康分析。';
   const best=dims.slice().sort((a,b)=>b[2]-a[2])[0]?.[0]||'记录';
   const weak=dims.slice().sort((a,b)=>a[2]-b[2])[0]?.[0]||'记录';
   const weakKey=dims.find(d=>d[0]===weak)?.[1]||'diet';
@@ -9860,7 +10029,7 @@ function renderWeeklyReportCard(profile,date=currentViewDate){
           </div>
         </div>
         <div class="ai-summary-block">
-          <div class="ai-summary-text">${escapeHTML(report.week_summary)}</div>
+          <div class="ai-summary-text">${escapeHTML(weeklySummaryText)}</div>
           <button class="ai-summary-more" type="button" data-weekly-summary="summary">查看更多 ${icon('chevron-right')}</button>
         </div>
       </div>
@@ -14117,8 +14286,9 @@ function getRecentBMISparkData(p,limit=8){
 }
 function getRecentBodyFatSparkData(p,limit=8){
   const records=getSortedWeights(p);
-  if(records.length<2) return [];
-  return records.slice(-limit).map(r=>r.bodyFat||calcBodyFatPercent(r.weight,p)).filter(v=>v!==null&&v!==undefined);
+  const bodyFatRecords=records.filter(r=>r.bodyFat!==null&&r.bodyFat!==undefined);
+  if(bodyFatRecords.length<2) return [];
+  return bodyFatRecords.slice(-limit).map(r=>r.bodyFat);
 }
 function renderWeightCard(){
   const p=getActiveProfile();
@@ -14168,6 +14338,12 @@ function renderWeightCard(){
           <div class="body-metric-value">${bodyFat?`${bodyFat}%`:'--'}</div>
           <div class="body-metric-status ${bfClsMap[bfStatus?.cls]||''}">${bfStatus?escapeHTML(bfStatus.label):'暂无标准范围'}</div>
           ${bfSparkHTML}
+        </div>
+        <div class="body-metric-card">
+          <div class="body-metric-label">当前体重</div>
+          <div class="body-metric-value">${latest?`${latest.weight}kg`:'--'}</div>
+          <div class="body-metric-status">${latest?'当前记录':'请记录体重'}</div>
+          ${weightSparkHTML}
         </div>
         <div class="body-metric-card">
           <div class="body-metric-label">较上次</div>
