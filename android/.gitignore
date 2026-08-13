@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+local.properties
+captures/
+
+# Native wrappers (regenerated)
+.cxx/
+
+# Signing — NEVER commit real keystore/passwords
+*.keystore
+*.jks
+keystore.properties
+signing.properties
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Temp image files created for camera capture. -->
+    <cache-path name="capture_images" path="captures/" />
+    <files-path name="internal_files" path="." />
+    <external-files-path name="ext_files" path="." />
+</paths>
