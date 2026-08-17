@@ -2427,6 +2427,25 @@ button.settings-list-row{cursor:pointer}
   cursor:pointer;font-size:14px;border:none;z-index:2;
 }
 .photo-zone .ph-clear .ui-icon{width:14px;height:14px}
+.qa-source-label{font-size:12px;color:var(--txt2);margin-bottom:8px;font-weight:600}
+.qa-source-list{display:flex;flex-direction:column;gap:8px}
+.qa-source-btn{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;border-radius:12px;
+  border:1px solid var(--card-border);
+  background:rgba(212,175,55,0.06);
+  color:var(--gold-l);
+  font-size:14px;font-weight:700;
+  cursor:pointer;width:100%;text-align:left;
+  transition:transform .1s,background .15s,border-color .15s;
+}
+[data-theme="light"] .qa-source-btn{background:rgba(166,111,0,0.05)}
+.qa-source-btn:hover{background:rgba(212,175,55,0.12);border-color:rgba(212,175,55,0.35)}
+.qa-source-btn:active{transform:scale(0.98)}
+.qa-source-icon{display:flex;align-items:center;flex-shrink:0}
+.qa-source-icon .ui-icon{width:20px;height:20px}
+.qa-source-text{flex:1}
+.qa-source-hint{font-size:11px;color:var(--txt3);font-weight:500}
 .meal-tabs{display:flex;gap:4px}
 .meal-tab{
   flex:1;padding:5px;border-radius:6px;cursor:pointer;text-align:center;
@@ -3020,7 +3039,7 @@ button.settings-list-row{cursor:pointer}
 .ai-add-more:hover{border-color:var(--gold)}
 
 /* ===== Toast ===== */
-.toast-container{position:fixed;bottom:20px;right:20px;z-index:5200;display:flex;flex-direction:column;gap:8px}
+.toast-container{position:fixed;bottom:calc(var(--immersive-bottom-nav-height,70px) + var(--toast-bottom-gap,12px));right:20px;z-index:5200;display:flex;flex-direction:column;gap:8px}
 .toast{
   padding:10px 16px;border-radius:10px;font-size:13px;
   background:var(--bg2);border:1px solid var(--card-border-h);
@@ -3125,10 +3144,12 @@ button.settings-list-row{cursor:pointer}
   .log-item .li-nutri,.ex-item .exi-detail{font-size:11px;line-height:1.35}
   .record-edit,.record-del,.li-edit,.log-item .li-del,.exi-edit,.ex-item .exi-del,.hr-edit,.health-record-item .hr-del{width:30px;height:30px;border-radius:9px}
   .gap-row{grid-template-columns:40px 1fr 1fr 1fr;font-size:11px}
-  .toast-container{left:10px;right:10px;bottom:12px}
+  .toast-container{left:10px;right:10px}
   .toast{max-width:none;transform:translateY(12px)}
   .toast.show{transform:translateY(0)}
 }
+/* When Bottom Navigation is hidden (child pages), position toast near safe bottom */
+body.child-page-active .toast-container{bottom:max(var(--toast-bottom-gap,12px),var(--safe-bottom,0px))}
 @media(hover:none) and (pointer:coarse){
   .card:hover::before{opacity:0}
   .card:hover{border-color:var(--card-border)}
@@ -4485,6 +4506,69 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
   text-align:center;
   line-height:1.45;
 }
+.ledger-dt-overlay{
+  position:fixed;inset:0;z-index:4700;
+  background:rgba(10,8,4,0.32);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  display:none;align-items:flex-end;justify-content:center;
+  padding:0 0 calc(12px + env(safe-area-inset-bottom,0px));
+}
+.ledger-dt-overlay.show{display:flex;animation:glassOverlayIn .18s ease-out both}
+.ledger-dt-panel{
+  width:min(360px,calc(100vw - 24px));
+  max-height:78vh;overflow-y:auto;
+  border-radius:24px;
+  border:1px solid var(--glass-border-gold);
+  background:
+    linear-gradient(150deg,rgba(255,255,255,0.18),transparent 42%),
+    var(--glass-bg-strong);
+  box-shadow:var(--glass-shadow);
+  backdrop-filter:blur(var(--glass-blur)) saturate(1.18);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(1.18);
+  padding:14px;
+  animation:glassSheetIn .2s cubic-bezier(.2,.8,.2,1) both;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.glass-dt-time-area{
+  margin-top:10px;padding-top:10px;
+  border-top:1px solid var(--glass-border-gold);
+}
+.glass-dt-time-label{
+  font-size:12px;color:var(--txt2);font-weight:600;
+  margin-bottom:8px;text-align:center;
+}
+.glass-dt-time-pickers{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.glass-dt-time-select{
+  width:64px;padding:8px 4px;
+  border-radius:10px;
+  border:1px solid var(--glass-border-gold);
+  background:var(--glass-field);
+  color:var(--gold-l);
+  font-size:16px;font-weight:700;text-align:center;
+  cursor:pointer;outline:none;
+  -webkit-appearance:none;-moz-appearance:none;appearance:none;
+}
+[data-theme="light"] .glass-dt-time-select{background:rgba(255,255,255,0.7)}
+.glass-dt-time-select:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,175,55,0.12)}
+.glass-dt-time-colon{
+  font-size:18px;font-weight:800;color:var(--gold-l);
+}
+.glass-dt-confirm-row{
+  display:flex;gap:8px;margin-top:12px;
+}
+.glass-dt-confirm-row .glass-date-action{
+  flex:1;min-height:40px;font-size:13px;
+}
+.ledger-dt-field{
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;user-select:none;
+}
+.ledger-dt-field .ui-icon{width:18px;height:18px;color:var(--gold);opacity:.8;flex-shrink:0}
+.ledger-dt-field:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,175,55,0.10)}
 .glass-birthday-years{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -7212,6 +7296,7 @@ body.child-page-active .app{
   --immersive-header-height:104px;
   --immersive-bottom-nav-height:70px;
   --immersive-content-gap:10px;
+  --toast-bottom-gap:12px;
 }
 .header{
   position:fixed!important;
@@ -7326,9 +7411,36 @@ body.health-compare-page-active .app{
 .ledger-ai-items-area.collapsed .ledger-ai-items-arrow{transform:rotate(-90deg)}
 .ledger-ai-items-area.collapsed #ledgerAIItemsList{display:none}
 .ledger-ai-item{font-size:12px;color:var(--txt2);line-height:1.6;padding:2px 0}
+.ledger-ai-items-area{max-height:320px}
+.ledger-ai-edit-row{display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid rgba(128,128,128,0.08)}
+.ledger-ai-edit-row:last-child{border-bottom:none}
+.ledger-ai-edit-name{flex:1;min-width:0;font-size:12px;color:var(--txt2);background:transparent;border:1px solid rgba(128,128,128,0.15);border-radius:5px;padding:3px 6px;color:var(--txt1)}
+.ledger-ai-edit-name:focus{border-color:var(--gold-l);outline:none}
+.ledger-ai-qty-group{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.ledger-ai-qty-btn{width:22px;height:22px;border-radius:5px;border:1px solid rgba(128,128,128,0.2);background:rgba(128,128,128,0.06);color:var(--txt2);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ledger-ai-qty-btn:active{background:rgba(212,175,55,0.15)}
+.ledger-ai-qty-val{width:28px;text-align:center;font-size:12px;color:var(--txt1);flex-shrink:0}
+.ledger-ai-price-input{width:62px;font-size:12px;color:var(--gold-l);background:transparent;border:1px solid rgba(128,128,128,0.15);border-radius:5px;padding:3px 4px;text-align:right;flex-shrink:0}
+.ledger-ai-price-input:focus{border-color:var(--gold-l);outline:none}
+.ledger-ai-fee-row{display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid rgba(128,128,128,0.08)}
+.ledger-ai-fee-row:last-child{border-bottom:none}
+.ledger-ai-fee-name{flex:1;min-width:0;font-size:12px;color:var(--txt3);background:transparent;border:1px solid rgba(128,128,128,0.15);border-radius:5px;padding:3px 6px}
+.ledger-ai-fee-name:focus{border-color:var(--gold-l);outline:none}
+.ledger-ai-subtotal{display:flex;justify-content:space-between;align-items:center;padding:6px 4px 2px;font-size:11px;color:var(--txt3);border-top:1px dashed rgba(128,128,128,0.15);margin-top:4px}
+.ledger-ai-subtotal-val{color:var(--gold-l);font-weight:600}
+.ledger-ai-subtotal-hint{font-size:10px;color:var(--txt3);opacity:.7;padding:0 4px 2px;text-align:right}
 [data-theme="light"] .ledger-ai-entry-btn{background:rgba(212,175,55,0.10);border-color:rgba(212,175,55,0.30)}
 [data-theme="light"] .ledger-ai-items-area{background:rgba(212,175,55,0.06);border-color:rgba(212,175,55,0.18)}
 /* ===== Food Sync (Phase 6) ===== */
+.ai-recog-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 20px;text-align:center}
+.ai-recog-spinner{width:36px;height:36px;border-radius:50%;border:2.5px solid rgba(212,175,55,0.18);border-top-color:var(--gold-l);animation:ai-recog-spin .8s linear infinite}
+@keyframes ai-recog-spin{to{transform:rotate(360deg)}}
+.ai-recog-text{font-size:14px;color:var(--txt1);font-weight:500}
+.ai-recog-hint{font-size:11px;color:var(--txt3)}
+.ai-recog-error{display:flex;flex-direction:column;align-items:center;gap:10px;padding:36px 20px;text-align:center}
+.ai-recog-error-icon{width:40px;height:40px;border-radius:50%;background:rgba(240,160,32,0.12);display:flex;align-items:center;justify-content:center;color:var(--gold-l)}
+.ai-recog-error-text{font-size:13px;color:var(--txt2);line-height:1.6}
+.ai-recog-error-actions{display:flex;gap:10px;margin-top:4px}
 .food-sync-prompt{display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 12px;text-align:center}
 .food-sync-prompt-icon{width:40px;height:40px;border-radius:50%;background:rgba(212,175,55,0.12);display:flex;align-items:center;justify-content:center;color:var(--gold-l)}
 .food-sync-prompt-text{font-size:13px;color:var(--txt2);line-height:1.6}
@@ -7358,6 +7470,8 @@ body.health-compare-page-active .app{
 .food-sync-split{display:flex;gap:8px;align-items:center;margin-top:5px;font-size:11px;color:var(--txt2)}
 .food-sync-split input[type=range]{flex:1;height:4px;accent-color:var(--gold-l)}
 .food-sync-split-val{min-width:50px;text-align:right;color:var(--txt3)}
+.food-sync-split-total{display:flex;gap:4px;align-items:center;margin-top:4px;font-size:11px;color:var(--txt3)}
+.food-sync-split-total input[type=number]{width:56px;padding:3px 6px;font-size:11px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt1);text-align:center}
 .food-sync-summary{border-radius:10px;border:1px solid var(--card-border);padding:10px 12px;margin-top:8px;background:linear-gradient(150deg,rgba(212,175,55,0.06),rgba(212,175,55,0.02))}
 [data-theme="light"] .food-sync-summary{background:linear-gradient(150deg,rgba(212,175,55,0.08),rgba(255,249,233,0.3))}
 .food-sync-summary-title{font-size:12px;font-weight:600;color:var(--gold-l);margin-bottom:6px}
@@ -7365,6 +7479,11 @@ body.health-compare-page-active .app{
 .food-sync-summary-row b{color:var(--txt1);font-weight:600}
 .food-sync-summary-nutri{display:flex;gap:10px;font-size:10px;color:var(--txt3);padding-left:8px;margin:1px 0 3px}
 .food-sync-summary-empty{font-size:11px;color:var(--txt3);padding:6px 0}
+.food-sync-linked-list{margin:8px 0;display:flex;flex-direction:column;gap:8px}
+.food-sync-linked-group{border-radius:8px;border:1px solid var(--card-border);padding:8px 10px;background:var(--card-bg)}
+.food-sync-linked-name{font-size:12px;font-weight:600;color:var(--gold-l);margin-bottom:4px}
+.food-sync-linked-item{display:flex;gap:8px;font-size:11px;color:var(--txt2);padding:2px 0;align-items:center}
+.food-sync-linked-item .est{color:var(--txt3);margin-left:auto}
 .food-sync-actions{display:flex;gap:10px;margin-top:12px}
 .food-sync-actions button{flex:1}
 .food-sync-loading{display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px 12px}
@@ -7373,7 +7492,8 @@ body.health-compare-page-active .app{
 @keyframes foodSyncSpin{to{transform:rotate(360deg)}}
 .food-sync-time-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:12px}
 .food-sync-time-row label{color:var(--txt3);white-space:nowrap}
-.food-sync-time-row input{flex:1;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt1)}
+.food-sync-time-row .food-sync-dt-field{flex:1;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt1);cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between}
+.food-sync-time-row .food-sync-dt-field:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,175,55,0.10)}
 .food-sync-time-row select{padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt1)}
 .food-sync-linked-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--gold-l);padding:3px 8px;border-radius:6px;background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.2);cursor:pointer}
 .food-sync-linked-badge:hover{background:rgba(212,175,55,0.14)}
@@ -7410,11 +7530,13 @@ body.health-compare-page-active .app{
 .ledger-period-bar .ui-icon{width:14px;height:14px;color:var(--gold-l);flex-shrink:0}
 .ledger-period-name{flex:1;font-size:12px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ledger-period-hint{font-size:11px;color:var(--txt3)}
-.ledger-period-list-item{display:flex;align-items:center;gap:8px;padding:9px;border-radius:10px;border:1px solid var(--card-border);margin-bottom:7px}
+.ledger-period-list-item{display:flex;flex-direction:column;gap:6px;padding:9px;border-radius:10px;border:1px solid var(--card-border);margin-bottom:7px}
 .ledger-period-list-item.active{border-color:var(--gold);background:rgba(212,175,55,0.06)}
 .ledger-period-list-main{flex:1;min-width:0}
 .ledger-period-list-title{font-size:13px;font-weight:600;color:var(--txt)}
 .ledger-period-list-date{font-size:11px;color:var(--txt3);margin-top:1px}
+.ledger-period-list-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.ledger-period-group-label{font-size:11px;color:var(--txt2);font-weight:600;margin-bottom:4px;letter-spacing:0.3px}
 .ledger-amount-input{font-size:22px;font-weight:850;color:var(--gold-l);text-align:center}
 .ledger-amount-input::placeholder{color:var(--txt3);font-weight:600}
 .ledger-form-amount-wrap{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 0}
@@ -7450,6 +7572,29 @@ body.health-compare-page-active .app{
 .ledger-period-picker-new{width:100%;padding:11px;border:1px dashed rgba(212,175,55,0.3);border-radius:10px;background:rgba(212,175,55,0.04);color:var(--gold-l);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .ledger-period-picker-new:active{transform:scale(.99);background:rgba(212,175,55,0.08)}
 .ledger-period-picker-new .ui-icon{width:15px;height:15px}
+.ledger-meeting-pick-row{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:10px;cursor:pointer;transition:background .15s}
+.ledger-meeting-pick-row:active{background:rgba(212,175,55,0.06)}
+.ledger-meeting-pick-row.selected{background:rgba(212,175,55,0.08)}
+.ledger-meeting-pick-row.selected .ledger-period-picker-radio{border-color:var(--gold-l);background:var(--gold-l);box-shadow:inset 0 0 0 3px var(--bg,#0e0c08)}
+[data-theme="light"] .ledger-meeting-pick-row.selected .ledger-period-picker-radio{box-shadow:inset 0 0 0 3px #fff}
+.ledger-meeting-more-btn{width:30px;height:30px;border-radius:8px;border:none;background:transparent;color:var(--txt3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ledger-meeting-more-btn:active{background:rgba(128,128,128,0.1)}
+.ledger-meeting-more-btn .ui-icon{width:16px;height:16px}
+.ledger-meeting-menu-overlay{position:fixed;inset:0;z-index:6000;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.4)}
+.ledger-meeting-menu-sheet{width:100%;max-width:480px;background:var(--card-bg,#1a1814);border-radius:16px 16px 0 0;padding:8px 0 20px;box-shadow:0 -4px 20px rgba(0,0,0,0.3)}
+.ledger-meeting-menu-item{display:flex;align-items:center;gap:10px;padding:14px 20px;font-size:14px;color:var(--txt1);cursor:pointer;border:none;background:none;width:100%;text-align:left}
+.ledger-meeting-menu-item:active{background:rgba(128,128,128,0.08)}
+.ledger-meeting-menu-item .ui-icon{width:18px;height:18px;color:var(--txt3)}
+.ledger-meeting-menu-item.danger{color:var(--red,#f87171)}
+.ledger-meeting-menu-item.danger .ui-icon{color:var(--red,#f87171)}
+.ledger-meeting-menu-cancel{margin-top:6px;border-top:1px solid rgba(128,128,128,0.12)}
+.ledger-period-select{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--card-border);background:linear-gradient(150deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012));margin-bottom:12px;cursor:pointer}
+[data-theme="light"] .ledger-period-select{background:linear-gradient(150deg,rgba(255,255,255,0.6),rgba(255,249,233,0.3))}
+.ledger-period-select .ui-icon{width:14px;height:14px;color:var(--gold-l);flex-shrink:0}
+.ledger-period-select-name{flex:1;font-size:13px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ledger-period-select-name.placeholder{color:var(--txt3);font-weight:500}
+.ledger-period-select-hint{font-size:11px;color:var(--txt3);white-space:nowrap}
+.ledger-period-select-arrow{font-size:10px;color:var(--txt3);flex-shrink:0}
 </style>
 </head>
 <body>
@@ -7934,6 +8079,11 @@ function abTestRestore(){
   </div>
 </div>
 
+<!-- Ledger DateTime Picker -->
+<div class="ledger-dt-overlay" id="ledgerDateTimeOverlay">
+  <div class="ledger-dt-panel" id="ledgerDateTimePanel"></div>
+</div>
+
 <!-- Toast -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -8106,7 +8256,10 @@ const ICON_PATHS={
   'cake':'<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M17 8v3"/><path d="M12 5v6"/><path d="M12 5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/>',
   'package':'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
   'gift':'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>',
-  'credit-card':'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>'
+  'credit-card':'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+  'image':'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+  'more-horizontal':'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  'trash-2':'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>'
 };
 function icon(name,cls=''){
   const path=ICON_PATHS[name]||ICON_PATHS.plus;
@@ -8387,7 +8540,7 @@ function normalizeCoupleSpace(data){
           if(!exist){
             arr.push({
               id:`meet_next_${meeting.date}`,
-              title:meeting.place?`${meeting.place}见面`:'下一次见面',
+              title:meeting.place?`${meeting.place}见面`:`见面 · ${meeting.date}`,
               type:'meeting',
               startDate:meeting.date,
               endDate:meeting.date,
@@ -8402,6 +8555,7 @@ function normalizeCoupleSpace(data){
           }
         }
       }
+      arr=arr.map(m=>m.title==='下一次见面'?Object.assign({},m,{title:`见面 · ${m.startDate}`}):m);
       return arr;
     })(),
     deletedMeetings:Array.isArray(raw.deletedMeetings)?raw.deletedMeetings.map(item=>({
@@ -13582,8 +13736,12 @@ function touchCoupleSpace(){
 function getNextMeeting(){
   const cs=getCoupleSpace();
   const today=todayStr();
-  return (cs.meetings||[]).filter(m=>m.startDate>=today)
-    .sort((a,b)=>a.startDate.localeCompare(b.startDate))[0]||null;
+  return (cs.meetings||[]).filter(m=>{
+    if(!m.startDate) return false;
+    if(m.startDate>=today) return true;
+    const end=m.endDate||m.startDate;
+    return end>=today;
+  }).sort((a,b)=>a.startDate.localeCompare(b.startDate))[0]||null;
 }
 function getMeetingById(id){
   if(!id) return null;
@@ -13649,6 +13807,13 @@ const LEDGER_PERIOD_TYPE_LABELS={meeting:'见面',trip:'旅行',custom:'自定�
 function isValidLedgerDatetime(v){
   const s=String(v||'');
   return isValidDateStr(s) || (isValidDateStr(s.slice(0,10)) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s));
+}
+function formatLedgerDateTime(dtStr){
+  if(!dtStr) return '';
+  const m=String(dtStr).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
+  if(!m) return dtStr;
+  const [,y,mo,d,h,mi]=m;
+  return h?`${y}/${mo}/${d} ${h}:${mi}`:`${y}/${mo}/${d}`;
 }
 function getLedger(){
   const cs=getCoupleSpace();
@@ -13818,8 +13983,8 @@ function deletePeriod(id){
   return deleteMeeting(id);
 }
 function setActivePeriod(id){
-  const lg=touchLedger();
   if(id&&!getMeetingById(id)) return false;
+  const lg=touchLedger();
   lg.activePeriodId=id||null;
   return true;
 }
@@ -13835,6 +14000,7 @@ let _ledgerPeriodPickerCallback=null;
 let _ledgerPickerSelectedId='';
 let _ledgerAIResult=null;
 let _ledgerAIToken=0;
+let _ledgerAIPendingDiet=false;
 function formatLedgerDateGroup(dateStr){
   if(!dateStr) return '';
   const d=dateStr.slice(0,10);
@@ -13902,10 +14068,13 @@ function renderCoupleLedgerPage(){
       <button class="td-filter-btn ${ledgerRange==='all'?'active':''}" type="button" data-ledger-range="all">全部</button>
     </div>`;
   if(ledgerRange==='period'){
-    body+=`<div class="ledger-period-bar" id="ledgerPeriodBar">
+    const periodText=period?escapeHTML(period.title):'请选择见面 / 旅行';
+    const periodHint=period?`${formatLedgerDateGroup(period.startDate)}${period.endDate&&period.endDate!==period.startDate?' - '+formatLedgerDateGroup(period.endDate):''}`:'';
+    body+=`<div class="ledger-period-select" id="ledgerPeriodBar">
       ${icon('calendar')}
-      <div class="ledger-period-name">${period?escapeHTML(period.title):'点击选择或新建见面/旅行'}</div>
-      <div class="ledger-period-hint">${period?`${period.startDate}${period.endDate?'~'+period.endDate:''}`:'未选择'}</div>
+      <div class="ledger-period-select-name ${period?'':'placeholder'}">${periodText}</div>
+      ${periodHint?`<div class="ledger-period-select-hint">${periodHint}</div>`:''}
+      <span class="ledger-period-select-arrow">▼</span>
     </div>`;
   }
   const payerCardsHtml=payerOpts.map(o=>{
@@ -13993,14 +14162,15 @@ function renderCoupleLedgerPage(){
   wrap.querySelectorAll('[data-ledger-expense-id]').forEach(row=>{
     row.addEventListener('click',()=>openCoupleLedgerEditor(row.dataset.ledgerExpenseId));
   });
-  wrap.querySelector('#ledgerPeriodBar')?.addEventListener('click',openPeriodManager);
+  wrap.querySelector('#ledgerPeriodBar')?.addEventListener('click',openMeetingPicker);
   wrap.querySelector('#ledgerAllCatsBtn')?.addEventListener('click',openLedgerAllCategories);
 }
-async function callExpenseRecognitionAI(imageURL){
+async function callExpenseRecognitionAI(imageURL,signal){
   const response=await fetch(getApiUrl('/api/recognize-expense'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({image:imageURL})
+    body:JSON.stringify({image:imageURL}),
+    signal
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
@@ -14035,26 +14205,139 @@ function prefillLedgerEditorFromAI(result,form){
     if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dt)){
       const dtInput=form.querySelector('#ledgerExpDatetime');
       if(dtInput) dtInput.value=dt;
+      const dtText=form.querySelector('#ledgerExpDatetimeText');
+      if(dtText) dtText.textContent=formatLedgerDateTime(dt);
     }
   }
   const items=Array.isArray(result.orderItems)?result.orderItems:[];
   const isOrderType=result.imageType==='food_order'||result.imageType==='hotel_order'||result.imageType==='transport_order'||result.imageType==='shopping_order'||result.imageType==='other_order';
   const source=isOrderType?'ai_order':'ai_payment';
-  _ledgerAIResult={source,orderItems:items,imageType:result.imageType||'unknown'};
+  const normalizedItems=items.map(oi=>normalizeOrderItem(oi));
+  _ledgerAIResult={source,orderItems:normalizedItems,imageType:result.imageType||'unknown'};
   const itemsArea=form.querySelector('#ledgerAIItemsArea');
   if(itemsArea){
-    if(items.length>0){
+    if(normalizedItems.length>0){
       itemsArea.style.display='';
       itemsArea.classList.remove('collapsed');
-      const list=items.map(oi=>{
-        const spec=oi.spec?` · ${escapeHTML(oi.spec)}`:'';
-        const amt=oi.amount!=null?` · ¥${Number(oi.amount).toFixed(2)}`:'';
-        return `<div class="ledger-ai-item">${escapeHTML(oi.name||'')} ×${oi.quantity||1}${spec}${amt}</div>`;
-      }).join('');
-      itemsArea.querySelector('#ledgerAIItemsList').innerHTML=list;
+      itemsArea.querySelector('#ledgerAIItemsList').innerHTML=renderEditableOrderItems(normalizedItems);
+      bindOrderItemEdits(itemsArea);
+      updateLedgerAISubtotal(itemsArea);
     }else{
       itemsArea.style.display='none';
     }
+  }
+}
+const FEE_ITEM_KEYWORDS=['包装费','配送费','服务费','餐盒费','打包费','运费','配送','包装','餐盒','服务','满减','优惠','红包','折扣','抵扣','优惠券'];
+function isFeeOrderItem(name){
+  const n=String(name||'').toLowerCase();
+  return FEE_ITEM_KEYWORDS.some(k=>n.includes(k.toLowerCase()));
+}
+function normalizeOrderItem(oi){
+  const name=String(oi.name||'').trim();
+  const fee=isFeeOrderItem(name);
+  const quantity=Math.max(1,Number(oi.quantity)||1);
+  let unitPrice=Number(oi.unitPrice);
+  let lineTotal=Number(oi.lineTotal);
+  const amount=Number(oi.amount);
+  if(isNaN(unitPrice)){
+    if(!isNaN(lineTotal)&&quantity>0){unitPrice=lineTotal/quantity}
+    else if(!isNaN(amount)){unitPrice=fee?amount:amount/quantity}
+    else{unitPrice=0}
+  }
+  if(isNaN(lineTotal)){lineTotal=fee?(unitPrice||amount||0):unitPrice*quantity}
+  if(isNaN(lineTotal))lineTotal=0;
+  return{name,spec:oi.spec||null,quantity:fee?1:quantity,unitPrice:Number(unitPrice.toFixed(2)),lineTotal:Number(lineTotal.toFixed(2)),isFee:fee};
+}
+function renderEditableOrderItems(items){
+  let html='';
+  items.forEach((oi,i)=>{
+    if(oi.isFee){
+      html+=`<div class="ledger-ai-fee-row" data-idx="${i}">
+        <input class="ledger-ai-fee-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30">
+        <span style="font-size:11px;color:var(--txt3);flex-shrink:0">¥</span>
+        <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
+      </div>`;
+    }else{
+      html+=`<div class="ledger-ai-edit-row" data-idx="${i}">
+        <input class="ledger-ai-edit-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30">
+        <div class="ledger-ai-qty-group">
+          <button class="ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},-1)">−</button>
+          <span class="ledger-ai-qty-val" id="ledgerAIQty_${i}">${oi.quantity}</span>
+          <button class="ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},1)">+</button>
+        </div>
+        <span style="font-size:11px;color:var(--txt3);flex-shrink:0">¥</span>
+        <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
+      </div>`;
+    }
+  });
+  html+=`<div class="ledger-ai-subtotal">
+    <span>明细合计</span>
+    <span class="ledger-ai-subtotal-val" id="ledgerAISubtotalVal">¥0.00</span>
+  </div>
+  <div class="ledger-ai-subtotal-hint" id="ledgerAISubtotalHint" style="display:none">实付包含优惠/配送等调整</div>`;
+  return html;
+}
+function bindOrderItemEdits(itemsArea){
+  const list=itemsArea.querySelector('#ledgerAIItemsList');
+  if(!list) return;
+  list.querySelectorAll('[data-field="name"]').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const row=inp.closest('[data-idx]');
+      if(!row) return;
+      const idx=Number(row.dataset.idx);
+      syncLedgerAIItemName(idx,inp.value);
+    });
+  });
+  const amountInput=document.querySelector('#ledgerExpAmount');
+  if(amountInput&&!amountInput._aiSubtotalBound){
+    amountInput._aiSubtotalBound=true;
+    amountInput.addEventListener('input',()=>updateLedgerAISubtotal(itemsArea));
+  }
+}
+function syncLedgerAIItemName(idx,name){
+  if(!_ledgerAIResult||!Array.isArray(_ledgerAIResult.orderItems)) return;
+  if(!_ledgerAIResult.orderItems[idx]) return;
+  _ledgerAIResult.orderItems[idx].name=String(name||'').trim();
+}
+function adjustLedgerAIQty(idx,delta){
+  if(!_ledgerAIResult||!_ledgerAIResult.orderItems||!_ledgerAIResult.orderItems[idx]) return;
+  const oi=_ledgerAIResult.orderItems[idx];
+  if(oi.isFee) return;
+  oi.quantity=Math.max(1,oi.quantity+delta);
+  oi.lineTotal=Number((oi.quantity*oi.unitPrice).toFixed(2));
+  const qtyEl=document.getElementById(`ledgerAIQty_${idx}`);
+  if(qtyEl) qtyEl.textContent=oi.quantity;
+  const itemsArea=document.querySelector('#ledgerAIItemsArea');
+  if(itemsArea) updateLedgerAISubtotal(itemsArea);
+}
+function updateLedgerAIItem(idx){
+  if(!_ledgerAIResult||!_ledgerAIResult.orderItems||!_ledgerAIResult.orderItems[idx]) return;
+  const oi=_ledgerAIResult.orderItems[idx];
+  const itemsArea=document.querySelector('#ledgerAIItemsArea');
+  if(!itemsArea) return;
+  const row=itemsArea.querySelector(`[data-idx="${idx}"]`);
+  if(!row) return;
+  const priceInput=row.querySelector('[data-field="unitPrice"]');
+  if(priceInput){
+    const v=Number(priceInput.value);
+    if(!isNaN(v)&&v>=0){
+      oi.unitPrice=Number(v.toFixed(2));
+      oi.lineTotal=Number((oi.quantity*oi.unitPrice).toFixed(2));
+    }
+  }
+  updateLedgerAISubtotal(itemsArea);
+}
+function updateLedgerAISubtotal(itemsArea){
+  if(!_ledgerAIResult||!Array.isArray(_ledgerAIResult.orderItems)) return;
+  const subtotal=_ledgerAIResult.orderItems.reduce((s,oi)=>s+(Number(oi.lineTotal)||0),0);
+  const subEl=itemsArea.querySelector('#ledgerAISubtotalVal');
+  if(subEl) subEl.textContent=`¥${subtotal.toFixed(2)}`;
+  const amountInput=document.querySelector('#ledgerExpAmount');
+  const paidAmount=amountInput?Number(amountInput.value):0;
+  const hintEl=itemsArea.querySelector('#ledgerAISubtotalHint');
+  if(hintEl){
+    const diff=Math.abs(subtotal-paidAmount);
+    hintEl.style.display=diff>0.01?'block':'none';
   }
 }
 async function handleLedgerAIFile(file,form){
@@ -14166,7 +14449,11 @@ function openCoupleLedgerEditor(expenseId){
       </div>
       <div class="form-group">
         <label class="form-label">日期/时间 *</label>
-        <input class="form-input" id="ledgerExpDatetime" type="datetime-local" value="${defaultDatetime.slice(0,16)}">
+        <input type="hidden" id="ledgerExpDatetime" value="${defaultDatetime.slice(0,16)}">
+        <div class="form-input ledger-dt-field" id="ledgerExpDatetimeBtn" role="button" tabindex="0" aria-label="选择日期时间">
+          <span id="ledgerExpDatetimeText">${formatLedgerDateTime(defaultDatetime.slice(0,16))}</span>
+          <span class="ui-icon" data-icon="calendar"></span>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">关联见面/旅行</label>
@@ -14210,6 +14497,21 @@ function openCoupleLedgerEditor(expenseId){
   modal.querySelector('#coupleLedgerClose')?.addEventListener('click',()=>closeLedgerEditor());
   form.querySelector('#ledgerExpCancel').addEventListener('click',()=>closeLedgerEditor());
   form.querySelector('#ledgerExpSave').addEventListener('click',saveCoupleLedgerExpense);
+  const dtBtn=form.querySelector('#ledgerExpDatetimeBtn');
+  if(dtBtn){
+    const openDT=()=>{
+      const hiddenInput=form.querySelector('#ledgerExpDatetime');
+      const textEl=form.querySelector('#ledgerExpDatetimeText');
+      openLedgerDateTimePicker(hiddenInput.value,(result)=>{
+        hiddenInput.value=result;
+        if(textEl) textEl.textContent=formatLedgerDateTime(result);
+      });
+    };
+    dtBtn.addEventListener('click',openDT);
+    dtBtn.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();openDT()}
+    });
+  }
   form.querySelector('#ledgerExpFoodSync')?.addEventListener('click',()=>{
     if(!expenseId) return;
     closeLedgerEditor();
@@ -14258,10 +14560,161 @@ function openCoupleLedgerEditor(expenseId){
   });
   setTimeout(()=>form.querySelector('#ledgerExpAmount')?.focus(),100);
 }
+// ===== Ledger DateTime Picker (复用 glass-date-panel 视觉) =====
+let _ledgerDTPickerCallback=null;
+let _ledgerDTState=null;
+function closeLedgerDateTimePicker(){
+  const overlay=document.getElementById('ledgerDateTimeOverlay');
+  if(overlay) overlay.classList.remove('show');
+  _ledgerDTPickerCallback=null;
+  _ledgerDTState=null;
+}
+function openLedgerDateTimePicker(currentValue,onConfirm){
+  const overlay=document.getElementById('ledgerDateTimeOverlay');
+  const panel=document.getElementById('ledgerDateTimePanel');
+  if(!overlay||!panel) return;
+  const m=String(currentValue||'').match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
+  let baseYear,baseMonth,baseDay,hour,minute;
+  if(m){
+    baseYear=parseInt(m[1]);baseMonth=parseInt(m[2])-1;baseDay=parseInt(m[3]);
+    hour=m[4]?parseInt(m[4]):0;minute=m[5]?parseInt(m[5]):0;
+  }else{
+    const now=new Date();
+    baseYear=now.getFullYear();baseMonth=now.getMonth();baseDay=now.getDate();
+    hour=now.getHours();minute=now.getMinutes();
+  }
+  _ledgerDTState={
+    year:baseYear,month:baseMonth,
+    selectedDate:`${baseYear}-${String(baseMonth+1).padStart(2,'0')}-${String(baseDay).padStart(2,'0')}`,
+    hour,minute
+  };
+  _ledgerDTPickerCallback=onConfirm;
+  renderLedgerDTPanel(panel);
+  overlay.classList.add('show');
+  overlay.onclick=(e)=>{if(e.target===overlay) closeLedgerDateTimePicker()};
+}
+function renderLedgerDTPanel(panel){
+  const state=_ledgerDTState;
+  if(!state) return;
+  const today=new Date();
+  const todayValue=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const first=new Date(state.year,state.month,1);
+  const start=new Date(first);
+  start.setDate(first.getDate()-((first.getDay()+6)%7));
+  const monthTitle=`${state.year}年${state.month+1}月`;
+  let days='';
+  for(let i=0;i<42;i++){
+    const d=new Date(start);
+    d.setDate(start.getDate()+i);
+    const value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const isToday=todayValue===value;
+    const isSelected=state.selectedDate===value;
+    const cls=[d.getMonth()!==state.month?'muted':'',isToday?'today':'',isSelected?'selected':''].filter(Boolean).join(' ');
+    days+=`<button class="glass-date-day ${cls}" type="button" data-date="${value}"><span class="glass-date-day-num">${d.getDate()}</span></button>`;
+  }
+  const hourOpts=Array.from({length:24},(_,i)=>`<option value="${i}" ${i===state.hour?'selected':''}>${String(i).padStart(2,'0')}</option>`).join('');
+  const minOpts=Array.from({length:60},(_,i)=>`<option value="${i}" ${i===state.minute?'selected':''}>${String(i).padStart(2,'0')}</option>`).join('');
+  panel.innerHTML=`
+    <div class="glass-date-head">
+      <button class="glass-date-nav" type="button" data-nav="-1">‹</button>
+      <button class="glass-date-title-btn" type="button">${monthTitle}</button>
+      <button class="glass-date-nav" type="button" data-nav="1">›</button>
+    </div>
+    <div class="glass-date-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="glass-date-grid">${days}</div>
+    <div class="glass-date-actions">
+      <button class="glass-date-action" type="button" data-action="today">今天</button>
+    </div>
+    <div class="glass-dt-time-area">
+      <div class="glass-dt-time-label">时间</div>
+      <div class="glass-dt-time-pickers">
+        <select class="glass-dt-time-select" id="ledgerDTHour">${hourOpts}</select>
+        <span class="glass-dt-time-colon">:</span>
+        <select class="glass-dt-time-select" id="ledgerDTMin">${minOpts}</select>
+      </div>
+    </div>
+    <div class="glass-dt-confirm-row">
+      <button class="glass-date-action" type="button" data-action="cancel">取消</button>
+      <button class="glass-date-action primary" type="button" data-action="confirm">确定</button>
+    </div>`;
+  panel.querySelectorAll('[data-nav]').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      state.month+=Number(btn.dataset.nav);
+      if(state.month<0){state.month=11;state.year--}
+      if(state.month>11){state.month=0;state.year++}
+      renderLedgerDTPanel(panel);
+    });
+  });
+  panel.querySelectorAll('.glass-date-day').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      state.selectedDate=btn.dataset.date;
+      renderLedgerDTPanel(panel);
+    });
+  });
+  panel.querySelector('[data-action="today"]').addEventListener('click',e=>{
+    e.stopPropagation();
+    state.year=today.getFullYear();state.month=today.getMonth();
+    state.selectedDate=todayValue;
+    renderLedgerDTPanel(panel);
+  });
+  panel.querySelector('#ledgerDTHour').addEventListener('change',e=>{state.hour=parseInt(e.target.value)});
+  panel.querySelector('#ledgerDTMin').addEventListener('change',e=>{state.minute=parseInt(e.target.value)});
+  panel.querySelector('[data-action="cancel"]').addEventListener('click',e=>{
+    e.stopPropagation();
+    closeLedgerDateTimePicker();
+  });
+  panel.querySelector('[data-action="confirm"]').addEventListener('click',e=>{
+    e.stopPropagation();
+    const result=`${state.selectedDate}T${String(state.hour).padStart(2,'0')}:${String(state.minute).padStart(2,'0')}`;
+    const cb=_ledgerDTPickerCallback;
+    closeLedgerDateTimePicker();
+    if(cb) cb(result);
+  });
+}
 function closeLedgerEditor(){
+  const pendingDiet=_ledgerAIPendingDiet;
+  const session=_aiRecognitionSession;
   _ledgerAIResult=null;
   _ledgerAIToken++;
+  _ledgerAIPendingDiet=false;
   closeModal('coupleLedgerModal');
+  if(pendingDiet&&session&&session.result){
+    const result=session.result;
+    const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
+    if(orderItems.length>0){
+      setTimeout(()=>showExpenseCancelDietChoice(result),250);
+    }
+  }
+}
+function showExpenseCancelDietChoice(result){
+  const modal=document.getElementById('foodSyncModal');
+  const form=document.getElementById('foodSyncForm');
+  if(!modal||!form) return;
+  const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
+  const merchant=result.expense?.merchant||'';
+  form.innerHTML=`<div class="food-sync-prompt">
+    <div class="food-sync-prompt-icon">${icon('alert-circle')}</div>
+    <div class="food-sync-prompt-text">未保存账单，是否继续记录饮食？<br><span style="font-size:12px;color:var(--txt3)">已识别 ${orderItems.length} 项菜品${merchant?(' · '+escapeHTML(merchant)):''}</span></div>
+    <div class="food-sync-prompt-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeFoodSyncModal()">结束</button>
+      <button class="btn btn-gold btn-sm" onclick="continueDietOnlyAfterCancel()">继续记录饮食</button>
+    </div>
+  </div>`;
+  document.getElementById('foodSyncTitle').textContent='继续记录饮食？';
+  modal.classList.add('show');
+  GlassScrollLock.lock('modal:foodSyncModal');
+  renderIcons(modal);
+  bindFoodSyncClose();
+}
+function continueDietOnlyAfterCancel(){
+  const session=_aiRecognitionSession;
+  if(!session||!session.result){closeFoodSyncModal();return}
+  const result=session.result;
+  const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
+  closeFoodSyncModal();
+  setTimeout(()=>startFoodOnlySync(orderItems,result.expense?.occurredAt,result.expense?.merchant),200);
 }
 function saveCoupleLedgerExpense(){
   const form=document.getElementById('coupleLedgerForm');
@@ -14298,6 +14751,7 @@ function saveCoupleLedgerExpense(){
     savedExpenseId=exp.id;
   }
   const aiResultForSync=_ledgerAIResult;
+  _ledgerAIPendingDiet=false;
   closeLedgerEditor();
   saveAndRefreshLedger();
   showToast(id?'账单已更新':'账单已保存','success');
@@ -14332,9 +14786,40 @@ function showFoodSyncPrompt(expenseId,orderItems){
   if(!modal||!form) return;
   const itemCount=orderItems.length;
   if(existingLinks.length>0){
+    const owner=getDeviceOwnerProfile();
+    const partner=getPartnerProfile(owner);
+    const ownerName=owner?getDisplayName(owner):'我';
+    const partnerName=partner?getDisplayName(partner):'伴侣';
+    const ownerRecords=[],partnerRecords=[];
+    existingLinks.forEach(id=>{
+      const rec=(owner?.foodRecords||[]).find(r=>r.id===id);
+      if(rec){ownerRecords.push(rec);return;}
+      const prec=(partner?.foodRecords||[]).find(r=>r.id===id);
+      if(prec) partnerRecords.push(prec);
+    });
+    let listHtml='';
+    if(ownerRecords.length>0){
+      listHtml+=`<div class="food-sync-linked-group"><div class="food-sync-linked-name">${escapeHTML(ownerName)}</div>`;
+      ownerRecords.forEach(r=>{
+        const foods=Array.isArray(r.foods)?r.foods:[];
+        const totalCal=foods.reduce((s,f)=>s+(Number(f.cal)||0)*(Number(f.amount)||0)/(Number(f.base_amount)||100),0);
+        listHtml+=`<div class="food-sync-linked-item"><span>${escapeHTML(r.meal||'')}</span><span>${foods.map(f=>escapeHTML(f.name||'')).join('、')||'-'}</span><span class="est">${Math.round(totalCal)}kcal</span></div>`;
+      });
+      listHtml+=`</div>`;
+    }
+    if(partnerRecords.length>0){
+      listHtml+=`<div class="food-sync-linked-group"><div class="food-sync-linked-name">${escapeHTML(partnerName)}</div>`;
+      partnerRecords.forEach(r=>{
+        const foods=Array.isArray(r.foods)?r.foods:[];
+        const totalCal=foods.reduce((s,f)=>s+(Number(f.cal)||0)*(Number(f.amount)||0)/(Number(f.base_amount)||100),0);
+        listHtml+=`<div class="food-sync-linked-item"><span>${escapeHTML(r.meal||'')}</span><span>${foods.map(f=>escapeHTML(f.name||'')).join('、')||'-'}</span><span class="est">${Math.round(totalCal)}kcal</span></div>`;
+      });
+      listHtml+=`</div>`;
+    }
     form.innerHTML=`<div class="food-sync-prompt">
       <div class="food-sync-prompt-icon">${icon('utensils')}</div>
-      <div class="food-sync-prompt-text">这笔订单已关联 <b>${existingLinks.length}</b> 条饮食记录。<br>需要追加遗漏的菜品吗？</div>
+      <div class="food-sync-prompt-text">这笔订单已关联 <b>${existingLinks.length}</b> 条饮食记录</div>
+      <div class="food-sync-linked-list">${listHtml}</div>
       <div class="food-sync-prompt-actions">
         <button class="btn btn-ghost btn-sm" onclick="closeFoodSyncModal()">关闭</button>
         <button class="btn btn-gold btn-sm" onclick="openFoodSyncEditor('${expenseId}')">继续添加</button>
@@ -14385,7 +14870,7 @@ async function openFoodSyncEditor(expenseId){
     const partner=getPartnerProfile(owner);
     const ownerName=owner?getDisplayName(owner):'我';
     const partnerName=partner?getDisplayName(partner):'伴侣';
-    const canWritePartner=!!partner&&requireEditableHealthProfile(partner);
+    const partnerAvailable=!!partner&&isProfileInitializedForDeviceOwner(partner);
     const existingLinks=Array.isArray(exp.linkedFoodRecordIds)?exp.linkedFoodRecordIds.filter(Boolean):[];
     _foodSyncState={
       expenseId,
@@ -14395,6 +14880,7 @@ async function openFoodSyncEditor(expenseId){
         const nutri=nutritionResults[i]||{found:false};
         const quantity=Math.max(1,Number(oi.quantity)||1);
         const portionAmount=Math.max(1,Number(nutri.portionAmount)||100);
+        const totalGrams=portionAmount*quantity;
         return{
           name:oi.name||'未知菜品',
           spec:oi.spec||null,
@@ -14402,16 +14888,21 @@ async function openFoodSyncEditor(expenseId){
           included:nutri.found!==false,
           nutrition:nutri,
           portionAmount,
-          totalAmount:portionAmount*quantity,
+          totalAmount:totalGrams,
+          totalGrams,
           portionPct:100,
           who:'owner',
+          splitMode:'ratio',
           splitOwner:50,
           splitPartner:50,
+          splitOwnerGrams:Math.round(totalGrams*0.5),
+          splitPartnerGrams:Math.round(totalGrams*0.5),
         };
       }),
-      ownerName,partnerName,canWritePartner,
+      ownerName,partnerName,partnerAvailable,
       dateTime:exp.occurredAt||toLocalDateTimeValue(),
       meal:getMealTypeByDateTime(exp.occurredAt||toLocalDateTimeValue()),
+      mealManuallySet:false,
     };
     renderFoodSyncForm();
   }catch(err){
@@ -14433,7 +14924,10 @@ function renderFoodSyncForm(){
   const dateTimeVal=normalizeDateTime(s.dateTime).slice(0,16);
   let html=`<div class="food-sync-time-row">
     <label>时间</label>
-    <input type="datetime-local" id="foodSyncDateTime" value="${dateTimeVal}">
+    <div class="food-sync-dt-field" id="foodSyncDateTimeBtn" role="button" tabindex="0" aria-label="选择日期时间">
+      <span id="foodSyncDateTimeText">${formatLedgerDateTime(dateTimeVal)}</span>
+      <span class="ui-icon" data-icon="chevron-down"></span>
+    </div>
     <select id="foodSyncMeal">${MEAL_KEYS.map(k=>`<option value="${k}" ${k===s.meal?'selected':''}>${MEAL_LABELS[k]}</option>`).join('')}</select>
   </div>`;
   s.items.forEach((item,i)=>{
@@ -14451,28 +14945,59 @@ function renderFoodSyncForm(){
       html+=`<div class="food-sync-item-fail">暂无法估算 · 可取消勾选跳过此菜</div>`;
     }else{
       const totalCal=Math.round((nutri.cal||0)*item.quantity);
-      html+=`<div class="food-sync-item-nutri">整份约 ${nutri.cal||0} kcal · 蛋白质${nutri.protein||0}g · 碳水${nutri.carbs||0}g · 脂肪${nutri.fat||0}g${item.quantity>1?` <span class="est">×${item.quantity}=${totalCal}kcal</span>`:''}<span class="est"> · AI估算</span></div>
-      <div class="food-sync-portion">
-        <button class="food-sync-portion-btn ${item.portionPct===25?'active':''}" data-idx="${i}" data-pct="25">25%</button>
-        <button class="food-sync-portion-btn ${item.portionPct===50?'active':''}" data-idx="${i}" data-pct="50">50%</button>
-        <button class="food-sync-portion-btn ${item.portionPct===75?'active':''}" data-idx="${i}" data-pct="75">75%</button>
-        <button class="food-sync-portion-btn ${item.portionPct===100?'active':''}" data-idx="${i}" data-pct="100">100%</button>
-        <input type="number" class="food-sync-portion-input" data-idx="${i}" placeholder="自定义%" min="0" max="200" value="${![25,50,75,100].includes(item.portionPct)?item.portionPct:''}">
-      </div>
-      <div class="food-sync-who">
+      html+=`<div class="food-sync-item-nutri">整份约 ${nutri.cal||0} kcal · 蛋白质${nutri.protein||0}g · 碳水${nutri.carbs||0}g · 脂肪${nutri.fat||0}g${item.quantity>1?` <span class="est">×${item.quantity}=${totalCal}kcal</span>`:''}<span class="est"> · AI估算</span></div>`;
+      if(item.who!=='both'){
+        html+=`<div class="food-sync-portion">
+          <button class="food-sync-portion-btn ${item.portionPct===25?'active':''}" data-idx="${i}" data-pct="25">25%</button>
+          <button class="food-sync-portion-btn ${item.portionPct===50?'active':''}" data-idx="${i}" data-pct="50">50%</button>
+          <button class="food-sync-portion-btn ${item.portionPct===75?'active':''}" data-idx="${i}" data-pct="75">75%</button>
+          <button class="food-sync-portion-btn ${item.portionPct===100?'active':''}" data-idx="${i}" data-pct="100">100%</button>
+          <input type="number" class="food-sync-portion-input" data-idx="${i}" placeholder="自定义%" min="0" max="200" value="${![25,50,75,100].includes(item.portionPct)?item.portionPct:''}">
+        </div>`;
+      }
+      html+=`<div class="food-sync-who">
         <span class="food-sync-who-label">谁吃了：</span>
-        <button class="food-sync-who-btn ${item.who==='owner'?'active':''}" data-idx="${i}" data-who="owner">${escapeHTML(s.ownerName)}</button>
-        <button class="food-sync-who-btn ${item.who==='partner'?'active':''}" data-idx="${i}" data-who="partner">${escapeHTML(s.partnerName)}</button>
-        <button class="food-sync-who-btn ${item.who==='both'?'active':''}" data-idx="${i}" data-who="both">两个人</button>
-      </div>
-      <div class="food-sync-split-wrap" data-idx="${i}" style="${item.who==='both'?'':'display:none'}">
-        <div class="food-sync-split">
-          <span>${escapeHTML(s.ownerName)}</span>
-          <input type="range" min="0" max="100" value="${item.splitOwner}" data-idx="${i}" data-split="owner">
-          <span class="food-sync-split-val">${item.splitOwner}% / ${item.splitPartner}%</span>
-          <span>${escapeHTML(s.partnerName)}</span>
-        </div>
-      </div>`;
+        <button class="food-sync-who-btn ${item.who==='owner'?'active':''}" data-idx="${i}" data-who="owner">${escapeHTML(s.ownerName)}</button>`;
+      if(s.partnerAvailable){
+        html+=`<button class="food-sync-who-btn ${item.who==='partner'?'active':''}" data-idx="${i}" data-who="partner">${escapeHTML(s.partnerName)}</button>
+        <button class="food-sync-who-btn ${item.who==='both'?'active':''}" data-idx="${i}" data-who="both">两个人</button>`;
+      }
+      html+=`</div>`;
+      if(item.who==='both'&&s.partnerAvailable){
+        html+=`<div class="food-sync-split-wrap" data-idx="${i}">
+          <div class="food-sync-portion">
+            <button class="food-sync-portion-btn ${item.splitMode!=='grams'?'active':''}" data-idx="${i}" data-split-mode="ratio">按比例</button>
+            <button class="food-sync-portion-btn ${item.splitMode==='grams'?'active':''}" data-idx="${i}" data-split-mode="grams">按克数</button>
+          </div>`;
+        if(item.splitMode==='grams'){
+          const remainG=Math.round(item.totalGrams-item.splitOwnerGrams-item.splitPartnerGrams);
+          html+=`<div class="food-sync-split">
+            <span>${escapeHTML(s.ownerName)}</span>
+            <input type="number" class="food-sync-portion-input" data-idx="${i}" data-split-grams="owner" min="0" value="${item.splitOwnerGrams}" style="width:52px">
+            <span>g</span>
+            <span>${escapeHTML(s.partnerName)}</span>
+            <input type="number" class="food-sync-portion-input" data-idx="${i}" data-split-grams="partner" min="0" value="${item.splitPartnerGrams}" style="width:52px">
+            <span>g</span>
+          </div>
+          <div class="food-sync-split-total">
+            <span>整份</span>
+            <input type="number" class="food-sync-portion-input" data-idx="${i}" data-total-grams="1" min="1" value="${Math.round(item.totalGrams)}" style="width:56px">
+            <span>g · 剩余 ${remainG}g</span><span class="est"> · AI估算</span>
+          </div>`;
+        }else{
+          const remainPct=100-item.splitOwner-item.splitPartner;
+          html+=`<div class="food-sync-split">
+            <span>${escapeHTML(s.ownerName)}</span>
+            <input type="number" class="food-sync-portion-input" data-idx="${i}" data-split-ratio="owner" min="0" max="100" value="${item.splitOwner}" style="width:42px">
+            <span>%</span>
+            <span>${escapeHTML(s.partnerName)}</span>
+            <input type="number" class="food-sync-portion-input" data-idx="${i}" data-split-ratio="partner" min="0" max="100" value="${item.splitPartner}" style="width:42px">
+            <span>%</span>
+          </div>
+          <div class="food-sync-item-nutri" style="font-size:11px">剩余 ${remainPct}%</div>`;
+        }
+        html+=`</div>`;
+      }
     }
     html+=`</div>`;
   });
@@ -14500,29 +15025,29 @@ function bindFoodSyncFormEvents(){
       }
     });
   });
-  form.querySelectorAll('.food-sync-portion-btn').forEach(btn=>{
+  form.querySelectorAll('.food-sync-portion-btn[data-pct]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const idx=Number(btn.dataset.idx);
       const pct=Number(btn.dataset.pct);
       if(_foodSyncState.items[idx]){
         _foodSyncState.items[idx].portionPct=pct;
         const c=btn.closest('.food-sync-portion');
-        c.querySelectorAll('.food-sync-portion-btn').forEach(b=>b.classList.remove('active'));
+        c.querySelectorAll('.food-sync-portion-btn[data-pct]').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
-        const inp=c.querySelector('.food-sync-portion-input');
+        const inp=c.querySelector('.food-sync-portion-input:not([data-split-ratio]):not([data-split-grams])');
         if(inp) inp.value='';
         updateFoodSyncSummary();
       }
     });
   });
-  form.querySelectorAll('.food-sync-portion-input').forEach(inp=>{
+  form.querySelectorAll('.food-sync-portion-input:not([data-split-ratio]):not([data-split-grams])').forEach(inp=>{
     inp.addEventListener('input',()=>{
       const idx=Number(inp.dataset.idx);
       const val=Number(inp.value);
       if(_foodSyncState.items[idx]&&Number.isFinite(val)&&val>=0&&val<=200){
         _foodSyncState.items[idx].portionPct=val;
         const c=inp.closest('.food-sync-portion');
-        c.querySelectorAll('.food-sync-portion-btn').forEach(b=>b.classList.remove('active'));
+        c.querySelectorAll('.food-sync-portion-btn[data-pct]').forEach(b=>b.classList.remove('active'));
         updateFoodSyncSummary();
       }
     });
@@ -14533,40 +15058,109 @@ function bindFoodSyncFormEvents(){
       const who=btn.dataset.who;
       if(_foodSyncState.items[idx]){
         _foodSyncState.items[idx].who=who;
-        const c=btn.closest('.food-sync-who');
-        c.querySelectorAll('.food-sync-who-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        const splitWrap=form.querySelector(`.food-sync-split-wrap[data-idx="${idx}"]`);
-        if(splitWrap) splitWrap.style.display=who==='both'?'':'none';
-        updateFoodSyncSummary();
+        renderFoodSyncForm();
       }
     });
   });
-  form.querySelectorAll('.food-sync-split input[type=range]').forEach(slider=>{
-    slider.addEventListener('input',()=>{
-      const idx=Number(slider.dataset.idx);
-      const oPct=Math.max(0,Math.min(100,Number(slider.value)));
+  form.querySelectorAll('.food-sync-portion-btn[data-split-mode]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=Number(btn.dataset.idx);
+      const mode=btn.dataset.splitMode;
       if(_foodSyncState.items[idx]){
-        _foodSyncState.items[idx].splitOwner=oPct;
-        _foodSyncState.items[idx].splitPartner=100-oPct;
-        const val=slider.closest('.food-sync-split').querySelector('.food-sync-split-val');
-        if(val) val.textContent=`${oPct}% / ${100-oPct}%`;
+        _foodSyncState.items[idx].splitMode=mode;
+        renderFoodSyncForm();
+      }
+    });
+  });
+  form.querySelectorAll('.food-sync-portion-input[data-split-ratio]').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const idx=Number(inp.dataset.idx);
+      const who=inp.dataset.splitRatio;
+      const val=Math.max(0,Math.min(100,Number(inp.value)||0));
+      if(_foodSyncState.items[idx]){
+        _foodSyncState.items[idx]['split'+(who==='owner'?'Owner':'Partner')]=val;
+        const wrap=inp.closest('.food-sync-split-wrap');
+        if(wrap){
+          const nutris=wrap.querySelectorAll('.food-sync-item-nutri');
+          const remainEl=nutris[nutris.length-1];
+          if(remainEl){
+            const item=_foodSyncState.items[idx];
+            remainEl.textContent=`\u5269\u4f59 ${100-item.splitOwner-item.splitPartner}%`;
+          }
+        }
         updateFoodSyncSummary();
       }
     });
   });
-  const dtInput=form.querySelector('#foodSyncDateTime');
-  if(dtInput){
-    dtInput.addEventListener('change',()=>{
-      _foodSyncState.dateTime=normalizeDateTime(dtInput.value);
-      _foodSyncState.meal=getMealTypeByDateTime(_foodSyncState.dateTime);
-      const mealSelect=form.querySelector('#foodSyncMeal');
-      if(mealSelect) mealSelect.value=_foodSyncState.meal;
+  form.querySelectorAll('.food-sync-portion-input[data-split-grams]').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const idx=Number(inp.dataset.idx);
+      const who=inp.dataset.splitGrams;
+      const val=Math.max(0,Number(inp.value)||0);
+      if(_foodSyncState.items[idx]){
+        _foodSyncState.items[idx]['split'+(who==='owner'?'OwnerGrams':'PartnerGrams')]=val;
+        const wrap=inp.closest('.food-sync-split-wrap');
+        if(wrap){
+          const totalEl=wrap.querySelector('.food-sync-split-total');
+          if(totalEl){
+            const item=_foodSyncState.items[idx];
+            const remain=Math.round(item.totalGrams-item.splitOwnerGrams-item.splitPartnerGrams);
+            totalEl.innerHTML=`<span>\u6574\u4efd</span><input type="number" class="food-sync-portion-input" data-idx="${idx}" data-total-grams="1" min="1" value="${Math.round(item.totalGrams)}" style="width:56px"><span>g \u00b7 \u5269\u4f59 ${remain}g</span><span class="est"> \u00b7 AI\u4f30\u7b97</span>`;
+            bindTotalGramsInput(totalEl.querySelector('[data-total-grams]'));
+          }
+        }
+        updateFoodSyncSummary();
+      }
+    });
+  });
+  function bindTotalGramsInput(el){
+    if(!el||el._boundTotal) return;
+    el._boundTotal=true;
+    el.addEventListener('input',()=>{
+      const idx=Number(el.dataset.idx);
+      const val=Math.max(1,Number(el.value)||1);
+      if(_foodSyncState.items[idx]){
+        _foodSyncState.items[idx].totalGrams=val;
+        const wrap=el.closest('.food-sync-split-wrap');
+        if(wrap){
+          const totalEl=wrap.querySelector('.food-sync-split-total');
+          if(totalEl){
+            const item=_foodSyncState.items[idx];
+            const remain=Math.round(item.totalGrams-item.splitOwnerGrams-item.splitPartnerGrams);
+            const spanEl=totalEl.querySelectorAll('span')[1];
+            if(spanEl) spanEl.textContent=`g \u00b7 \u5269\u4f59 ${remain}g`;
+          }
+        }
+        updateFoodSyncSummary();
+      }
+    });
+  }
+  form.querySelectorAll('.food-sync-portion-input[data-total-grams]').forEach(bindTotalGramsInput);
+  const dtBtn=form.querySelector('#foodSyncDateTimeBtn');
+  if(dtBtn){
+    const openDT=()=>{
+      const textEl=form.querySelector('#foodSyncDateTimeText');
+      openLedgerDateTimePicker(normalizeDateTime(_foodSyncState.dateTime).slice(0,16),(result)=>{
+        _foodSyncState.dateTime=normalizeDateTime(result);
+        if(!_foodSyncState.mealManuallySet){
+          _foodSyncState.meal=getMealTypeByDateTime(_foodSyncState.dateTime);
+          const mealSelect=form.querySelector('#foodSyncMeal');
+          if(mealSelect) mealSelect.value=_foodSyncState.meal;
+        }
+        if(textEl) textEl.textContent=formatLedgerDateTime(result);
+      });
+    };
+    dtBtn.addEventListener('click',openDT);
+    dtBtn.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();openDT()}
     });
   }
   const mealSelect=form.querySelector('#foodSyncMeal');
   if(mealSelect){
-    mealSelect.addEventListener('change',()=>{_foodSyncState.meal=mealSelect.value;});
+    mealSelect.addEventListener('change',()=>{
+      _foodSyncState.meal=mealSelect.value;
+      _foodSyncState.mealManuallySet=true;
+    });
   }
 }
 function updateFoodSyncSummary(){
@@ -14580,20 +15174,30 @@ function updateFoodSyncSummary(){
   s.items.forEach(item=>{
     if(!item.included||item.nutrition.found===false) return;
     const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
+    const portionAmt=Math.max(1,Number(item.portionAmount)||100);
+    const totalG=Math.max(1,Number(item.totalGrams)||portionAmt*item.quantity);
     const bCal=Number(item.nutrition.cal)||0;
     const bPro=Number(item.nutrition.protein)||0;
     const bCarb=Number(item.nutrition.carbs)||0;
     const bFat=Number(item.nutrition.fat)||0;
-    const tCal=bCal*item.quantity*pct;
-    const tPro=bPro*item.quantity*pct;
-    const tCarb=bCarb*item.quantity*pct;
-    const tFat=bFat*item.quantity*pct;
+    const perGC=bCal/portionAmt,perGP=bPro/portionAmt,perGCb=bCarb/portionAmt,perGF=bFat/portionAmt;
+    const tCal=perGC*totalG*pct;
+    const tPro=perGP*totalG*pct;
+    const tCarb=perGCb*totalG*pct;
+    const tFat=perGF*totalG*pct;
     if(item.who==='owner'){
       oT.calories+=tCal;oT.protein+=tPro;oT.carbs+=tCarb;oT.fat+=tFat;oHas=true;
     }else if(item.who==='partner'){
       pT.calories+=tCal;pT.protein+=tPro;pT.carbs+=tCarb;pT.fat+=tFat;pHas=true;
     }else if(item.who==='both'){
-      const oR=item.splitOwner/100,pR=item.splitPartner/100;
+      let oR,pR;
+      if(item.splitMode==='grams'){
+        oR=Math.max(0,Math.min(1,(Number(item.splitOwnerGrams)||0)/totalG));
+        pR=Math.max(0,Math.min(1,(Number(item.splitPartnerGrams)||0)/totalG));
+      }else{
+        oR=Math.max(0,Math.min(1,(Number(item.splitOwner)||0)/100));
+        pR=Math.max(0,Math.min(1,(Number(item.splitPartner)||0)/100));
+      }
       oT.calories+=tCal*oR;oT.protein+=tPro*oR;oT.carbs+=tCarb*oR;oT.fat+=tFat*oR;oHas=true;
       pT.calories+=tCal*pR;pT.protein+=tPro*pR;pT.carbs+=tCarb*pR;pT.fat+=tFat*pR;pHas=true;
     }
@@ -14620,98 +15224,154 @@ function updateFoodSyncSummary(){
     confirmBtn.style.opacity=disabled?'0.5':'';
   }
 }
+// Shared Meal FoodRecord Write — ONLY for 餐饮订单饮食确认 flow.
+// Bypasses requireEditableHealthProfile which forces Device Owner only.
+// Do NOT call from any other entry point (Quick Add, voice, photo, etc.)
+function addSharedMealFoodRecord(targetProfile, recordData) {
+  if (!isCoupleMode()) return { ok: false, reason: 'not_couple' };
+  if (!targetProfile) return { ok: false, reason: 'no_profile' };
+  const owner = getDeviceOwnerProfile();
+  if (!owner) return { ok: false, reason: 'no_owner' };
+  const partner = getPartnerProfile(owner);
+  const isOwner = targetProfile.id === owner.id;
+  const isPartner = partner && targetProfile.id === partner.id;
+  if (!isOwner && !isPartner) return { ok: false, reason: 'invalid_target' };
+  if (isPartner && !isProfileInitializedForDeviceOwner(partner)) return { ok: false, reason: 'partner_not_initialized' };
+  const record = withProfileId(targetProfile, recordData);
+  targetProfile.foodRecords = targetProfile.foodRecords || [];
+  targetProfile.foodRecords.push(record);
+  return { ok: true, id: record.id };
+}
+let _foodSyncConfirming=false;
 function confirmFoodSync(){
-  if(!_foodSyncState) return;
+  if(!_foodSyncState||_foodSyncConfirming) return;
   const s=_foodSyncState;
+  for(const item of s.items){
+    if(!item.included||item.nutrition.found===false) continue;
+    if(item.who==='both'&&s.partnerAvailable){
+      if(item.splitMode==='grams'){
+        const sumG=(Number(item.splitOwnerGrams)||0)+(Number(item.splitPartnerGrams)||0);
+        if(sumG>Number(item.totalGrams)){
+          showToast(`「${item.name}」双方食用克数合计 ${Math.round(sumG)}g 超过整份 ${Math.round(item.totalGrams)}g`,'error');
+          return;
+        }
+      }else{
+        const sumPct=(Number(item.splitOwner)||0)+(Number(item.splitPartner)||0);
+        if(sumPct>100){
+          showToast(`「${item.name}」双方食用比例合计 ${Math.round(sumPct)}% 超过 100%`,'error');
+          return;
+        }
+      }
+    }
+  }
   const ownerFoods=[];
   const partnerFoods=[];
   s.items.forEach(item=>{
     if(!item.included||item.nutrition.found===false) return;
-    const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
     const baseAmount=item.portionAmount;
-    const totalGrams=baseAmount*item.quantity*pct;
-    if(totalGrams<=0) return;
-    const foodObj={
-      name:item.name,
-      cat:'AI估算',
-      source:'ai',
-      unit:'g',
-      base_amount:baseAmount,
-      base_weight:baseAmount,
-      cal:Number(item.nutrition.cal)||0,
-      pro:Number(item.nutrition.protein)||0,
-      fat:Number(item.nutrition.fat)||0,
-      carb:Number(item.nutrition.carbs)||0,
-      fib:Number(item.nutrition.fiber)||0,
-      amount:totalGrams,
-      confidence:item.nutrition.confidence||'low',
-      estimateReason:item.nutrition.estimateReason||'订单菜品AI估算',
-      portionText:`AI估算 · ${item.quantity>1?item.quantity+'份×':''}${Math.round(pct*100)}%`,
-      estimateVersion:'food-ai-estimate-v4',
-      aiStage:'complete',
+    const makeFood=(grams,portionLabel)=>{
+      if(grams<=0) return null;
+      return {
+        name:item.name,cat:'AI估算',source:'ai',unit:'g',
+        base_amount:baseAmount,base_weight:baseAmount,
+        cal:Number(item.nutrition.cal)||0,pro:Number(item.nutrition.protein)||0,
+        fat:Number(item.nutrition.fat)||0,carb:Number(item.nutrition.carbs)||0,
+        fib:Number(item.nutrition.fiber)||0,
+        amount:grams,confidence:item.nutrition.confidence||'low',
+        estimateReason:item.nutrition.estimateReason||'订单菜品AI估算',
+        portionText:`AI估算 · ${portionLabel}`,
+        estimateVersion:'food-ai-estimate-v4',aiStage:'complete',
+      };
     };
     if(item.who==='owner'){
-      ownerFoods.push(foodObj);
+      const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
+      const grams=(Number(item.totalGrams)||baseAmount*item.quantity)*pct;
+      const f=makeFood(grams,`${item.quantity>1?item.quantity+'份×':''}${Math.round(pct*100)}%`);
+      if(f) ownerFoods.push(f);
     }else if(item.who==='partner'){
-      partnerFoods.push(foodObj);
+      const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
+      const grams=(Number(item.totalGrams)||baseAmount*item.quantity)*pct;
+      const f=makeFood(grams,`${item.quantity>1?item.quantity+'份×':''}${Math.round(pct*100)}%`);
+      if(f) partnerFoods.push(f);
     }else if(item.who==='both'){
-      const oR=item.splitOwner/100,pR=item.splitPartner/100;
-      if(oR>0) ownerFoods.push({...foodObj,amount:totalGrams*oR});
-      if(pR>0) partnerFoods.push({...foodObj,amount:totalGrams*pR});
+      if(item.splitMode==='grams'){
+        const oG=Math.max(0,Number(item.splitOwnerGrams)||0);
+        const pG=Math.max(0,Number(item.splitPartnerGrams)||0);
+        const oF=makeFood(oG,`${Math.round(oG)}g`);
+        const pF=makeFood(pG,`${Math.round(pG)}g`);
+        if(oF) ownerFoods.push(oF);
+        if(pF) partnerFoods.push(pF);
+      }else{
+        const totalGrams=Number(item.totalGrams)||baseAmount*item.quantity;
+        const oR=Math.max(0,Math.min(1,Number(item.splitOwner)/100||0));
+        const pR=Math.max(0,Math.min(1,Number(item.splitPartner)/100||0));
+        const oF=makeFood(totalGrams*oR,`${Math.round(oR*100)}%`);
+        const pF=makeFood(totalGrams*pR,`${Math.round(pR*100)}%`);
+        if(oF) ownerFoods.push(oF);
+        if(pF) partnerFoods.push(pF);
+      }
     }
   });
   if(ownerFoods.length===0&&partnerFoods.length===0){
     showToast('请至少选择一项菜品','error');
     return;
   }
-  const dateTime=normalizeDateTime(s.dateTime);
-  const date=dateFromDateTimeValue(dateTime);
-  const meal=s.meal||getMealTypeByDateTime(dateTime);
-  const createdIds=[];
-  let partnerBlocked=false;
-  const owner=getDeviceOwnerProfile();
-  if(ownerFoods.length>0&&owner&&requireEditableHealthProfile(owner)){
-    const record=withProfileId(owner,{
-      id:'r'+Date.now()+Math.random().toString(36).substr(2,5),
-      date,dateTime,meal,
-      foods:ownerFoods.map(f=>serializeFoodPortion(prepareFoodPortion(f)))
-    });
-    owner.foodRecords=owner.foodRecords||[];
-    owner.foodRecords.push(record);
-    createdIds.push(record.id);
-  }
-  if(partnerFoods.length>0){
-    const partner=getPartnerProfile(owner);
-    if(partner&&requireEditableHealthProfile(partner)){
-      const record=withProfileId(partner,{
-        id:'r'+Date.now()+'p'+Math.random().toString(36).substr(2,5),
+  _foodSyncConfirming=true;
+  const confirmBtn=document.getElementById('foodSyncConfirm');
+  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='保存中…';}
+  try{
+    const dateTime=normalizeDateTime(s.dateTime);
+    const date=dateFromDateTimeValue(dateTime);
+    const meal=s.meal||getMealTypeByDateTime(dateTime);
+    const createdIds=[];
+    let partnerBlocked=false;
+    const owner=getDeviceOwnerProfile();
+    if(ownerFoods.length>0&&owner){
+      const result=addSharedMealFoodRecord(owner,{
+        id:'r'+Date.now()+Math.random().toString(36).substr(2,5),
         date,dateTime,meal,
-        foods:partnerFoods.map(f=>serializeFoodPortion(prepareFoodPortion(f)))
+        foods:ownerFoods.map(f=>serializeFoodPortion(prepareFoodPortion(f)))
       });
-      partner.foodRecords=partner.foodRecords||[];
-      partner.foodRecords.push(record);
-      createdIds.push(record.id);
-    }else{
-      partnerBlocked=true;
+      if(result.ok) createdIds.push(result.id);
     }
-  }
-  saveData();
-  if(owner) invalidateHealthCoachDayCache(owner,date);
-  const partner=getPartnerProfile(owner);
-  if(partner) invalidateHealthCoachDayCache(partner,date);
-  if(createdIds.length>0){
-    const allIds=[...(s.existingLinks||[]),...createdIds];
-    updateExpense(s.expenseId,{linkedFoodRecordIds:[...new Set(allIds)]});
+    if(partnerFoods.length>0){
+      const partner=getPartnerProfile(owner);
+      if(partner){
+        const result=addSharedMealFoodRecord(partner,{
+          id:'r'+Date.now()+'p'+Math.random().toString(36).substr(2,5),
+          date,dateTime,meal,
+          foods:partnerFoods.map(f=>serializeFoodPortion(prepareFoodPortion(f)))
+        });
+        if(result.ok) createdIds.push(result.id);
+        else partnerBlocked=true;
+      }else{
+        partnerBlocked=true;
+      }
+    }
     saveData();
+    if(owner) invalidateHealthCoachDayCache(owner,date);
+    const partner=getPartnerProfile(owner);
+    if(partner) invalidateHealthCoachDayCache(partner,date);
+    if(createdIds.length>0){
+      const allIds=[...(s.existingLinks||[]),...createdIds];
+      updateExpense(s.expenseId,{linkedFoodRecordIds:[...new Set(allIds)]});
+      saveData();
+    }
+    renderDashboard();
+    saveAndRefreshLedger();
+    if(partnerBlocked){
+      showToast(`已记录${createdIds.length}条饮食（伴侣档案未就绪，伴侣部分未保存）`,'info');
+    }else{
+      showToast(`已记录${createdIds.length}条饮食`,'success');
+    }
+    closeFoodSyncModal();
+  }catch(err){
+    console.error('confirmFoodSync error:',err);
+    showToast('保存失败，请重试','error');
+    if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent='确认记录';}
+  }finally{
+    _foodSyncConfirming=false;
   }
-  renderDashboard();
-  saveAndRefreshLedger();
-  if(partnerBlocked){
-    showToast(`已记录${createdIds.length}条饮食（伴侣数据需在伴侣设备记录）`,'info');
-  }else{
-    showToast(`已记录${createdIds.length}条饮食`,'success');
-  }
-  closeFoodSyncModal();
 }
 function closeFoodSyncModal(){
   _foodSyncState=null;
@@ -14729,31 +15389,217 @@ function openFoodSyncFromExpense(expenseId){
 }
 // ===== Phase 7: Unified Image Router =====
 let _pendingImageURL=null;
+let _aiRecognitionToken=0;
+let _aiRecognitionSession=null;
+let _aiRecognitionAbort=null;
+function showAIRecognitionLoading(){
+  _aiRecognitionToken++;
+  if(_aiRecognitionAbort){try{_aiRecognitionAbort.abort()}catch(e){}}
+  _aiRecognitionAbort=new AbortController();
+  const modal=document.getElementById('quickActionModal');
+  if(!modal||!modal.classList.contains('show')){
+    modal.dataset.quickAction='photo-recognition';
+    document.getElementById('quickActionTitle').textContent='AI智能识别';
+    openQuickActionModal();
+  }
+  const content=document.getElementById('quickActionContent');
+  if(content){
+    content.innerHTML=`<div class="ai-recog-loading">
+      <div class="ai-recog-spinner"></div>
+      <div class="ai-recog-text">正在识别图片…</div>
+      <div class="ai-recog-hint">识别完成后自动进入下一步</div>
+    </div>`;
+  }
+}
+function showAIRecognitionError(msg){
+  const content=document.getElementById('quickActionContent');
+  if(!content) return;
+  content.innerHTML=`<div class="ai-recog-error">
+    <div class="ai-recog-error-icon">${icon('alert-circle')}</div>
+    <div class="ai-recog-error-text">${escapeHTML(msg||'识别失败，请重试')}</div>
+    <div class="ai-recog-error-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeQuickActionModal()">关闭</button>
+      <button class="btn btn-gold btn-sm" onclick="renderPhotoModal()">重新选择</button>
+    </div>
+  </div>`;
+  renderIcons(content);
+}
+function closeAIRecognitionLoading(){
+  const modal=document.getElementById('quickActionModal');
+  if(modal&&modal.dataset.quickAction==='photo-recognition'){
+    closeQuickActionModal();
+  }
+}
 async function routeImageRecognition(file){
   if(!file) return;
+  const token=++_aiRecognitionToken;
   try{
     const compressed=await compressFoodImage(file,{maxSide:1280,quality:.80});
+    if(token!==_aiRecognitionToken) return;
     const imageURL=compressed.url;
-    showToast('正在识别图片…','info');
-    const text=await callExpenseRecognitionAI(imageURL);
+    const text=await callExpenseRecognitionAI(imageURL,_aiRecognitionAbort?.signal);
+    if(token!==_aiRecognitionToken) return;
     const result=parseExpenseAIResult(text);
     if(!result||!result.ok||result.imageType==='unknown'){
+      if(token!==_aiRecognitionToken) return;
+      _aiRecognitionSession={result,imageURL,token};
       showImageTypeChoice(imageURL);
       return;
     }
     if(result.imageType==='food_photo'){
+      if(token!==_aiRecognitionToken) return;
+      _aiRecognitionSession={result,imageURL,token};
+      closeAIRecognitionLoading();
       startAIAnalysis(imageURL,null);
       return;
     }
-    if(!isCoupleMode()){
-      showToast('检测到支付/订单截图。共同账本仅在双人模式下可用。','info');
+    if(result.imageType==='food_order'){
+      _aiRecognitionSession={result,imageURL,token};
+      const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
+      const hasItems=orderItems.length>0;
+      if(!isCoupleMode()){
+        if(hasItems){
+          showFoodOrderPurposeSelection(result,'single');
+        }else{
+          if(token!==_aiRecognitionToken) return;
+          showAIRecognitionError('识别到餐饮订单但未找到菜品信息');
+        }
+        return;
+      }
+      if(hasItems){
+        showFoodOrderPurposeSelection(result,'couple');
+      }else{
+        if(token!==_aiRecognitionToken) return;
+        closeAIRecognitionLoading();
+        routeToExpenseEditorWithAI(result);
+      }
       return;
     }
+    if(!isCoupleMode()){
+      if(token!==_aiRecognitionToken) return;
+      showAIRecognitionError('检测到支付/订单截图。共同账本仅在双人模式下可用');
+      return;
+    }
+    if(token!==_aiRecognitionToken) return;
+    _aiRecognitionSession={result,imageURL,token};
+    closeAIRecognitionLoading();
     routeToExpenseEditorWithAI(result);
   }catch(err){
+    if(token!==_aiRecognitionToken) return;
     console.error('Image router error:',err);
-    showToast('图片识别失败：'+(err.message||''),'error');
+    showAIRecognitionError('图片识别失败：'+(err.message||''));
   }
+}
+function showFoodOrderPurposeSelection(result,mode){
+  const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
+  const merchant=result.expense?.merchant||'';
+  const amount=result.expense?.amount;
+  const amtText=amount!=null?`¥${(Number(amount)).toFixed(2)}`:'未识别';
+  closeAIRecognitionLoading();
+  const modal=document.getElementById('foodSyncModal');
+  const form=document.getElementById('foodSyncForm');
+  if(!modal||!form) return;
+  let btns=`<button class="btn btn-ghost btn-sm" onclick="cancelFoodOrderPurpose()">取消</button>`;
+  btns+=`<button class="btn btn-tonal-gold btn-sm" onclick="chooseFoodOrderPurpose('diet_only')">只记饮食</button>`;
+  if(mode==='couple'){
+    btns+=`<button class="btn btn-gold btn-sm" onclick="chooseFoodOrderPurpose('both')">记账 + 饮食</button>`;
+    btns+=`<button class="btn btn-tonal-gold btn-sm" onclick="chooseFoodOrderPurpose('ledger_only')">只记账</button>`;
+  }
+  form.innerHTML=`<div class="food-sync-prompt">
+    <div class="food-sync-prompt-icon">${icon('utensils')}</div>
+    <div class="food-sync-prompt-text">已识别餐饮订单<br><span style="font-size:12px;color:var(--txt3)">商家：${escapeHTML(merchant||'未知')} · 实付：${amtText} · 菜品：${orderItems.length}项</span><br>你想记录什么？</div>
+    <div class="food-sync-prompt-actions">${btns}</div>
+  </div>`;
+  document.getElementById('foodSyncTitle').textContent='餐饮订单';
+  modal.classList.add('show');
+  GlassScrollLock.lock('modal:foodSyncModal');
+  renderIcons(modal);
+  bindFoodSyncClose();
+}
+function cancelFoodOrderPurpose(){
+  _aiRecognitionSession=null;
+  closeFoodSyncModal();
+}
+function chooseFoodOrderPurpose(purpose){
+  const session=_aiRecognitionSession;
+  if(!session){closeFoodSyncModal();return}
+  const result=session.result;
+  const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
+  closeFoodSyncModal();
+  if(purpose==='diet_only'){
+    startFoodOnlySync(orderItems,result.expense?.occurredAt,result.expense?.merchant);
+  }else if(purpose==='both'){
+    routeToExpenseEditorWithAI(result,true);
+  }else if(purpose==='ledger_only'){
+    routeToExpenseEditorWithAI(result,false);
+  }
+}
+function startFoodOnlySync(orderItems,occurredAt,merchant){
+  if(!orderItems||orderItems.length===0){
+    showToast('未识别到菜品信息','error');
+    return;
+  }
+  const modal=document.getElementById('foodSyncModal');
+  const form=document.getElementById('foodSyncForm');
+  if(!modal||!form) return;
+  form.innerHTML=`<div class="food-sync-loading"><div class="food-sync-spinner"></div><div class="food-sync-loading-text">正在分析菜品营养…</div></div>`;
+  document.getElementById('foodSyncTitle').textContent='餐饮订单饮食确认';
+  modal.classList.add('show');
+  GlassScrollLock.lock('modal:foodSyncModal');
+  bindFoodSyncClose();
+  (async()=>{
+    try{
+      const nutritionResults=await estimateOrderNutrition(orderItems);
+      const owner=getDeviceOwnerProfile();
+      const partner=getPartnerProfile(owner);
+      const ownerName=owner?getDisplayName(owner):'我';
+      const partnerName=partner?getDisplayName(partner):'伴侣';
+      const partnerAvailable=!!partner&&isProfileInitializedForDeviceOwner(partner);
+      const dtVal=occurredAt||toLocalDateTimeValue();
+      _foodSyncState={
+        expenseId:null,
+        occurredAt:dtVal,
+        existingLinks:[],
+        items:orderItems.map((oi,i)=>{
+          const nutri=nutritionResults[i]||{found:false};
+          const quantity=Math.max(1,Number(oi.quantity)||1);
+          const portionAmount=Math.max(1,Number(nutri.portionAmount)||100);
+          const totalGrams=portionAmount*quantity;
+          return{
+            name:oi.name||'未知菜品',
+            spec:oi.spec||null,
+            quantity,
+            included:nutri.found!==false,
+            nutrition:nutri,
+            portionAmount,
+            totalAmount:totalGrams,
+            totalGrams,
+            portionPct:100,
+            who:'owner',
+            splitMode:'ratio',
+            splitOwner:50,
+            splitPartner:50,
+            splitOwnerGrams:Math.round(totalGrams*0.5),
+            splitPartnerGrams:Math.round(totalGrams*0.5),
+          };
+        }),
+        ownerName,partnerName,partnerAvailable,
+        dateTime:dtVal,
+        meal:getMealTypeByDateTime(dtVal),
+        mealManuallySet:false,
+      };
+      renderFoodSyncForm();
+    }catch(err){
+      console.error('Food-only sync nutrition error:',err);
+      form.innerHTML=`<div class="food-sync-prompt">
+        <div class="food-sync-prompt-icon" style="background:rgba(240,160,32,0.12)">${icon('alert-circle')}</div>
+        <div class="food-sync-prompt-text">营养估算暂时不可用<br><span style="font-size:11px;color:var(--txt3)">${escapeHTML(err.message||'')}</span></div>
+        <div class="food-sync-prompt-actions">
+          <button class="btn btn-ghost btn-sm" onclick="closeFoodSyncModal()">关闭</button>
+        </div></div>`;
+      renderIcons(modal);
+    }
+  })();
 }
 function showImageTypeChoice(imageURL){
   _pendingImageURL=imageURL;
@@ -14787,7 +15633,8 @@ function confirmImageChoice(choice){
     openCoupleLedgerEditor();
   }
 }
-function routeToExpenseEditorWithAI(result){
+function routeToExpenseEditorWithAI(result,withDiet){
+  _ledgerAIPendingDiet=!!withDiet;
   openCoupleLedgerEditor();
   setTimeout(()=>{
     const form=document.getElementById('coupleLedgerForm');
@@ -14832,6 +15679,172 @@ function openLedgerAllCategories(){
     closeModal('coupleLedgerAllCatsModal');
   });
 }
+function openMeetingPicker(){
+  const modal=document.getElementById('coupleLedgerPeriodModal');
+  const form=document.getElementById('coupleLedgerPeriodForm');
+  if(!modal||!form) return;
+  _ledgerPeriodPickerCallback=null;
+  const titleEl=document.getElementById('coupleLedgerPeriodTitle');
+  if(titleEl) titleEl.textContent='选择见面 / 旅行';
+  renderMeetingPicker(form);
+  modal.classList.add('show');
+  GlassScrollLock.lock('modal:coupleLedgerPeriodModal');
+  modal.querySelector('#coupleLedgerPeriodClose')?.addEventListener('click',()=>{
+    closeModal('coupleLedgerPeriodModal');
+  });
+}
+function renderMeetingPicker(form){
+  const cs=getCoupleSpace();
+  const lg=getLedger();
+  const today=todayStr();
+  const activeId=lg.activePeriodId;
+  const all=(cs.meetings||[]).slice();
+  const upcoming=all.filter(p=>{
+    if(!p.startDate) return false;
+    if(p.startDate>=today) return true;
+    const end=p.endDate||p.startDate;
+    return end>=today;
+  }).sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
+  const past=all.filter(p=>{
+    if(!p.startDate) return false;
+    const end=p.endDate||p.startDate;
+    return end<today;
+  }).sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
+  const renderItem=(p)=>{
+    const isOngoing=p.startDate<today&&(p.endDate||p.startDate)>=today;
+    const dateText=p.endDate&&p.endDate!==p.startDate
+      ?`${formatLedgerDateGroup(p.startDate)} - ${formatLedgerDateGroup(p.endDate)}`
+      :formatLedgerDateGroup(p.startDate);
+    return `<div class="ledger-meeting-pick-row ${p.id===activeId?'selected':''}" data-meeting-select="${p.id}">
+      <span class="ledger-period-picker-radio"></span>
+      <div class="ledger-period-picker-info">
+        <div class="ledger-period-picker-title">${escapeHTML(p.title||'未命名')} <span style="font-size:10px;color:var(--txt3)">[${LEDGER_PERIOD_TYPE_LABELS[p.type]||p.type}]${isOngoing?' · 进行中':''}</span></div>
+        <div class="ledger-period-picker-date">${dateText}</div>
+      </div>
+      <button class="ledger-meeting-more-btn" type="button" data-meeting-more="${p.id}">${icon('more-horizontal')}</button>
+    </div>`;
+  };
+  let html='<div class="ledger-period-picker-list">';
+  html+=`<div class="ledger-meeting-pick-row ${!activeId?'selected':''}" data-meeting-select="">
+    <span class="ledger-period-picker-radio"></span>
+    <span class="ledger-period-picker-label">不选择</span>
+  </div>`;
+  if(upcoming.length){
+    html+='<div class="ledger-period-group-label">即将到来</div>';
+    html+=upcoming.map(renderItem).join('');
+  }
+  if(past.length){
+    html+=`<div class="ledger-period-group-label" style="margin-top:${upcoming.length?'12px':'0'}">历史</div>`;
+    html+=past.map(renderItem).join('');
+  }
+  if(!upcoming.length&&!past.length){
+    html+='<div class="ledger-period-picker-empty">还没有见面/旅行记录</div>';
+  }
+  html+='</div>';
+  html+='<div class="ledger-period-picker-divider"></div>';
+  html+=`<button class="ledger-period-picker-new" type="button" id="meetingPickerNew">${icon('plus')} 新建见面 / 旅行</button>`;
+  form.innerHTML=html;
+  renderIcons(form);
+  form.querySelectorAll('[data-meeting-select]').forEach(el=>el.addEventListener('click',()=>{
+    const id=el.dataset.meetingSelect||'';
+    setActivePeriod(id||null);
+    saveAndRefreshLedger();
+    refreshCoupleSpaceView();
+    closeModal('coupleLedgerPeriodModal');
+    showToast(id?'已设为当前见面/旅行':'已取消当前见面/旅行','success');
+  }));
+  form.querySelectorAll('[data-meeting-more]').forEach(btn=>btn.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    showMeetingMoreMenu(btn.dataset.meetingMore,form);
+  }));
+  form.querySelector('#meetingPickerNew').addEventListener('click',()=>renderMeetingEditorForm(form,''));
+}
+function showMeetingMoreMenu(meetingId,pickerForm){
+  const meeting=getMeetingById(meetingId);
+  if(!meeting) return;
+  let overlay=document.getElementById('meetingMoreMenuOverlay');
+  if(overlay) overlay.remove();
+  overlay=document.createElement('div');
+  overlay.id='meetingMoreMenuOverlay';
+  overlay.className='ledger-meeting-menu-overlay';
+  overlay.innerHTML=`<div class="ledger-meeting-menu-sheet">
+    <button class="ledger-meeting-menu-item" id="meetingMoreEdit">${icon('edit')} 编辑</button>
+    <button class="ledger-meeting-menu-item danger" id="meetingMoreDelete">${icon('trash-2')} 删除</button>
+    <button class="ledger-meeting-menu-item ledger-meeting-menu-cancel" id="meetingMoreCancel">取消</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  renderIcons(overlay);
+  const close=()=>overlay.remove();
+  overlay.addEventListener('click',(e)=>{if(e.target===overlay) close()});
+  overlay.querySelector('#meetingMoreCancel').addEventListener('click',close);
+  overlay.querySelector('#meetingMoreEdit').addEventListener('click',()=>{
+    close();
+    renderMeetingEditorForm(pickerForm,meetingId);
+  });
+  overlay.querySelector('#meetingMoreDelete').addEventListener('click',()=>{
+    close();
+    if(!confirm('删除这个见面/旅行？关联的账单不会被删除，但会取消关联。')) return;
+    const wasActive=getLedger().activePeriodId===meetingId;
+    deleteMeeting(meetingId);
+    if(wasActive) setActivePeriod(null);
+    saveAndRefreshLedger();
+    refreshCoupleSpaceView();
+    renderMeetingPicker(pickerForm);
+    showToast('已删除','success');
+  });
+}
+function renderMeetingEditorForm(form,periodId){
+  const existing=periodId?getMeetingById(periodId):null;
+  const today=todayStr();
+  form.innerHTML=`
+    <div class="couple-time-modal-grid">
+      <div class="form-group">
+        <label class="form-label">名称 *</label>
+        <input class="form-input" id="ledgerPerTitle" type="text" maxlength="30" value="${escapeHTML(existing?.title||'')}" placeholder="如：杭州见面">
+      </div>
+      <div class="form-group">
+        <label class="form-label">类型</label>
+        <select class="form-select" id="ledgerPerType">
+          <option value="meeting" ${existing?.type==='meeting'||!existing?'selected':''}>见面</option>
+          <option value="trip" ${existing?.type==='trip'?'selected':''}>旅行</option>
+          <option value="custom" ${existing?.type==='custom'?'selected':''}>自定义</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">开始日期 *</label>
+        <input class="form-input" id="ledgerPerStart" type="date" value="${existing?.startDate||today}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">结束日期</label>
+        <input class="form-input" id="ledgerPerEnd" type="date" value="${existing?.endDate||''}">
+      </div>
+    </div>
+    <div class="couple-form-actions">
+      <button class="btn btn-ghost" type="button" id="ledgerPerCancel">返回</button>
+      <button class="btn btn-gold" type="button" id="ledgerPerSave" data-period-id="${periodId}">保存</button>
+    </div>`;
+  form.querySelector('#ledgerPerCancel').addEventListener('click',()=>{
+    renderMeetingPicker(form);
+  });
+  form.querySelector('#ledgerPerSave').addEventListener('click',()=>{
+    const title=form.querySelector('#ledgerPerTitle').value.trim();
+    if(!title){showToast('请输入名称','error');return}
+    const type=form.querySelector('#ledgerPerType').value;
+    const startDate=form.querySelector('#ledgerPerStart').value;
+    const endDate=form.querySelector('#ledgerPerEnd').value;
+    if(!isValidDateStr(startDate)){showToast('请选择开始日期','error');return}
+    if(endDate&&endDate<startDate){showToast('结束日期不能早于开始日期','error');return}
+    const data={title,type,startDate,endDate};
+    let createdPer=null;
+    if(periodId) updatePeriod(periodId,data);
+    else createdPer=createPeriod(data);
+    if(!periodId&&createdPer) setActivePeriod(createdPer.id);
+    saveAndRefreshLedger();
+    refreshCoupleSpaceView();
+    showToast(periodId?'已更新':'已创建并设为当前','success');
+    renderMeetingPicker(form);
+  });
+}
 function openPeriodManager(){
   const modal=document.getElementById('coupleLedgerPeriodModal');
   const form=document.getElementById('coupleLedgerPeriodForm');
@@ -14845,6 +15858,9 @@ function openPeriodManager(){
   modal.querySelector('#coupleLedgerPeriodClose')?.addEventListener('click',()=>{
     closeModal('coupleLedgerPeriodModal');
   });
+}
+function openMeetingManager(){
+  openMeetingPicker();
 }
 function openLedgerPeriodPicker(onSelect,selectedId){
   const modal=document.getElementById('coupleLedgerPeriodModal');
@@ -14903,35 +15919,66 @@ function renderPeriodPickerList(form){
 function renderPeriodManagerList(form){
   const cs=getCoupleSpace();
   const lg=getLedger();
-  const periods=(cs.meetings||[]).slice().sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
+  const today=todayStr();
   const activeId=lg.activePeriodId;
-  let html='';
-  if(periods.length){
-    html+=periods.map(p=>`<div class="ledger-period-list-item ${p.id===activeId?'active':''}">
+  const all=(cs.meetings||[]).slice();
+  const upcoming=all.filter(p=>{
+    if(!p.startDate) return false;
+    if(p.startDate>=today) return true;
+    const end=p.endDate||p.startDate;
+    return end>=today;
+  }).sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
+  const past=all.filter(p=>{
+    if(!p.startDate) return false;
+    const end=p.endDate||p.startDate;
+    return end<today;
+  }).sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
+  const renderItem=(p)=>{
+    const isOngoing=p.startDate<today&&(p.endDate||p.startDate)>=today;
+    const dateText=p.endDate&&p.endDate!==p.startDate
+      ?`${formatLedgerDateGroup(p.startDate)} - ${formatLedgerDateGroup(p.endDate)}`
+      :formatLedgerDateGroup(p.startDate);
+    return `<div class="ledger-period-list-item ${p.id===activeId?'active':''}">
       <div class="ledger-period-list-main">
-        <div class="ledger-period-list-title">${escapeHTML(p.title||'未命名')} <span style="font-size:10px;color:var(--txt3)">[${LEDGER_PERIOD_TYPE_LABELS[p.type]||p.type}]</span></div>
-        <div class="ledger-period-list-date">${p.startDate}${p.endDate?' ~ '+p.endDate:''}</div>
+        <div class="ledger-period-list-title">${escapeHTML(p.title||'未命名')} <span style="font-size:10px;color:var(--txt3)">[${LEDGER_PERIOD_TYPE_LABELS[p.type]||p.type}]${isOngoing?' · 进行中':''}</span></div>
+        <div class="ledger-period-list-date">${dateText}</div>
       </div>
-      ${p.id===activeId?'<span style="font-size:10px;color:var(--gold-l)">当前</span>':''}
-      <button class="btn btn-ghost btn-sm" type="button" data-period-set="${p.id}">设为当前</button>
-      <button class="btn btn-ghost btn-sm" type="button" data-period-edit="${p.id}">编辑</button>
-      <button class="btn btn-ghost btn-sm" type="button" data-period-del="${p.id}" style="color:var(--red,#f87171)">删除</button>
-    </div>`).join('');
-  }else{
+      <div class="ledger-period-list-actions">
+        ${p.id===activeId?'<span style="font-size:10px;color:var(--gold-l);margin-right:auto">当前</span>':''}
+        <button class="btn btn-ghost btn-sm" type="button" data-period-set="${p.id}">设为当前</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-period-edit="${p.id}">编辑</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-period-del="${p.id}" style="color:var(--red,#f87171)">删除</button>
+      </div>
+    </div>`;
+  };
+  let html='';
+  if(upcoming.length){
+    html+='<div class="ledger-period-group-label">即将到来</div>';
+    html+=upcoming.map(renderItem).join('');
+  }
+  if(past.length){
+    html+=`<div class="ledger-period-group-label" style="margin-top:${upcoming.length?'12px':'0'}">历史</div>`;
+    html+=past.map(renderItem).join('');
+  }
+  if(!upcoming.length&&!past.length){
     html+=`<div class="couple-insufficient-sub" style="text-align:center;padding:14px 0">还没有见面/旅行记录</div>`;
   }
   html+=`<div class="couple-form-actions" style="margin-top:10px">
-    <button class="btn btn-gold btn-sm" type="button" id="ledgerPeriodNew">+ 新建</button>
+    <button class="btn btn-gold btn-sm" type="button" id="ledgerPeriodNew">${icon('plus')} 新建见面 / 旅行</button>
     <button class="btn btn-ghost btn-sm" type="button" id="ledgerPeriodClose">关闭</button>
   </div>`;
   form.innerHTML=html;
   renderIcons(form);
-  form.querySelector('#ledgerPeriodClose').addEventListener('click',()=>closeModal('coupleLedgerPeriodModal'));
+  form.querySelector('#ledgerPeriodClose').addEventListener('click',()=>{
+    closeModal('coupleLedgerPeriodModal');
+    refreshCoupleSpaceView();
+  });
   form.querySelector('#ledgerPeriodNew').addEventListener('click',()=>renderPeriodEditorForm(form,''));
   form.querySelectorAll('[data-period-set]').forEach(btn=>btn.addEventListener('click',()=>{
     setActivePeriod(btn.dataset.periodSet);
     saveAndRefreshLedger();
     renderPeriodManagerList(form);
+    refreshCoupleSpaceView();
     showToast('已设为当前周期','success');
   }));
   form.querySelectorAll('[data-period-edit]').forEach(btn=>btn.addEventListener('click',()=>renderPeriodEditorForm(form,btn.dataset.periodEdit)));
@@ -14940,6 +15987,7 @@ function renderPeriodManagerList(form){
     deletePeriod(btn.dataset.periodDel);
     saveAndRefreshLedger();
     renderPeriodManagerList(form);
+    refreshCoupleSpaceView();
     showToast('周期已删除','success');
   }));
 }
@@ -14956,9 +16004,9 @@ function renderPeriodEditorForm(form,periodId){
       <div class="form-group">
         <label class="form-label">类型</label>
         <select class="form-select" id="ledgerPerType">
-          <option value="meeting" ${existing?.type==='meeting'?'selected':''}>见面</option>
+          <option value="meeting" ${existing?.type==='meeting'||!existing?'selected':''}>见面</option>
           <option value="trip" ${existing?.type==='trip'?'selected':''}>旅行</option>
-          <option value="custom" ${existing?.type==='custom'||!existing?'selected':''}>自定义</option>
+          <option value="custom" ${existing?.type==='custom'?'selected':''}>自定义</option>
         </select>
       </div>
       <div class="form-group">
@@ -14991,6 +16039,7 @@ function renderPeriodEditorForm(form,periodId){
     if(periodId) updatePeriod(periodId,data);
     else createdPer=createPeriod(data);
     saveAndRefreshLedger();
+    refreshCoupleSpaceView();
     showToast(periodId?'周期已更新':'周期已创建','success');
     if(isPicker){
       const cb=_ledgerPeriodPickerCallback;
@@ -15174,7 +16223,7 @@ function getActiveCountdowns(){
   const cs=getCoupleSpace();
   const all=[];
   const nextM=getNextMeeting();
-  if(nextM) all.push({id:'meeting',title:nextM.title||'下一次见面',date:nextM.startDate,icon:nextM.type==='trip'?'✈️':'📍'});
+  if(nextM) all.push({id:'meeting',title:nextM.title||'见面',date:nextM.startDate,icon:nextM.type==='trip'?'✈️':'📍'});
   (cs.countdowns||[]).forEach(c=>all.push(c));
   return all.sort((a,b)=>(daysUntilDate(a.date)||9999)-(daysUntilDate(b.date)||9999));
 }
@@ -15254,7 +16303,7 @@ function renderCoupleTimeCenter(owner,other){
   const cs=getCoupleSpace();
   const togetherDays=cs.togetherDate?Math.max(0,daysBetweenDates(cs.togetherDate)):null;
   const nextM=getNextMeeting();
-  const nearestCD=nextM?{id:'meeting',title:nextM.title||'下一次见面',date:nextM.startDate,icon:nextM.type==='trip'?'✈️':'📍'}:getNearestCountdown();
+  const nearestCD=nextM?{id:'meeting',title:nextM.title||'见面',date:nextM.startDate,icon:nextM.type==='trip'?'✈️':'📍'}:getNearestCountdown();
   const anniversaries=getSortedAnniversaries();
   const nearestHoliday=getNearestCoupleHoliday();
   const memories=(cs.memories||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -15278,13 +16327,26 @@ function renderCoupleTimeCenter(owner,other){
   }
   // Main time card: primary together duration + two nearby states
   const meetingSet=!!nextM;
+  const today=todayStr();
   const meetingDays=meetingSet?daysUntilDate(nextM.startDate):null;
-  const meetingDetail=meetingSet?[nextM.startDate,nextM.place].filter(Boolean).join(' · '):'';
-  const meetingStatus=meetingSet&&meetingDays!==null
-    ?{label:nextM.title||(meetingDays===0?'今天见面':'下一次见面'),value:meetingDays===0?'今天':meetingDays>0?`${meetingDays}天后`:`${Math.abs(meetingDays)}天前`,detail:meetingDetail,action:'meeting'}
-    :nearestCD
-      ?{label:nearestCD.title||'下一次见面',value:formatCountdownDays(nearestCD.date),detail:nearestCD.date,action:'meeting'}
-      :{label:'下一次见面',value:'+ 设置',detail:'点击设置',action:'meeting'};
+  let meetingStatus;
+  if(meetingSet&&meetingDays!==null){
+    const isOngoing=nextM.startDate<today&&(nextM.endDate||nextM.startDate)>=today;
+    const dateText=nextM.endDate&&nextM.endDate!==nextM.startDate
+      ?`${formatLedgerDateGroup(nextM.startDate)} - ${formatLedgerDateGroup(nextM.endDate)}`
+      :formatLedgerDateGroup(nextM.startDate);
+    if(isOngoing){
+      meetingStatus={label:'当前'+(nextM.type==='trip'?'旅行':'见面'),value:'进行中',detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }else if(meetingDays===0){
+      meetingStatus={label:'下一次见面',value:'今天',detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }else if(meetingDays>0){
+      meetingStatus={label:'下一次见面',value:`${meetingDays}天后`,detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }else{
+      meetingStatus={label:'下一次见面',value:`${Math.abs(meetingDays)}天前`,detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }
+  }else{
+    meetingStatus={label:'下一次见面',value:'暂未安排',detail:'点击管理见面 / 旅行',action:'meeting'};
+  }
   const holidayStatus=nearestHoliday
     ?{label:nearestHoliday.name,value:nearestHoliday.days===0?'今天':`${nearestHoliday.days}天后`,detail:nearestHoliday.nextDate}
     :{label:'近期节日',value:'暂无',detail:'继续记录重要日期'};
@@ -15528,23 +16590,9 @@ function openCoupleTimeModal(type='together',annId=''){
   if(!modal||!title||!form) return;
   const cs=getCoupleSpace();
   if(type==='meeting'){
-    const meeting=getNextMeeting()||{};
-    title.textContent=meeting.id?'编辑见面/旅行':'设置下一次见面';
-    form.innerHTML=`
-      <div class="couple-time-modal-grid">
-        <div class="form-group"><label>名称</label><input class="form-input" id="coupleMeetingTitle" maxlength="30" placeholder="如：杭州见面" value="${escapeHTML(meeting.title||'')}"></div>
-        <div class="form-group"><label>类型</label><select class="form-select" id="coupleMeetingType">
-          <option value="meeting" ${meeting.type==='meeting'||!meeting.type?'selected':''}>见面</option>
-          <option value="trip" ${meeting.type==='trip'?'selected':''}>旅行</option>
-        </select></div>
-        <div class="form-group"><label>开始日期 *</label><input class="form-input" id="coupleMeetingDate" type="date" value="${escapeHTML(meeting.startDate||'')}"></div>
-        <div class="form-group"><label>结束日期</label><input class="form-input" id="coupleMeetingEnd" type="date" value="${escapeHTML(meeting.endDate||'')}"></div>
-        <div class="form-group"><label>地点</label><input class="form-input" id="coupleMeetingPlace" maxlength="40" placeholder="可选，例如：上海虹桥" value="${escapeHTML(meeting.place||'')}"></div>
-        <div class="form-group"><label>备注</label><textarea class="form-input" id="coupleMeetingNote" rows="3" maxlength="120" placeholder="可选，例如：记得提前买票">${escapeHTML(meeting.note||'')}</textarea></div>
-      </div>
-      <div class="couple-form-actions"><button class="btn btn-ghost" type="button" id="coupleTimeCancelBtn">取消</button><button class="btn btn-gold" type="button" id="coupleMeetingSaveBtn" data-meeting-id="${meeting.id||''}">保存</button></div>`;
-    form.querySelector('#coupleTimeCancelBtn')?.addEventListener('click',()=>closeModal('coupleTimeModal'));
-    form.querySelector('#coupleMeetingSaveBtn')?.addEventListener('click',saveCoupleMeeting);
+    closeModal('coupleTimeModal');
+    openMeetingManager();
+    return;
   }else if(type==='anniversary'){
     const ann=(cs.anniversaries||[]).find(a=>a.id===annId);
     title.textContent=ann?'编辑纪念日':'添加纪念日';
@@ -21917,36 +22965,44 @@ function renderPhotoModal(){
   document.getElementById('quickActionTitle').textContent='AI智能识别';
   document.getElementById('quickActionContent').innerHTML=`
     <div class="qa-modal-section">
-      <div class="photo-upload">
-        <div class="photo-zone" id="qaPhotoZone" role="button" tabindex="0" aria-label="选择图片">
-          <div class="ph-icon">${icon('camera')}</div>
-          <div class="ph-text">点击选择或拍摄图片</div>
-          <div class="ph-hint">AI将自动识别食物、订单或付款信息</div>
-        </div>
-        <input type="file" id="qaPhotoInput" class="photo-input-native" accept="image/*" capture="environment" aria-label="上传图片">
+      <div class="qa-source-label">选择图片来源</div>
+      <div class="qa-source-list">
+        <button type="button" class="qa-source-btn" id="qaSourceCamera">
+          <span class="qa-source-icon">${icon('camera')}</span>
+          <span class="qa-source-text">拍照</span>
+          <span class="qa-source-hint">使用相机拍摄</span>
+        </button>
+        <button type="button" class="qa-source-btn" id="qaSourceGallery">
+          <span class="qa-source-icon">${icon('image')}</span>
+          <span class="qa-source-text">从相册选择</span>
+          <span class="qa-source-hint">选择截图或已有图片</span>
+        </button>
       </div>
+      <input type="file" id="qaCameraInput" class="photo-input-native" accept="image/*" capture="environment" aria-label="拍照">
+      <input type="file" id="qaGalleryInput" class="photo-input-native" accept="image/*" aria-label="从相册选择">
     </div>
   `;
   openQuickActionModal();
-  const zone=document.getElementById('qaPhotoZone');
-  const input=document.getElementById('qaPhotoInput');
-  const choosePhoto=()=>input.click();
-  zone.addEventListener('click',choosePhoto);
-  zone.addEventListener('keydown',event=>{
-    if(event.key==='Enter'||event.key===' '){
-      event.preventDefault();
-      choosePhoto();
-    }
-  });
-  input.addEventListener('change',event=>{
+  renderIcons(document.getElementById('quickActionContent'));
+
+  const cameraBtn=document.getElementById('qaSourceCamera');
+  const galleryBtn=document.getElementById('qaSourceGallery');
+  const cameraInput=document.getElementById('qaCameraInput');
+  const galleryInput=document.getElementById('qaGalleryInput');
+
+  const handleFileSelected=(event)=>{
     const file=event.target.files?.[0];
-    if(file){
-      logQuickRecordDebug('photo-file','ai-photo-result',true);
-      closeQuickActionModal();
-      routeImageRecognition(file);
-    }
     event.target.value='';
-  });
+    if(!file) return;
+    logQuickRecordDebug('photo-file','ai-photo-result',true);
+    showAIRecognitionLoading();
+    routeImageRecognition(file);
+  };
+
+  cameraBtn.addEventListener('click',()=>cameraInput.click());
+  galleryBtn.addEventListener('click',()=>galleryInput.click());
+  cameraInput.addEventListener('change',handleFileSelected);
+  galleryInput.addEventListener('change',handleFileSelected);
 }
 
 // --- Water Modal ---
