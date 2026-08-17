@@ -4517,7 +4517,8 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 .ledger-dt-overlay.show{display:flex;animation:glassOverlayIn .18s ease-out both}
 .ledger-dt-panel{
   width:min(360px,calc(100vw - 24px));
-  max-height:min(78vh,calc(100vh - 40px - env(safe-area-inset-bottom,0px)));
+  max-height:min(82vh,calc(100vh - 40px - env(safe-area-inset-bottom,0px)));
+  max-height:min(82dvh,calc(100dvh - 40px - env(safe-area-inset-bottom,0px)));
   display:flex;flex-direction:column;overflow:hidden;
   border-radius:24px;
   border:1px solid var(--glass-border-gold);
@@ -4534,6 +4535,7 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
   flex:1;min-height:0;overflow-y:auto;
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
 }
 .glass-dt-time-area{
   margin-top:10px;padding-top:10px;
@@ -4563,7 +4565,7 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 }
 .glass-dt-confirm-row{
   display:flex;gap:8px;margin-top:12px;
-  flex-shrink:0;padding-bottom:calc(env(safe-area-inset-bottom,0px));
+  flex-shrink:0;
 }
 .glass-dt-confirm-row .glass-date-action{
   flex:1;min-height:40px;font-size:13px;
@@ -25023,7 +25025,7 @@ async function initCloudSync(){
 // ==================== GLASS SCROLL LOCK ====================
 const GlassScrollLock=(()=>{
   const tokens=new Map();
-  const allowedSelector='.modal-scroll-region,#settingsModal #settingsForm,.glass-birthday-years,.time-wheel-scroll,.glass-menu,.glass-date-panel,.ex-dropdown,.modal,.edit-popover,.search-results,.qa-search-results,.quick-add-panel';
+  const allowedSelector='.modal-scroll-region,#settingsModal #settingsForm,.glass-birthday-years,.time-wheel-scroll,.glass-menu,.glass-date-panel,.ex-dropdown,.modal,.edit-popover,.search-results,.qa-search-results,.quick-add-panel,.ledger-dt-scroll';
   let scrollY=0;
   let touchLastY=0;
 
