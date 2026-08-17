@@ -106,19 +106,36 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: 'AI返回格式异常' }, 500);
     }
 
-    const sanitized = parsed.results.map((r, i) => ({
-      name: String(r.name || items[i]?.name || '').slice(0, 40),
-      found: r.found !== false,
-      cal: Math.max(0, Math.round(Number(r.cal) || 0)),
-      protein: Math.max(0, Math.round(Number(r.protein) || 0)),
-      carbs: Math.max(0, Math.round(Number(r.carbs) || 0)),
-      fat: Math.max(0, Math.round(Number(r.fat) || 0)),
-      fiber: Math.max(0, Math.round(Number(r.fiber) || 0)),
-      portionAmount: Math.max(0, Math.round(Number(r.portionAmount) || 0)),
-      portionUnit: 'g',
-      confidence: ['high', 'medium', 'low'].includes(r.confidence) ? r.confidence : 'low',
-      estimateReason: String(r.estimateReason || '').slice(0, 80),
-    }));
+    const sanitized = parsed.results.map((r, i) => {
+      const found = r.found !== false;
+      const cal = Math.max(0, Math.round(Number(r.cal) || 0));
+      const protein = Math.max(0, Math.round(Number(r.protein) || 0));
+      const carbs = Math.max(0, Math.round(Number(r.carbs) || 0));
+      const fat = Math.max(0, Math.round(Number(r.fat) || 0));
+      const fiber = Math.max(0, Math.round(Number(r.fiber) || 0));
+      const portionAmount = Math.max(0, Math.round(Number(r.portionAmount) || 0));
+      const servingWeightG = found && portionAmount > 0 ? portionAmount : null;
+      let per100g = null;
+      if (servingWeightG && servingWeightG > 0) {
+        per100g = {
+          calories: Math.round(cal / servingWeightG * 100),
+          protein: Math.round(protein / servingWeightG * 100 * 10) / 10,
+          carbs: Math.round(carbs / servingWeightG * 100 * 10) / 10,
+          fat: Math.round(fat / servingWeightG * 100 * 10) / 10,
+        };
+      }
+      return {
+        name: String(r.name || items[i]?.name || '').slice(0, 40),
+        found,
+        cal, protein, carbs, fat, fiber,
+        portionAmount,
+        portionUnit: 'g',
+        estimatedServingWeightG: servingWeightG,
+        nutritionPer100g: per100g,
+        confidence: ['high', 'medium', 'low'].includes(r.confidence) ? r.confidence : 'low',
+        estimateReason: String(r.estimateReason || '').slice(0, 80),
+      };
+    });
 
     return jsonResponse({ results: sanitized });
   } catch (err) {

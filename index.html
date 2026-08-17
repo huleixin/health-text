@@ -4517,7 +4517,8 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 .ledger-dt-overlay.show{display:flex;animation:glassOverlayIn .18s ease-out both}
 .ledger-dt-panel{
   width:min(360px,calc(100vw - 24px));
-  max-height:78vh;overflow-y:auto;
+  max-height:min(78vh,calc(100vh - 40px - env(safe-area-inset-bottom,0px)));
+  display:flex;flex-direction:column;overflow:hidden;
   border-radius:24px;
   border:1px solid var(--glass-border-gold);
   background:
@@ -4528,6 +4529,9 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(1.18);
   padding:14px;
   animation:glassSheetIn .2s cubic-bezier(.2,.8,.2,1) both;
+}
+.ledger-dt-scroll{
+  flex:1;min-height:0;overflow-y:auto;
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
 }
@@ -4559,6 +4563,7 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 }
 .glass-dt-confirm-row{
   display:flex;gap:8px;margin-top:12px;
+  flex-shrink:0;padding-bottom:calc(env(safe-area-inset-bottom,0px));
 }
 .glass-dt-confirm-row .glass-date-action{
   flex:1;min-height:40px;font-size:13px;
@@ -7412,23 +7417,56 @@ body.health-compare-page-active .app{
 .ledger-ai-items-area.collapsed #ledgerAIItemsList{display:none}
 .ledger-ai-item{font-size:12px;color:var(--txt2);line-height:1.6;padding:2px 0}
 .ledger-ai-items-area{max-height:320px}
-.ledger-ai-edit-row{display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid rgba(128,128,128,0.08)}
+.ledger-ai-edit-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--card-border)}
 .ledger-ai-edit-row:last-child{border-bottom:none}
-.ledger-ai-edit-name{flex:1;min-width:0;font-size:12px;color:var(--txt2);background:transparent;border:1px solid rgba(128,128,128,0.15);border-radius:5px;padding:3px 6px;color:var(--txt1)}
-.ledger-ai-edit-name:focus{border-color:var(--gold-l);outline:none}
-.ledger-ai-qty-group{display:flex;align-items:center;gap:2px;flex-shrink:0}
-.ledger-ai-qty-btn{width:22px;height:22px;border-radius:5px;border:1px solid rgba(128,128,128,0.2);background:rgba(128,128,128,0.06);color:var(--txt2);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.ledger-ai-qty-btn:active{background:rgba(212,175,55,0.15)}
-.ledger-ai-qty-val{width:28px;text-align:center;font-size:12px;color:var(--txt1);flex-shrink:0}
-.ledger-ai-price-input{width:62px;font-size:12px;color:var(--gold-l);background:transparent;border:1px solid rgba(128,128,128,0.15);border-radius:5px;padding:3px 4px;text-align:right;flex-shrink:0}
-.ledger-ai-price-input:focus{border-color:var(--gold-l);outline:none}
-.ledger-ai-fee-row{display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid rgba(128,128,128,0.08)}
+.ledger-ai-edit-name{flex:1;min-width:0;font-size:13px;color:var(--txt1);background:var(--glass-field);border:1px solid var(--card-border);border-radius:8px;padding:6px 10px}
+.ledger-ai-edit-name:focus{border-color:var(--gold-l);outline:none;box-shadow:0 0 0 2px rgba(212,175,55,0.10)}
+[data-theme="light"] .ledger-ai-edit-name{background:rgba(255,255,255,0.7)}
+.ledger-ai-qty-group{display:flex;align-items:center;gap:0;flex-shrink:0;border:1px solid var(--card-border);border-radius:8px;overflow:hidden}
+.ledger-ai-qty-btn{width:26px;height:30px;border:none;background:var(--glass-field);color:var(--txt2);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ledger-ai-qty-btn:active{background:rgba(212,175,55,0.12)}
+[data-theme="light"] .ledger-ai-qty-btn{background:rgba(255,255,255,0.5)}
+.ledger-ai-qty-val{min-width:24px;text-align:center;font-size:12px;font-weight:600;color:var(--txt1);flex-shrink:0}
+.ledger-ai-price-wrap{display:flex;align-items:center;flex-shrink:0;border:1px solid var(--card-border);border-radius:8px;overflow:hidden;background:var(--glass-field)}
+.ledger-ai-price-prefix{font-size:12px;color:var(--txt3);padding:0 4px 0 8px;font-weight:600;flex-shrink:0}
+.ledger-ai-price-input{width:60px;font-size:13px;font-weight:600;color:var(--gold-l);background:transparent;border:none;padding:6px 8px 6px 2px;text-align:right;flex-shrink:0}
+.ledger-ai-price-input:focus{outline:none}
+.ledger-ai-price-wrap:focus-within{border-color:var(--gold-l);box-shadow:0 0 0 2px rgba(212,175,55,0.10)}
+[data-theme="light"] .ledger-ai-price-wrap{background:rgba(255,255,255,0.7)}
+.ledger-ai-fee-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--card-border)}
 .ledger-ai-fee-row:last-child{border-bottom:none}
-.ledger-ai-fee-name{flex:1;min-width:0;font-size:12px;color:var(--txt3);background:transparent;border:1px solid rgba(128,128,128,0.15);border-radius:5px;padding:3px 6px}
+.ledger-ai-fee-name{flex:1;min-width:0;font-size:12px;color:var(--txt3);background:var(--glass-field);border:1px solid var(--card-border);border-radius:8px;padding:6px 10px}
 .ledger-ai-fee-name:focus{border-color:var(--gold-l);outline:none}
-.ledger-ai-subtotal{display:flex;justify-content:space-between;align-items:center;padding:6px 4px 2px;font-size:11px;color:var(--txt3);border-top:1px dashed rgba(128,128,128,0.15);margin-top:4px}
-.ledger-ai-subtotal-val{color:var(--gold-l);font-weight:600}
-.ledger-ai-subtotal-hint{font-size:10px;color:var(--txt3);opacity:.7;padding:0 4px 2px;text-align:right}
+[data-theme="light"] .ledger-ai-fee-name{background:rgba(255,255,255,0.7)}
+.ledger-ai-subtotal{display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px;font-size:12px;color:var(--txt3);border-top:1px dashed var(--card-border);margin-top:4px}
+.ledger-ai-subtotal-val{color:var(--gold-l);font-weight:700;font-size:13px}
+.ledger-ai-subtotal-hint{font-size:10px;color:var(--txt3);opacity:.7;padding:0 0 2px;text-align:right}
+.ledger-ai-source-img{margin-bottom:8px}
+.ledger-ai-source-img-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ledger-ai-source-img-label{font-size:11px;font-weight:700;color:var(--gold-l)}
+.ledger-ai-source-img-view-btn{font-size:11px;color:var(--txt3);cursor:pointer;display:flex;align-items:center;gap:2px}
+.ledger-ai-source-img-view-btn:active{color:var(--gold-l)}
+.ledger-ai-source-img-thumb{width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid var(--card-border);cursor:pointer;background:var(--glass-field)}
+.ledger-ai-source-img-thumb:active{opacity:.85}
+.ledger-ai-orders-area{margin-bottom:8px}
+.ledger-ai-orders-header{font-size:11px;font-weight:700;color:var(--gold-l);margin-bottom:6px}
+.ledger-ai-order-card{border-radius:8px;border:1px solid var(--card-border);padding:10px 12px;margin-bottom:6px;background:var(--glass-field);cursor:pointer;transition:border-color .15s}
+.ledger-ai-order-card:active{border-color:var(--gold-m)}
+.ledger-ai-order-card.selected{border-color:var(--gold-l);background:rgba(212,175,55,0.06)}
+.ledger-ai-order-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}
+.ledger-ai-order-card-merchant{font-size:12px;font-weight:600;color:var(--txt1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ledger-ai-order-card-amount{font-size:14px;font-weight:700;color:var(--gold-l);flex-shrink:0}
+.ledger-ai-order-card-date{font-size:11px;color:var(--txt3)}
+.ledger-ai-order-card-use{margin-top:6px;text-align:right}
+.ledger-ai-order-card-use button{font-size:11px;padding:3px 12px;border-radius:6px;border:1px solid var(--gold-l);background:rgba(212,175,55,0.10);color:var(--gold-l);cursor:pointer;font-weight:600}
+.ledger-ai-order-card.selected .ledger-ai-order-card-use button{background:var(--gold-l);color:#1a1a1a}
+.ledger-ai-retry-btn{font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt2);cursor:pointer;margin-top:4px}
+.ledger-ai-retry-btn:active{border-color:var(--gold-l);color:var(--gold-l)}
+.ledger-img-viewer-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ledger-img-viewer-header{width:100%;padding:12px 16px;display:flex;justify-content:flex-end;flex-shrink:0}
+.ledger-img-viewer-close{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ledger-img-viewer-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;width:100%;display:flex;justify-content:center}
+.ledger-img-viewer-img{max-width:100%;object-fit:contain}
 [data-theme="light"] .ledger-ai-entry-btn{background:rgba(212,175,55,0.10);border-color:rgba(212,175,55,0.30)}
 [data-theme="light"] .ledger-ai-items-area{background:rgba(212,175,55,0.06);border-color:rgba(212,175,55,0.18)}
 /* ===== Food Sync (Phase 6) ===== */
@@ -7457,11 +7495,23 @@ body.health-compare-page-active .app{
 .food-sync-item-nutri{font-size:11px;color:var(--txt2);line-height:1.5;margin-bottom:6px}
 .food-sync-item-nutri .est{color:var(--txt3);font-size:10px}
 .food-sync-item-fail{font-size:11px;color:var(--warn-c,#f0a020);margin-bottom:6px}
-.food-sync-portion{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.food-sync-portion{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;align-items:center}
 .food-sync-portion-btn{padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt2);cursor:pointer;transition:all .15s}
 .food-sync-portion-btn:hover{border-color:var(--gold-m);color:var(--gold-l)}
 .food-sync-portion-btn.active{background:var(--gold-l);color:#1a1a1a;border-color:var(--gold-l);font-weight:600}
 .food-sync-portion-input{width:56px;padding:4px 6px;font-size:11px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt1);text-align:center}
+.food-sync-portion-grams{font-size:10px;color:var(--txt3);margin-left:2px}
+.food-sync-portion-mode{display:flex;gap:4px;margin-bottom:6px}
+.food-sync-weight{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.food-sync-weight-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--card-border);background:var(--glass-field);color:var(--txt2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.food-sync-weight-btn:active{background:rgba(212,175,55,0.12)}
+[data-theme="light"] .food-sync-weight-btn{background:rgba(255,255,255,0.5)}
+.food-sync-weight-input{width:64px;padding:4px 6px;font-size:13px;font-weight:600;border-radius:6px;border:1px solid var(--card-border);background:var(--glass-field);color:var(--txt1);text-align:center}
+.food-sync-weight-input:focus{border-color:var(--gold-l);outline:none}
+[data-theme="light"] .food-sync-weight-input{background:rgba(255,255,255,0.7)}
+.food-sync-weight-unit{font-size:12px;color:var(--txt3)}
+.food-sync-weight-hint{font-size:10px;color:var(--txt3);margin-left:4px}
+.food-sync-item-weight-info{font-size:10px;color:var(--txt3);margin-bottom:4px}
 .food-sync-who{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .food-sync-who-label{font-size:11px;color:var(--txt3);margin-right:2px}
 .food-sync-who-btn{padding:3px 10px;font-size:11px;border-radius:6px;border:1px solid var(--card-border);background:transparent;color:var(--txt2);cursor:pointer;transition:all .15s}
@@ -7478,6 +7528,11 @@ body.health-compare-page-active .app{
 .food-sync-summary-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--txt2);padding:2px 0}
 .food-sync-summary-row b{color:var(--txt1);font-weight:600}
 .food-sync-summary-nutri{display:flex;gap:10px;font-size:10px;color:var(--txt3);padding-left:8px;margin:1px 0 3px}
+.food-sync-summary-detail{padding:4px 0 4px 8px;border-left:2px solid rgba(212,175,55,0.2);margin:3px 0}
+.food-sync-summary-detail-name{font-size:11px;font-weight:600;color:var(--txt1);display:block}
+.food-sync-summary-detail-portion{font-size:10px;color:var(--gold-l);margin-right:6px}
+.food-sync-summary-detail-nutri{font-size:10px;color:var(--txt3)}
+.food-sync-summary-total{font-size:11px;color:var(--txt2);padding:4px 0 2px;border-top:1px dashed var(--card-border);margin-top:4px;font-weight:600}
 .food-sync-summary-empty{font-size:11px;color:var(--txt3);padding:6px 0}
 .food-sync-linked-list{margin:8px 0;display:flex;flex-direction:column;gap:8px}
 .food-sync-linked-group{border-radius:8px;border:1px solid var(--card-border);padding:8px 10px;background:var(--card-bg)}
@@ -14001,6 +14056,10 @@ let _ledgerPickerSelectedId='';
 let _ledgerAIResult=null;
 let _ledgerAIToken=0;
 let _ledgerAIPendingDiet=false;
+let _ledgerAISourceImageURL=null;
+let _ledgerAIDetectedOrders=[];
+let _ledgerAISelectedOrderIdx=0;
+let _ledgerAIImageType='unknown';
 function formatLedgerDateGroup(dateStr){
   if(!dateStr) return '';
   const d=dateStr.slice(0,10);
@@ -14185,23 +14244,98 @@ function parseExpenseAIResult(text){
   if(match){try{return JSON.parse(match[0])}catch(e){}}
   return null;
 }
-function prefillLedgerEditorFromAI(result,form){
-  if(!result||!result.expense) return;
-  const exp=result.expense;
-  if(exp.amount!=null&&!isNaN(Number(exp.amount))){
+function prefillLedgerEditorFromAI(result,form,imageURL){
+  if(!result) return;
+  if(imageURL) _ledgerAISourceImageURL=imageURL;
+  _ledgerAIImageType=result.imageType||'unknown';
+  _ledgerAIDetectedOrders=Array.isArray(result.orders)?result.orders.filter(o=>o&&typeof o==='object'):[];
+  if(_ledgerAISourceImageURL){
+    renderLedgerAISourceImage(form,_ledgerAISourceImageURL);
+  }
+  if(_ledgerAIDetectedOrders.length===0){
+    const ordersArea=form.querySelector('#ledgerAIOrdersArea');
+    if(ordersArea) ordersArea.style.display='none';
+    const itemsArea=form.querySelector('#ledgerAIItemsArea');
+    if(itemsArea) itemsArea.style.display='none';
+    _ledgerAIResult=null;
+    return;
+  }
+  renderLedgerAIOrders(form);
+  selectLedgerAIOrder(0);
+}
+function renderLedgerAISourceImage(form,imageURL){
+  const area=form.querySelector('#ledgerAISourceImgArea');
+  if(!area||!imageURL) return;
+  area.style.display='';
+  area.innerHTML=`<div class="ledger-ai-source-img">
+    <div class="ledger-ai-source-img-header">
+      <div class="ledger-ai-source-img-label">原始截图</div>
+      <div class="ledger-ai-source-img-view-btn" onclick="openLedgerImageViewer()">查看大图 <span class="ui-icon" data-icon="image"></span></div>
+    </div>
+    <img class="ledger-ai-source-img-thumb" src="${imageURL}" alt="原始订单截图" onclick="openLedgerImageViewer()">
+  </div>`;
+  renderIcons(area);
+}
+function renderLedgerAIOrders(form){
+  const area=form.querySelector('#ledgerAIOrdersArea');
+  if(!area) return;
+  if(_ledgerAIDetectedOrders.length===0){area.style.display='none';return}
+  area.style.display='';
+  const count=_ledgerAIDetectedOrders.length;
+  let html=`<div class="ledger-ai-orders-header">识别到 ${count} 笔订单${count>1?'，请选择':''}</div>`;
+  _ledgerAIDetectedOrders.forEach((order,i)=>{
+    const amount=order.amount!=null&&!isNaN(Number(order.amount))?`¥${Number(order.amount).toFixed(2)}`:'¥—';
+    const merchant=order.merchant||'未知商家';
+    let dateStr='';
+    if(order.occurredAt){dateStr=String(order.occurredAt).slice(0,10).replace(/-/g,'/')}
+    let timeStr='';
+    if(order.startTime&&order.endTime){timeStr=`${String(order.startTime).slice(0,5)} - ${String(order.endTime).slice(0,5)}`}
+    else if(order.occurredAt){timeStr=String(order.occurredAt).slice(11,16)}
+    const selected=i===_ledgerAISelectedOrderIdx?' selected':'';
+    const btnText=i===_ledgerAISelectedOrderIdx?'当前使用':'使用这笔';
+    html+=`<div class="ledger-ai-order-card${selected}" data-order-idx="${i}">
+      <div class="ledger-ai-order-card-head">
+        <div class="ledger-ai-order-card-merchant">${escapeHTML(merchant)}</div>
+        <div class="ledger-ai-order-card-amount">${amount}</div>
+      </div>
+      <div class="ledger-ai-order-card-date">${dateStr}${timeStr?' · '+timeStr:''}</div>
+      <div class="ledger-ai-order-card-use"><button type="button" onclick="event.stopPropagation();selectLedgerAIOrder(${i})">${btnText}</button></div>
+    </div>`;
+  });
+  area.innerHTML=html;
+  area.querySelectorAll('.ledger-ai-order-card').forEach(card=>{
+    card.addEventListener('click',()=>{
+      const idx=Number(card.dataset.orderIdx);
+      selectLedgerAIOrder(idx);
+    });
+  });
+}
+function selectLedgerAIOrder(idx){
+  if(idx<0||idx>=_ledgerAIDetectedOrders.length) return;
+  _ledgerAISelectedOrderIdx=idx;
+  const order=_ledgerAIDetectedOrders[idx];
+  const form=document.getElementById('coupleLedgerForm');
+  if(!form) return;
+  const cards=form.querySelectorAll('.ledger-ai-order-card');
+  cards.forEach((card,i)=>{
+    const btn=card.querySelector('.ledger-ai-order-card-use button');
+    if(i===idx){card.classList.add('selected');if(btn)btn.textContent='当前使用'}
+    else{card.classList.remove('selected');if(btn)btn.textContent='使用这笔'}
+  });
+  if(order.amount!=null&&!isNaN(Number(order.amount))){
     const amountInput=form.querySelector('#ledgerExpAmount');
-    if(amountInput) amountInput.value=(Number(exp.amount)).toFixed(2);
+    if(amountInput) amountInput.value=(Number(order.amount)).toFixed(2);
   }
-  if(exp.categoryKey){
+  if(order.categoryKey){
     const catSelect=form.querySelector('#ledgerExpCategory');
-    if(catSelect) catSelect.value=resolveLedgerCategory(exp.categoryKey);
+    if(catSelect) catSelect.value=resolveLedgerCategory(order.categoryKey);
   }
-  if(exp.merchant){
+  if(order.merchant){
     const merchantInput=form.querySelector('#ledgerExpMerchant');
-    if(merchantInput) merchantInput.value=String(exp.merchant).slice(0,40);
+    if(merchantInput) merchantInput.value=String(order.merchant).slice(0,40);
   }
-  if(exp.occurredAt){
-    const dt=String(exp.occurredAt).slice(0,16);
+  if(order.occurredAt){
+    const dt=String(order.occurredAt).slice(0,16);
     if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dt)){
       const dtInput=form.querySelector('#ledgerExpDatetime');
       if(dtInput) dtInput.value=dt;
@@ -14209,11 +14343,11 @@ function prefillLedgerEditorFromAI(result,form){
       if(dtText) dtText.textContent=formatLedgerDateTime(dt);
     }
   }
-  const items=Array.isArray(result.orderItems)?result.orderItems:[];
-  const isOrderType=result.imageType==='food_order'||result.imageType==='hotel_order'||result.imageType==='transport_order'||result.imageType==='shopping_order'||result.imageType==='other_order';
+  const items=Array.isArray(order.orderItems)?order.orderItems:[];
+  const isOrderType=_ledgerAIImageType==='food_order'||_ledgerAIImageType==='hotel_order'||_ledgerAIImageType==='transport_order'||_ledgerAIImageType==='shopping_order'||_ledgerAIImageType==='other_order';
   const source=isOrderType?'ai_order':'ai_payment';
   const normalizedItems=items.map(oi=>normalizeOrderItem(oi));
-  _ledgerAIResult={source,orderItems:normalizedItems,imageType:result.imageType||'unknown'};
+  _ledgerAIResult={source,orderItems:normalizedItems,imageType:_ledgerAIImageType};
   const itemsArea=form.querySelector('#ledgerAIItemsArea');
   if(itemsArea){
     if(normalizedItems.length>0){
@@ -14226,6 +14360,19 @@ function prefillLedgerEditorFromAI(result,form){
       itemsArea.style.display='none';
     }
   }
+}
+function openLedgerImageViewer(){
+  const imageURL=_ledgerAISourceImageURL;
+  if(!imageURL) return;
+  const overlay=document.createElement('div');
+  overlay.className='ledger-img-viewer-overlay';
+  overlay.innerHTML=`<div class="ledger-img-viewer-header"><button class="ledger-img-viewer-close" type="button">×</button></div><div class="ledger-img-viewer-scroll"><img class="ledger-img-viewer-img" src="${imageURL}" alt="原始截图"></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>{overlay.remove();document.removeEventListener('keydown',escClose)};
+  const escClose=(e)=>{if(e.key==='Escape')close()};
+  overlay.querySelector('.ledger-img-viewer-close').addEventListener('click',close);
+  overlay.addEventListener('click',(e)=>{if(e.target===overlay)close()});
+  document.addEventListener('keydown',escClose);
 }
 const FEE_ITEM_KEYWORDS=['包装费','配送费','服务费','餐盒费','打包费','运费','配送','包装','餐盒','服务','满减','优惠','红包','折扣','抵扣','优惠券'];
 function isFeeOrderItem(name){
@@ -14254,19 +14401,24 @@ function renderEditableOrderItems(items){
     if(oi.isFee){
       html+=`<div class="ledger-ai-fee-row" data-idx="${i}">
         <input class="ledger-ai-fee-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30">
-        <span style="font-size:11px;color:var(--txt3);flex-shrink:0">¥</span>
-        <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
+        <div class="ledger-ai-price-wrap">
+          <span class="ledger-ai-price-prefix">¥</span>
+          <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
+        </div>
       </div>`;
     }else{
-      html+=`<div class="ledger-ai-edit-row" data-idx="${i}">
-        <input class="ledger-ai-edit-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30">
+      html+=`<div class="ledger-ai-edit-row" data-idx="${i}" style="flex-wrap:wrap">
+        <input class="ledger-ai-edit-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30" style="flex-basis:100%;margin-bottom:6px">
         <div class="ledger-ai-qty-group">
           <button class="ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},-1)">−</button>
           <span class="ledger-ai-qty-val" id="ledgerAIQty_${i}">${oi.quantity}</span>
           <button class="ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},1)">+</button>
         </div>
-        <span style="font-size:11px;color:var(--txt3);flex-shrink:0">¥</span>
-        <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
+        <span style="flex:1"></span>
+        <div class="ledger-ai-price-wrap">
+          <span class="ledger-ai-price-prefix">¥</span>
+          <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
+        </div>
       </div>`;
     }
   });
@@ -14348,16 +14500,28 @@ async function handleLedgerAIFile(file,form){
   if(aiEntry) aiEntry.style.display='none';
   if(aiStatus) aiStatus.style.display='';
   if(aiStatus) aiStatus.textContent='正在压缩图片…';
+  _ledgerAISourceImageURL=null;
+  _ledgerAIDetectedOrders=[];
+  _ledgerAISelectedOrderIdx=0;
+  _ledgerAIImageType='unknown';
+  const oldOrdersArea=form.querySelector('#ledgerAIOrdersArea');
+  if(oldOrdersArea) oldOrdersArea.style.display='none';
+  const oldItemsArea=form.querySelector('#ledgerAIItemsArea');
+  if(oldItemsArea) oldItemsArea.style.display='none';
+  const oldImgArea=form.querySelector('#ledgerAISourceImgArea');
+  if(oldImgArea) oldImgArea.style.display='none';
   try{
     const compressed=await compressFoodImage(file,{maxSide:1280,quality:.80});
     if(token!==_ledgerAIToken) return;
     const imageURL=compressed.url;
+    _ledgerAISourceImageURL=imageURL;
     if(aiStatus) aiStatus.textContent='正在识别账单…';
     const text=await callExpenseRecognitionAI(imageURL);
     if(token!==_ledgerAIToken) return;
     const result=parseExpenseAIResult(text);
     if(!result||result.imageType==='unknown'||!result.ok){
-      if(aiStatus) aiStatus.textContent='暂时无法可靠识别这张图片，请手动填写';
+      renderLedgerAISourceImage(form,imageURL);
+      if(aiStatus) aiStatus.innerHTML='未识别到明确订单，你可以查看原图后手动填写。<br><button class="ledger-ai-retry-btn" type="button" onclick="retryLedgerAIRecognition()">重新识别</button>';
       if(aiStatus) aiStatus.style.color='var(--txt3)';
       if(aiEntry) aiEntry.style.display='';
       _ledgerAIResult=null;
@@ -14370,7 +14534,7 @@ async function handleLedgerAIFile(file,form){
       _ledgerAIResult=null;
       return;
     }
-    prefillLedgerEditorFromAI(result,form);
+    prefillLedgerEditorFromAI(result,form,imageURL);
     if(aiStatus){
       aiStatus.textContent='AI已智能填充，请确认';
       aiStatus.style.color='var(--gold-l)';
@@ -14379,12 +14543,55 @@ async function handleLedgerAIFile(file,form){
   }catch(err){
     if(token!==_ledgerAIToken) return;
     console.error('Ledger AI recognition error:',err);
+    if(_ledgerAISourceImageURL){
+      renderLedgerAISourceImage(form,_ledgerAISourceImageURL);
+    }
     if(aiStatus){
-      aiStatus.textContent='识别失败，请手动填写';
+      aiStatus.innerHTML='识别失败<br><button class="ledger-ai-retry-btn" type="button" onclick="retryLedgerAIRecognition()">重新识别</button>';
       aiStatus.style.color='var(--txt3)';
     }
     if(aiEntry) aiEntry.style.display='';
     _ledgerAIResult=null;
+  }
+}
+async function retryLedgerAIRecognition(){
+  const imageURL=_ledgerAISourceImageURL;
+  if(!imageURL) return;
+  const form=document.getElementById('coupleLedgerForm');
+  if(!form) return;
+  const aiStatus=form.querySelector('#ledgerAIStatus');
+  const aiEntry=form.querySelector('#ledgerAIEntry');
+  const token=++_ledgerAIToken;
+  if(aiEntry) aiEntry.style.display='none';
+  if(aiStatus) aiStatus.style.display='';
+  if(aiStatus) aiStatus.textContent='正在重新识别…';
+  const retryOrdersArea=form.querySelector('#ledgerAIOrdersArea');
+  if(retryOrdersArea) retryOrdersArea.style.display='none';
+  const retryItemsArea=form.querySelector('#ledgerAIItemsArea');
+  if(retryItemsArea) retryItemsArea.style.display='none';
+  try{
+    const text=await callExpenseRecognitionAI(imageURL);
+    if(token!==_ledgerAIToken) return;
+    const result=parseExpenseAIResult(text);
+    if(!result||result.imageType==='unknown'||!result.ok){
+      if(aiStatus) aiStatus.innerHTML='未识别到明确订单，你可以查看原图后手动填写。<br><button class="ledger-ai-retry-btn" type="button" onclick="retryLedgerAIRecognition()">重新识别</button>';
+      if(aiStatus) aiStatus.style.color='var(--txt3)';
+      if(aiEntry) aiEntry.style.display='';
+      return;
+    }
+    prefillLedgerEditorFromAI(result,form,imageURL);
+    if(aiStatus){
+      aiStatus.textContent='AI已智能填充，请确认';
+      aiStatus.style.color='var(--gold-l)';
+    }
+    if(aiEntry) aiEntry.style.display='';
+  }catch(err){
+    if(token!==_ledgerAIToken) return;
+    if(aiStatus){
+      aiStatus.innerHTML='识别失败<br><button class="ledger-ai-retry-btn" type="button" onclick="retryLedgerAIRecognition()">重新识别</button>';
+      aiStatus.style.color='var(--txt3)';
+    }
+    if(aiEntry) aiEntry.style.display='';
   }
 }
 function openCoupleLedgerEditor(expenseId){
@@ -14405,6 +14612,10 @@ function openCoupleLedgerEditor(expenseId){
   titleEl.textContent=isEdit?'编辑账单':'记一笔';
   _ledgerAIResult=null;
   _ledgerAIToken++;
+  _ledgerAISourceImageURL=null;
+  _ledgerAIDetectedOrders=[];
+  _ledgerAISelectedOrderIdx=0;
+  _ledgerAIImageType='unknown';
   let defaultPeriodId=existing?.periodId;
   if(defaultPeriodId===undefined){
     defaultPeriodId=(activePeriod&&isDateInRange(defaultDatetime,activePeriod.startDate,activePeriod.endDate))?activePeriod.id:(activePeriod?activePeriod.id:null);
@@ -14420,6 +14631,8 @@ function openCoupleLedgerEditor(expenseId){
       <input type="file" id="ledgerAIInput" class="photo-input-native" accept="image/*" capture="environment" style="display:none">
     </div>
     <div class="ledger-ai-status" id="ledgerAIStatus" style="display:none"></div>
+    <div id="ledgerAISourceImgArea" style="display:none"></div>
+    <div id="ledgerAIOrdersArea" style="display:none"></div>
     <div class="ledger-ai-items-area" id="ledgerAIItemsArea" style="display:none">
       <div class="ledger-ai-items-header" id="ledgerAIItemsToggle">识别到的订单内容 <span class="ledger-ai-items-arrow">▾</span></div>
       <div id="ledgerAIItemsList"></div>
@@ -14615,22 +14828,24 @@ function renderLedgerDTPanel(panel){
   const hourOpts=Array.from({length:24},(_,i)=>`<option value="${i}" ${i===state.hour?'selected':''}>${String(i).padStart(2,'0')}</option>`).join('');
   const minOpts=Array.from({length:60},(_,i)=>`<option value="${i}" ${i===state.minute?'selected':''}>${String(i).padStart(2,'0')}</option>`).join('');
   panel.innerHTML=`
-    <div class="glass-date-head">
-      <button class="glass-date-nav" type="button" data-nav="-1">‹</button>
-      <button class="glass-date-title-btn" type="button">${monthTitle}</button>
-      <button class="glass-date-nav" type="button" data-nav="1">›</button>
-    </div>
-    <div class="glass-date-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
-    <div class="glass-date-grid">${days}</div>
-    <div class="glass-date-actions">
-      <button class="glass-date-action" type="button" data-action="today">今天</button>
-    </div>
-    <div class="glass-dt-time-area">
-      <div class="glass-dt-time-label">时间</div>
-      <div class="glass-dt-time-pickers">
-        <select class="glass-dt-time-select" id="ledgerDTHour">${hourOpts}</select>
-        <span class="glass-dt-time-colon">:</span>
-        <select class="glass-dt-time-select" id="ledgerDTMin">${minOpts}</select>
+    <div class="ledger-dt-scroll">
+      <div class="glass-date-head">
+        <button class="glass-date-nav" type="button" data-nav="-1">‹</button>
+        <button class="glass-date-title-btn" type="button">${monthTitle}</button>
+        <button class="glass-date-nav" type="button" data-nav="1">›</button>
+      </div>
+      <div class="glass-date-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+      <div class="glass-date-grid">${days}</div>
+      <div class="glass-date-actions">
+        <button class="glass-date-action" type="button" data-action="today">今天</button>
+      </div>
+      <div class="glass-dt-time-area">
+        <div class="glass-dt-time-label">时间</div>
+        <div class="glass-dt-time-pickers">
+          <select class="glass-dt-time-select" id="ledgerDTHour">${hourOpts}</select>
+          <span class="glass-dt-time-colon">:</span>
+          <select class="glass-dt-time-select" id="ledgerDTMin">${minOpts}</select>
+        </div>
       </div>
     </div>
     <div class="glass-dt-confirm-row">
@@ -14679,6 +14894,7 @@ function closeLedgerEditor(){
   _ledgerAIResult=null;
   _ledgerAIToken++;
   _ledgerAIPendingDiet=false;
+  document.querySelectorAll('.ledger-img-viewer-overlay').forEach(el=>el.remove());
   closeModal('coupleLedgerModal');
   if(pendingDiet&&session&&session.result){
     const result=session.result;
@@ -14881,16 +15097,24 @@ async function openFoodSyncEditor(expenseId){
         const quantity=Math.max(1,Number(oi.quantity)||1);
         const portionAmount=Math.max(1,Number(nutri.portionAmount)||100);
         const totalGrams=portionAmount*quantity;
+        const estimatedServingWeightG=nutri.estimatedServingWeightG!=null?Number(nutri.estimatedServingWeightG):null;
+        const nutritionPer100g=nutri.nutritionPer100g||null;
+        const isFee=isFeeOrderItem(oi.name);
         return{
           name:oi.name||'未知菜品',
           spec:oi.spec||null,
           quantity,
-          included:nutri.found!==false,
+          included:nutri.found!==false&&!isFee,
+          isFee,
           nutrition:nutri,
           portionAmount,
           totalAmount:totalGrams,
           totalGrams,
+          estimatedServingWeightG,
+          nutritionPer100g,
+          portionMode:'ratio',
           portionPct:100,
+          consumedWeightG:estimatedServingWeightG?Math.round(estimatedServingWeightG*quantity):100,
           who:'owner',
           splitMode:'ratio',
           splitOwner:50,
@@ -14933,27 +15157,68 @@ function renderFoodSyncForm(){
   s.items.forEach((item,i)=>{
     const nutri=item.nutrition;
     const found=nutri.found!==false;
+    const isFee=!!item.isFee;
     const qtyText=item.quantity>1?` ×${item.quantity}`:'';
     const specText=item.spec?` · ${escapeHTML(item.spec)}`:'';
     html+=`<div class="food-sync-item ${item.included?'':'disabled'}" data-idx="${i}">
       <div class="food-sync-item-head">
-        <input type="checkbox" class="food-sync-item-check" data-idx="${i}" ${item.included?'checked':''}>
+        <input type="checkbox" class="food-sync-item-check" data-idx="${i}" ${item.included?'checked':''} ${isFee?'disabled':''}>
         <span class="food-sync-item-name">${escapeHTML(item.name)}${specText}</span>
         <span class="food-sync-item-qty">${qtyText}</span>
       </div>`;
-    if(!found){
+    if(isFee){
+      html+=`<div class="food-sync-item-fail">非食物项 / 不参与营养记录</div>`;
+    }else if(!found){
       html+=`<div class="food-sync-item-fail">暂无法估算 · 可取消勾选跳过此菜</div>`;
     }else{
       const totalCal=Math.round((nutri.cal||0)*item.quantity);
-      html+=`<div class="food-sync-item-nutri">整份约 ${nutri.cal||0} kcal · 蛋白质${nutri.protein||0}g · 碳水${nutri.carbs||0}g · 脂肪${nutri.fat||0}g${item.quantity>1?` <span class="est">×${item.quantity}=${totalCal}kcal</span>`:''}<span class="est"> · AI估算</span></div>`;
+      const swG=item.estimatedServingWeightG;
+      const per100g=item.nutritionPer100g;
+      const weightAvailable=!!(per100g||(swG&&swG>0&&(nutri.cal||0)>0));
+      let nutriLine='整份约 ';
+      if(swG&&swG>0){
+        nutriLine+=`${Math.round(swG*item.quantity)}g · `;
+      }
+      nutriLine+=`${Math.round((nutri.cal||0)*item.quantity)} kcal · 蛋白质${Math.round((nutri.protein||0)*item.quantity)}g · 碳水${Math.round((nutri.carbs||0)*item.quantity)}g · 脂肪${Math.round((nutri.fat||0)*item.quantity)}g`;
+      nutriLine+=`<span class="est"> · AI估算</span>`;
+      if(!swG||swG<=0){
+        nutriLine=`整份约 ${Math.round((nutri.cal||0)*item.quantity)} kcal · 蛋白质${Math.round((nutri.protein||0)*item.quantity)}g · 碳水${Math.round((nutri.carbs||0)*item.quantity)}g · 脂肪${Math.round((nutri.fat||0)*item.quantity)}g<span class="est"> · AI估算</span>`;
+      }
+      html+=`<div class="food-sync-item-nutri">${nutriLine}</div>`;
       if(item.who!=='both'){
-        html+=`<div class="food-sync-portion">
-          <button class="food-sync-portion-btn ${item.portionPct===25?'active':''}" data-idx="${i}" data-pct="25">25%</button>
-          <button class="food-sync-portion-btn ${item.portionPct===50?'active':''}" data-idx="${i}" data-pct="50">50%</button>
-          <button class="food-sync-portion-btn ${item.portionPct===75?'active':''}" data-idx="${i}" data-pct="75">75%</button>
-          <button class="food-sync-portion-btn ${item.portionPct===100?'active':''}" data-idx="${i}" data-pct="100">100%</button>
-          <input type="number" class="food-sync-portion-input" data-idx="${i}" placeholder="自定义%" min="0" max="200" value="${![25,50,75,100].includes(item.portionPct)?item.portionPct:''}">
+        html+=`<div class="food-sync-portion-mode">
+          <button class="food-sync-portion-btn ${item.portionMode!=='weight'?'active':''}" data-idx="${i}" data-portion-mode="ratio">按比例</button>
+          <button class="food-sync-portion-btn ${item.portionMode==='weight'?'active':''}" data-idx="${i}" data-portion-mode="weight" ${weightAvailable?'':'disabled style="opacity:.4;cursor:not-allowed"'}>按克数</button>
         </div>`;
+        if(item.portionMode==='weight'&&weightAvailable){
+          html+=`<div class="food-sync-weight">
+            <button class="food-sync-weight-btn" type="button" data-idx="${i}" data-weight-adjust="-10">−</button>
+            <input type="number" class="food-sync-weight-input" data-idx="${i}" data-weight-input="1" min="1" value="${Math.round(item.consumedWeightG||0)}">
+            <span class="food-sync-weight-unit">g</span>
+            <button class="food-sync-weight-btn" type="button" data-idx="${i}" data-weight-adjust="10">+</button>`;
+          if(!swG||swG<=0){
+            html+=`<span class="food-sync-weight-hint">整份重量：未可靠识别</span>`;
+          }else{
+            const pctFromWeight=Math.round((item.consumedWeightG||0)/(swG*item.quantity)*100);
+            html+=`<span class="food-sync-weight-hint">≈${pctFromWeight}%</span>`;
+          }
+          html+=`</div>`;
+        }else{
+          const approxG=swG&&swG>0?Math.round(swG*item.quantity*(item.portionPct/100)):null;
+          html+=`<div class="food-sync-portion">
+            <button class="food-sync-portion-btn ${item.portionPct===25?'active':''}" data-idx="${i}" data-pct="25">25%</button>
+            <button class="food-sync-portion-btn ${item.portionPct===50?'active':''}" data-idx="${i}" data-pct="50">50%</button>
+            <button class="food-sync-portion-btn ${item.portionPct===75?'active':''}" data-idx="${i}" data-pct="75">75%</button>
+            <button class="food-sync-portion-btn ${item.portionPct===100?'active':''}" data-idx="${i}" data-pct="100">100%</button>
+            <input type="number" class="food-sync-portion-input" data-idx="${i}" placeholder="自定义%" min="0" max="200" value="${![25,50,75,100].includes(item.portionPct)?item.portionPct:''}">`;
+          if(approxG){
+            html+=`<span class="food-sync-portion-grams">≈${approxG}g</span>`;
+          }
+          html+=`</div>`;
+          if(!weightAvailable){
+            html+=`<div class="food-sync-item-weight-info">暂无可靠克重营养基准，请使用比例记录</div>`;
+          }
+        }
       }
       html+=`<div class="food-sync-who">
         <span class="food-sync-who-label">谁吃了：</span>
@@ -15048,6 +15313,73 @@ function bindFoodSyncFormEvents(){
         _foodSyncState.items[idx].portionPct=val;
         const c=inp.closest('.food-sync-portion');
         c.querySelectorAll('.food-sync-portion-btn[data-pct]').forEach(b=>b.classList.remove('active'));
+        const gramsEl=c.querySelector('.food-sync-portion-grams');
+        if(gramsEl){
+          const item=_foodSyncState.items[idx];
+          const swG=item.estimatedServingWeightG;
+          if(swG&&swG>0){
+            gramsEl.textContent=`≈${Math.round(swG*item.quantity*(val/100))}g`;
+          }
+        }
+        updateFoodSyncSummary();
+      }
+    });
+  });
+  form.querySelectorAll('.food-sync-portion-btn[data-portion-mode]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(btn.disabled) return;
+      const idx=Number(btn.dataset.idx);
+      const mode=btn.dataset.portionMode;
+      const item=_foodSyncState.items[idx];
+      if(!item) return;
+      if(mode==='weight'){
+        const swG=item.estimatedServingWeightG;
+        if(swG&&swG>0){
+          item.consumedWeightG=Math.round(swG*item.quantity*(item.portionPct/100));
+        }else if(!item.consumedWeightG||item.consumedWeightG<=0){
+          item.consumedWeightG=100;
+        }
+      }else{
+        const swG2=item.estimatedServingWeightG;
+        if(swG2&&swG2>0&&item.consumedWeightG>0){
+          item.portionPct=Math.max(1,Math.min(100,Math.round(item.consumedWeightG/(swG2*item.quantity)*100)));
+        }
+      }
+      item.portionMode=mode;
+      renderFoodSyncForm();
+    });
+  });
+  form.querySelectorAll('[data-weight-adjust]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=Number(btn.dataset.idx);
+      const delta=Number(btn.dataset.weightAdjust);
+      const item=_foodSyncState.items[idx];
+      if(!item) return;
+      item.consumedWeightG=Math.max(1,(item.consumedWeightG||0)+delta);
+      const inp=form.querySelector(`[data-weight-input][data-idx="${idx}"]`);
+      if(inp) inp.value=item.consumedWeightG;
+      const itemEl=btn.closest('.food-sync-item');
+      const hint=itemEl?itemEl.querySelector('.food-sync-weight-hint'):null;
+      const swG=item.estimatedServingWeightG;
+      if(hint&&swG&&swG>0){
+        const pct=Math.round(item.consumedWeightG/(swG*item.quantity)*100);
+        hint.textContent=`≈${pct}%`;
+      }
+      updateFoodSyncSummary();
+    });
+  });
+  form.querySelectorAll('[data-weight-input]').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const idx=Number(inp.dataset.idx);
+      const val=Number(inp.value);
+      if(_foodSyncState.items[idx]&&Number.isFinite(val)&&val>=1){
+        _foodSyncState.items[idx].consumedWeightG=Math.round(val);
+        const hint=inp.closest('.food-sync-weight')?.querySelector('.food-sync-weight-hint');
+        const swG=_foodSyncState.items[idx].estimatedServingWeightG;
+        if(hint&&swG&&swG>0){
+          const pct=Math.round(val/(swG*_foodSyncState.items[idx].quantity)*100);
+          hint.textContent=`≈${pct}%`;
+        }
         updateFoodSyncSummary();
       }
     });
@@ -15171,35 +15503,78 @@ function updateFoodSyncSummary(){
   const oT={calories:0,protein:0,carbs:0,fat:0};
   const pT={calories:0,protein:0,carbs:0,fat:0};
   let oHas=false,pHas=false;
+  const oItems=[],pItems=[];
   s.items.forEach(item=>{
     if(!item.included||item.nutrition.found===false) return;
-    const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
-    const portionAmt=Math.max(1,Number(item.portionAmount)||100);
-    const totalG=Math.max(1,Number(item.totalGrams)||portionAmt*item.quantity);
-    const bCal=Number(item.nutrition.cal)||0;
-    const bPro=Number(item.nutrition.protein)||0;
-    const bCarb=Number(item.nutrition.carbs)||0;
-    const bFat=Number(item.nutrition.fat)||0;
-    const perGC=bCal/portionAmt,perGP=bPro/portionAmt,perGCb=bCarb/portionAmt,perGF=bFat/portionAmt;
-    const tCal=perGC*totalG*pct;
-    const tPro=perGP*totalG*pct;
-    const tCarb=perGCb*totalG*pct;
-    const tFat=perGF*totalG*pct;
-    if(item.who==='owner'){
-      oT.calories+=tCal;oT.protein+=tPro;oT.carbs+=tCarb;oT.fat+=tFat;oHas=true;
-    }else if(item.who==='partner'){
-      pT.calories+=tCal;pT.protein+=tPro;pT.carbs+=tCarb;pT.fat+=tFat;pHas=true;
-    }else if(item.who==='both'){
-      let oR,pR;
+    const nutri=item.nutrition;
+    const qty=item.quantity;
+    const swG=item.estimatedServingWeightG;
+    const per100g=item.nutritionPer100g;
+    const wholeCal=(Number(nutri.cal)||0)*qty;
+    const wholePro=(Number(nutri.protein)||0)*qty;
+    const wholeCarb=(Number(nutri.carbs)||0)*qty;
+    const wholeFat=(Number(nutri.fat)||0)*qty;
+    let portionText='',cal=0,pro=0,carb=0,fat=0;
+    if(item.who!=='both'){
+      if(item.portionMode==='weight'){
+        const wg=Math.max(0,Number(item.consumedWeightG)||0);
+        if(per100g){
+          cal=Math.round(per100g.calories*wg/100);
+          pro=Math.round(per100g.protein*wg/100*10)/10;
+          carb=Math.round(per100g.carbs*wg/100*10)/10;
+          fat=Math.round(per100g.fat*wg/100*10)/10;
+        }else if(swG&&swG>0){
+          const ratio=wg/(swG*qty);
+          cal=Math.round(wholeCal*ratio);
+          pro=Math.round(wholePro*ratio*10)/10;
+          carb=Math.round(wholeCarb*ratio*10)/10;
+          fat=Math.round(wholeFat*ratio*10)/10;
+        }
+        portionText=`${Math.round(wg)}g`;
+      }else{
+        const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
+        cal=Math.round(wholeCal*pct);
+        pro=Math.round(wholePro*pct*10)/10;
+        carb=Math.round(wholeCarb*pct*10)/10;
+        fat=Math.round(wholeFat*pct*10)/10;
+        portionText=`${Math.round(pct*100)}%`;
+        if(swG&&swG>0){
+          const approxG=Math.round(swG*qty*pct);
+          portionText+=` · 约${approxG}g`;
+        }
+      }
+      const detail={name:item.name,portionText,cal,pro,carb,fat};
+      if(item.who==='owner'){
+        oT.calories+=cal;oT.protein+=pro;oT.carbs+=carb;oT.fat+=fat;oHas=true;
+        oItems.push(detail);
+      }else if(item.who==='partner'){
+        pT.calories+=cal;pT.protein+=pro;pT.carbs+=carb;pT.fat+=fat;pHas=true;
+        pItems.push(detail);
+      }
+    }else{
+      const portionAmt=Math.max(1,Number(item.portionAmount)||100);
+      const totalG=Math.max(1,Number(item.totalGrams)||portionAmt*qty);
+      const bCal=Number(nutri.cal)||0;
+      const bPro=Number(nutri.protein)||0;
+      const bCarb=Number(nutri.carbs)||0;
+      const bFat=Number(nutri.fat)||0;
+      const perGC=bCal/portionAmt,perGP=bPro/portionAmt,perGCb=bCarb/portionAmt,perGF=bFat/portionAmt;
+      const tCal=perGC*totalG, tPro=perGP*totalG, tCarb=perGCb*totalG, tFat=perGF*totalG;
+      let oR,pR,oG=0,pG=0;
       if(item.splitMode==='grams'){
         oR=Math.max(0,Math.min(1,(Number(item.splitOwnerGrams)||0)/totalG));
         pR=Math.max(0,Math.min(1,(Number(item.splitPartnerGrams)||0)/totalG));
+        oG=Number(item.splitOwnerGrams)||0;
+        pG=Number(item.splitPartnerGrams)||0;
       }else{
         oR=Math.max(0,Math.min(1,(Number(item.splitOwner)||0)/100));
         pR=Math.max(0,Math.min(1,(Number(item.splitPartner)||0)/100));
+        oG=totalG*oR; pG=totalG*pR;
       }
       oT.calories+=tCal*oR;oT.protein+=tPro*oR;oT.carbs+=tCarb*oR;oT.fat+=tFat*oR;oHas=true;
       pT.calories+=tCal*pR;pT.protein+=tPro*pR;pT.carbs+=tCarb*pR;pT.fat+=tFat*pR;pHas=true;
+      oItems.push({name:item.name,portionText:`${Math.round(oG)}g`,cal:Math.round(tCal*oR),pro:Math.round(tPro*oR*10)/10,carb:Math.round(tCarb*oR*10)/10,fat:Math.round(tFat*oR*10)/10});
+      pItems.push({name:item.name,portionText:`${Math.round(pG)}g`,cal:Math.round(tCal*pR),pro:Math.round(tPro*pR*10)/10,carb:Math.round(tCarb*pR*10)/10,fat:Math.round(tFat*pR*10)/10});
     }
   });
   let html='<div class="food-sync-summary"><div class="food-sync-summary-title">预计记录</div>';
@@ -15208,11 +15583,17 @@ function updateFoodSyncSummary(){
   }else{
     if(oHas){
       html+=`<div class="food-sync-summary-row"><b>${escapeHTML(s.ownerName)}</b></div>`;
-      html+=`<div class="food-sync-summary-nutri">热量约 ${Math.round(oT.calories)} kcal · 蛋白质 ${oT.protein.toFixed(1)}g · 碳水 ${oT.carbs.toFixed(1)}g · 脂肪 ${oT.fat.toFixed(1)}g</div>`;
+      oItems.forEach(d=>{
+        html+=`<div class="food-sync-summary-detail"><span class="food-sync-summary-detail-name">${escapeHTML(d.name)}</span><span class="food-sync-summary-detail-portion">${d.portionText}</span><span class="food-sync-summary-detail-nutri">约${d.cal}kcal · 蛋白质${d.pro}g · 碳水${d.carb}g · 脂肪${d.fat}g</span></div>`;
+      });
+      html+=`<div class="food-sync-summary-total">合计 · 热量约 ${Math.round(oT.calories)} kcal · 蛋白质 ${oT.protein.toFixed(1)}g · 碳水 ${oT.carbs.toFixed(1)}g · 脂肪 ${oT.fat.toFixed(1)}g</div>`;
     }
     if(pHas){
       html+=`<div class="food-sync-summary-row"><b>${escapeHTML(s.partnerName)}</b></div>`;
-      html+=`<div class="food-sync-summary-nutri">热量约 ${Math.round(pT.calories)} kcal · 蛋白质 ${pT.protein.toFixed(1)}g · 碳水 ${pT.carbs.toFixed(1)}g · 脂肪 ${pT.fat.toFixed(1)}g</div>`;
+      pItems.forEach(d=>{
+        html+=`<div class="food-sync-summary-detail"><span class="food-sync-summary-detail-name">${escapeHTML(d.name)}</span><span class="food-sync-summary-detail-portion">${d.portionText}</span><span class="food-sync-summary-detail-nutri">约${d.cal}kcal · 蛋白质${d.pro}g · 碳水${d.carb}g · 脂肪${d.fat}g</span></div>`;
+      });
+      html+=`<div class="food-sync-summary-total">合计 · 热量约 ${Math.round(pT.calories)} kcal · 蛋白质 ${pT.protein.toFixed(1)}g · 碳水 ${pT.carbs.toFixed(1)}g · 脂肪 ${pT.fat.toFixed(1)}g</div>`;
     }
   }
   html+='<div class="food-sync-summary-empty" style="font-size:10px">AI估算 · 请根据实际食用量调整</div></div>';
@@ -15269,29 +15650,51 @@ function confirmFoodSync(){
   s.items.forEach(item=>{
     if(!item.included||item.nutrition.found===false) return;
     const baseAmount=item.portionAmount;
+    const per100g=item.nutritionPer100g;
+    const usePer100g=item.portionMode==='weight'&&!!per100g;
     const makeFood=(grams,portionLabel)=>{
       if(grams<=0) return null;
-      return {
+      const food={
         name:item.name,cat:'AI估算',source:'ai',unit:'g',
-        base_amount:baseAmount,base_weight:baseAmount,
-        cal:Number(item.nutrition.cal)||0,pro:Number(item.nutrition.protein)||0,
-        fat:Number(item.nutrition.fat)||0,carb:Number(item.nutrition.carbs)||0,
+        base_amount:usePer100g?100:baseAmount,base_weight:usePer100g?100:baseAmount,
+        cal:usePer100g?per100g.calories:(Number(item.nutrition.cal)||0),
+        pro:usePer100g?per100g.protein:(Number(item.nutrition.protein)||0),
+        fat:usePer100g?per100g.fat:(Number(item.nutrition.fat)||0),
+        carb:usePer100g?per100g.carbs:(Number(item.nutrition.carbs)||0),
         fib:Number(item.nutrition.fiber)||0,
         amount:grams,confidence:item.nutrition.confidence||'low',
         estimateReason:item.nutrition.estimateReason||'订单菜品AI估算',
         portionText:`AI估算 · ${portionLabel}`,
         estimateVersion:'food-ai-estimate-v4',aiStage:'complete',
       };
+      if(item.portionMode==='weight'){
+        food.consumedWeightG=Math.round(grams);
+      }
+      return food;
     };
     if(item.who==='owner'){
-      const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
-      const grams=(Number(item.totalGrams)||baseAmount*item.quantity)*pct;
-      const f=makeFood(grams,`${item.quantity>1?item.quantity+'份×':''}${Math.round(pct*100)}%`);
+      let grams,portionLabel;
+      if(item.portionMode==='weight'){
+        grams=Math.max(0,Number(item.consumedWeightG)||0);
+        portionLabel=`${Math.round(grams)}g`;
+      }else{
+        const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
+        grams=(Number(item.totalGrams)||baseAmount*item.quantity)*pct;
+        portionLabel=`${item.quantity>1?item.quantity+'份×':''}${Math.round(pct*100)}%`;
+      }
+      const f=makeFood(grams,portionLabel);
       if(f) ownerFoods.push(f);
     }else if(item.who==='partner'){
-      const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
-      const grams=(Number(item.totalGrams)||baseAmount*item.quantity)*pct;
-      const f=makeFood(grams,`${item.quantity>1?item.quantity+'份×':''}${Math.round(pct*100)}%`);
+      let grams,portionLabel;
+      if(item.portionMode==='weight'){
+        grams=Math.max(0,Number(item.consumedWeightG)||0);
+        portionLabel=`${Math.round(grams)}g`;
+      }else{
+        const pct=Math.max(0,Math.min(2,Number(item.portionPct)/100||0));
+        grams=(Number(item.totalGrams)||baseAmount*item.quantity)*pct;
+        portionLabel=`${item.quantity>1?item.quantity+'份×':''}${Math.round(pct*100)}%`;
+      }
+      const f=makeFood(grams,portionLabel);
       if(f) partnerFoods.push(f);
     }else if(item.who==='both'){
       if(item.splitMode==='grams'){
@@ -15565,16 +15968,24 @@ function startFoodOnlySync(orderItems,occurredAt,merchant){
           const quantity=Math.max(1,Number(oi.quantity)||1);
           const portionAmount=Math.max(1,Number(nutri.portionAmount)||100);
           const totalGrams=portionAmount*quantity;
+          const estimatedServingWeightG=nutri.estimatedServingWeightG!=null?Number(nutri.estimatedServingWeightG):null;
+          const nutritionPer100g=nutri.nutritionPer100g||null;
+          const isFee=isFeeOrderItem(oi.name);
           return{
             name:oi.name||'未知菜品',
             spec:oi.spec||null,
             quantity,
-            included:nutri.found!==false,
+            included:nutri.found!==false&&!isFee,
+            isFee,
             nutrition:nutri,
             portionAmount,
             totalAmount:totalGrams,
             totalGrams,
+            estimatedServingWeightG,
+            nutritionPer100g,
+            portionMode:'ratio',
             portionPct:100,
+            consumedWeightG:estimatedServingWeightG?Math.round(estimatedServingWeightG*quantity):100,
             who:'owner',
             splitMode:'ratio',
             splitOwner:50,
@@ -15635,6 +16046,8 @@ function confirmImageChoice(choice){
 }
 function routeToExpenseEditorWithAI(result,withDiet){
   _ledgerAIPendingDiet=!!withDiet;
+  const session=_aiRecognitionSession;
+  const sourceImageURL=session?.imageURL||null;
   openCoupleLedgerEditor();
   setTimeout(()=>{
     const form=document.getElementById('coupleLedgerForm');
@@ -15643,7 +16056,7 @@ function routeToExpenseEditorWithAI(result,withDiet){
     const aiStatus=form.querySelector('#ledgerAIStatus');
     if(aiEntry) aiEntry.style.display='none';
     if(aiStatus){aiStatus.style.display='';aiStatus.textContent='AI已智能填充，请确认';aiStatus.style.color='var(--gold-l)';}
-    prefillLedgerEditorFromAI(result,form);
+    prefillLedgerEditorFromAI(result,form,sourceImageURL);
     if(aiEntry) aiEntry.style.display='';
   },150);
 }
@@ -17670,7 +18083,8 @@ function serializeFoodPortion(food){
     estimatedWeight:prepared.estimatedWeight,
     aiStage:prepared.aiStage,
     userAdjustedWeight:prepared.userAdjustedWeight||false,
-    aiAdvice:prepared.aiAdvice
+    aiAdvice:prepared.aiAdvice,
+    consumedWeightG:prepared.consumedWeightG||null,
   };
 }
 function foodPortionCardHTML(food,index){
