@@ -115,6 +115,21 @@ function normalizeEvents(events, fallbackDateTime) {
         timeDefaulted: !!event.timeDefaulted,
       };
     }
+    if (type === 'expense') {
+      const validCategories = ['food','drinks','snacks','hotel','transport','tickets','entertainment','shopping','daily','gift','beauty','healthcare','subscription','other'];
+      let categoryKey = String(event.categoryKey || '').trim().toLowerCase();
+      if (!validCategories.includes(categoryKey)) categoryKey = 'other';
+      return {
+        type,
+        dateTime,
+        amount: event.amount === null || event.amount === undefined ? null : Math.round(Number(event.amount) * 100) / 100 || null,
+        merchant: String(event.merchant || '').trim().slice(0, 40),
+        categoryKey,
+        paidByHint: String(event.paidByHint || '').trim().slice(0, 30),
+        note: String(event.note || '').trim().slice(0, 200),
+        timeDefaulted: !!event.timeDefaulted,
+      };
+    }
     return null;
   }).filter(Boolean);
 }
@@ -141,7 +156,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ events: [], error: 'AI服务未配置' }, 500);
     }
 
-    const model = context.env.DASHSCOPE_MODEL || context.env.QWEN_MODEL || 'qwen-plus';
+    const model = context.env.DASHSCOPE_MODEL || context.env.QWEN_MODEL || 'qwen3.8-max';
     const prompt = `你是健康记录应用的自然语言结构化助手。你的任务只是把用户文本拆成健康事件数组，不要计算BMI、不要计算运动卡路里、不要估算食物营养、不要判断人物。
 
 用户文本：
@@ -164,6 +179,12 @@ currentDateTime=${currentDateTime}
 10. 如果一句话包含多条记录，必须拆成多条事件，例如早中晚三餐拆成三条 food，早晚两次运动拆成两条 exercise。
 11. 饮水事件只返回喝水时间和饮水量 amount，单位统一为 ml；1L=1000ml，1.5升=1500ml，2000毫升=2000ml。
 12. 如果用户只说“一杯水”“一大杯水”“半瓶水”“一瓶水”等无法可靠换算的表达，不要猜固定毫升，返回 amount:null, needConfirm:true。
+13. 支出事件：当用户提到花钱、付款、消费（如“花了328”“付了46块”“买了42元”“打车花了30”），提取为 expense 事件。amount 必须是用户实际支付金额（实付），不要用原价或优惠前金额。
+14. expense.merchant 是真实商家名称（如海底捞、喜茶、滴滴出行），不要返回平台名（微信支付、支付宝、美团、饿了么）。
+15. expense.categoryKey 只能是以下14个之一：food=餐饮, drinks=奶茶咖啡, snacks=零食甜品, hotel=酒店住宿, transport=交通出行, tickets=门票景点, entertainment=娱乐休闲, shopping=购物, daily=生活日用, gift=礼物, beauty=美容护理, healthcare=医疗健康, subscription=会员订阅, other=其他。无法确定返回 other。不能创造新分类。
+16. expense.paidByHint：用户明确说“我付的/我花的/是我付的”返回 "self"；明确说出对方名字且能可靠匹配（如“Serein付的”“Serein买的”）返回该名字；未提及付款人返回空字符串 ""。不要凭空猜测付款人。
+17. expense 不要返回 profileId，付款人最终由前端确认。
+18. 一句话可同时包含支出和健康记录（如“海底捞花了328，吃了半份肥牛，喝了500ml水”），必须拆成 expense + food + water 多条事件，不要只保留一个。
 
 事件格式：
 {
@@ -173,7 +194,8 @@ currentDateTime=${currentDateTime}
     {"type":"exercise","dateTime":"YYYY-MM-DDTHH:mm","name":"跑步","duration":30,"timeDefaulted":false},
     {"type":"steps","dateTime":"YYYY-MM-DDTHH:mm","steps":8500,"timeDefaulted":false},
     {"type":"sleep","dateTime":"YYYY-MM-DDTHH:mm","duration":460,"quality":"good","timeDefaulted":false},
-    {"type":"water","dateTime":"YYYY-MM-DDTHH:mm","amount":500,"needConfirm":false,"timeDefaulted":false}
+    {"type":"water","dateTime":"YYYY-MM-DDTHH:mm","amount":500,"needConfirm":false,"timeDefaulted":false},
+    {"type":"expense","dateTime":"YYYY-MM-DDTHH:mm","amount":328,"merchant":"海底捞","categoryKey":"food","paidByHint":"self","note":"","timeDefaulted":false}
   ]
 }
 
@@ -191,6 +213,7 @@ currentDateTime=${currentDateTime}
         model,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
+        enable_thinking: false,
       }),
     });
 

@@ -1,10 +1,12 @@
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+import {
+  CORS_HEADERS,
+  FOOD_QWEN_LOW_LATENCY_OPTIONS,
+  jsonResponse,
+  callDashScope,
+  getDashScopeModel,
+} from './_shared/dashscope.js';
 
-const FOOD_AI_VERSION = 'food-ai-estimate-v3';
+const FOOD_AI_VERSION = 'food-ai-estimate-v4';
 
 const COMPLEX_FOOD_RULES = [
   {
@@ -90,16 +92,6 @@ function buildPortionText({ explicitAmount, portionAmount, portionUnit, fallback
     return `AI估算 · 常规份量（约${formatAmount(portionAmount, unit)}）`;
   }
   return `AI估算 · ${fallback}`;
-}
-
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      ...CORS_HEADERS,
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function normalizeFood(data) {
@@ -241,12 +233,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ found: false, error: '请输入更具体的食物名称' }, 400);
     }
 
-    const apiKey = context.env.DASHSCOPE_API_KEY || context.env.QWEN_API_KEY || context.env.BAILIAN_API_KEY;
-    if (!apiKey) {
-      return jsonResponse({ found: false, error: 'AI服务未配置' }, 500);
-    }
-
-    const model = context.env.DASHSCOPE_MODEL || context.env.QWEN_MODEL || 'qwen-plus';
+    const model = getDashScopeModel(context);
     const prompt = `你是健康饮食记录应用中的食物营养估算助手。
 
 用户正在搜索食物：${query}
@@ -327,25 +314,19 @@ cal、carb、carbs、pro、protein、fat、fib、fiber 必须是大于等于 0 �
 只有真正无法判断为食物时，才返回：
 {"found":false}`;
 
-    const aiResponse = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-      }),
+    const result = await callDashScope(context, {
+      model,
+      ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
+      max_tokens: 700,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
     });
 
-    const aiData = await aiResponse.json().catch(() => ({}));
-    if (!aiResponse.ok) {
-      return jsonResponse({ found: false, error: aiData?.error?.message || aiData?.message || 'AI请求失败' }, 502);
+    if (!result.ok) {
+      return jsonResponse({ found: false, error: result.error }, result.status);
     }
 
-    const content = aiData?.choices?.[0]?.message?.content;
+    const content = result.text;
     const parsed = typeof content === 'string' ? parseAIJson(content) : content;
     if (parsed?.found === false) {
       return jsonResponse({ found: false });

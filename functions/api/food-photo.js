@@ -15,6 +15,7 @@
 
 import {
   CORS_HEADERS,
+  FOOD_QWEN_LOW_LATENCY_OPTIONS,
   jsonResponse,
   callDashScope,
   getDashScopeModel,
@@ -37,6 +38,8 @@ export async function onRequestPost(context) {
     const model = getDashScopeModel(context);
     const result = await callDashScope(context, {
       model,
+      ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
+      max_tokens: 1400,
       messages: [
         {
           role: 'user',

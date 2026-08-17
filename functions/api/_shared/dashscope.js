@@ -12,6 +12,14 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Qwen3.8-Max supports hybrid thinking and enables it by default. Food lookup
+// and photo extraction are narrow, structured tasks, so these endpoints opt
+// out explicitly for lower latency. Other AI endpoints keep their existing
+// request bodies and therefore retain the model's default reasoning quality.
+const FOOD_QWEN_LOW_LATENCY_OPTIONS = Object.freeze({
+  enable_thinking: false,
+});
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -69,11 +77,17 @@ async function callDashScope(context, body) {
 }
 
 /**
- * Resolve the DashScope model, preferring env override then falling back
- * to the default used by the frontend before migration.
+ * Resolve the DashScope model from the server environment, with the current
+ * flagship model as a server-side fallback.
  */
-function getDashScopeModel(context, fallback = 'qwen3-vl-flash') {
+function getDashScopeModel(context, fallback = 'qwen3.8-max') {
   return context.env.DASHSCOPE_MODEL || context.env.QWEN_MODEL || fallback;
 }
 
-export { CORS_HEADERS, jsonResponse, callDashScope, getDashScopeModel };
+export {
+  CORS_HEADERS,
+  FOOD_QWEN_LOW_LATENCY_OPTIONS,
+  jsonResponse,
+  callDashScope,
+  getDashScopeModel,
+};

@@ -6161,6 +6161,127 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
   }
 }
 
+/* ===== Unified long-content modal scrolling ===== */
+.modal-overlay{
+  padding-top:max(14px,env(safe-area-inset-top,0px));
+  padding-bottom:max(14px,env(safe-area-inset-bottom,0px));
+}
+.modal{
+  max-height:calc(100vh - 40px);
+  max-height:calc(100svh - 40px);
+  max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+}
+.modal.scrollable-modal{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.scrollable-modal>h2,
+.scrollable-modal>.modal-close{
+  flex:0 0 auto;
+}
+.modal-scroll-region{
+  flex:1 1 auto;
+  min-height:0!important;
+  max-width:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  scrollbar-gutter:stable;
+}
+.modal.record-detail-modal{
+  height:auto;
+  max-height:min(760px,calc(100vh - 40px))!important;
+  max-height:min(760px,calc(100svh - 40px))!important;
+  max-height:min(760px,calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)))!important;
+}
+.record-detail-head{
+  position:relative;
+  min-width:0;
+}
+.record-detail-head>div:first-child{
+  min-width:0;
+}
+.record-detail-sub{
+  overflow-wrap:anywhere;
+}
+.record-detail-content{
+  flex:1 1 auto;
+  min-height:0!important;
+  overflow-y:auto!important;
+  padding-bottom:max(18px,calc(14px + env(safe-area-inset-bottom,0px)));
+}
+.record-detail-content .log-item,
+.record-detail-content .ex-item,
+.record-detail-content .health-record-item{
+  min-width:0;
+  gap:8px;
+}
+.record-detail-content .li-left,
+.record-detail-content .ex-item>div:first-child,
+.record-detail-content .health-record-item>div:first-child{
+  flex:1 1 auto;
+  min-width:0;
+}
+.record-detail-content .li-name,
+.record-detail-content .li-nutri,
+.record-detail-content .exi-name,
+.record-detail-content .exi-detail,
+.record-detail-content .health-record-item strong,
+.record-detail-content .hr-time{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.record-detail-content .li-right,
+.record-detail-content .ex-item>div:last-child,
+.record-detail-content .health-record-actions{
+  flex:0 0 auto;
+  min-width:0;
+}
+.record-detail-content .li-cal,
+.record-detail-content .exi-cal{
+  white-space:nowrap;
+}
+.edit-popover{
+  display:flex;
+  flex-direction:column;
+  max-height:calc(100vh - 24px);
+  max-height:calc(100svh - 24px);
+  max-height:calc(100dvh - 16px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+  overflow:hidden;
+}
+.edit-popover-title,
+.edit-actions{
+  flex:0 0 auto;
+}
+.edit-popover-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+}
+@media(max-width:640px){
+  .modal-overlay.record-detail-overlay{
+    align-items:flex-end;
+    padding: max(12px,env(safe-area-inset-top,0px)) 10px max(12px,env(safe-area-inset-bottom,0px));
+  }
+  .modal.record-detail-modal{
+    width:calc(100vw - 20px)!important;
+    max-width:calc(100vw - 20px)!important;
+    max-height:calc(100vh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;
+    max-height:calc(100svh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;
+    max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;
+  }
+  .record-detail-content{
+    padding-bottom:max(18px,calc(12px + env(safe-area-inset-bottom,0px)));
+  }
+}
+
 /* ===== Health Record Delete Button Unification =====
    仅统一健康记录条目中的删除按钮，不影响 Modal / Popover 关闭按钮。 */
 .health-record-delete,
@@ -6448,19 +6569,19 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 
 <!-- Quick Action Modal (lightweight, reused for water/weight/exercise/food/voice) -->
 <div class="modal-overlay" id="quickActionModal">
-  <div class="modal quick-action-modal">
+  <div class="modal quick-action-modal scrollable-modal">
     <button class="modal-close" id="quickActionClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
     <h2 id="quickActionTitle">快捷记录</h2>
-    <div id="quickActionContent"></div>
+    <div class="modal-scroll-region" id="quickActionContent"></div>
   </div>
 </div>
 
 <!-- Weekly report summary detail (shared by Weakness and AI Advice cards) -->
 <div class="modal-overlay" id="weeklySummaryDetailModal" role="dialog" aria-modal="true" aria-labelledby="weeklySummaryDetailTitle">
-  <div class="modal weekly-summary-detail-modal">
+  <div class="modal weekly-summary-detail-modal scrollable-modal">
     <button class="modal-close" id="weeklySummaryDetailClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
     <h2 id="weeklySummaryDetailTitle">摘要详情</h2>
-    <div class="weekly-summary-detail-content" id="weeklySummaryDetailContent"></div>
+    <div class="weekly-summary-detail-content modal-scroll-region" id="weeklySummaryDetailContent"></div>
   </div>
 </div>
 
@@ -6474,7 +6595,7 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
       </div>
       <button class="modal-close" id="recordDetailClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
     </div>
-    <div class="record-detail-content" id="recordDetailContent"></div>
+    <div class="record-detail-content modal-scroll-region" id="recordDetailContent"></div>
   </div>
 </div>
 
@@ -6580,10 +6701,10 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 
 <!-- AI Analysis Modal -->
 <div class="modal-overlay" id="aiModal">
-  <div class="modal">
+  <div class="modal scrollable-modal">
     <button class="modal-close" id="aiClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
     <h2>AI 食物识别</h2>
-    <div class="ai-modal-content" id="aiModalContent"></div>
+    <div class="ai-modal-content modal-scroll-region" id="aiModalContent"></div>
   </div>
 </div>
 
@@ -6694,8 +6815,10 @@ const VIEWER_STORAGE_KEY = 'healthTrackerViewerId_v1';
 const CURRENT_PROFILE_STORAGE_KEY = 'healthTrackerCurrentProfileId_v1';
 const THEME_STORAGE_KEY = 'theme';
 const VIEW_DATE_STORAGE_KEY = 'currentViewDate';
-const FOOD_AI_VERSION = 'food-ai-estimate-v3';
+const FOOD_AI_VERSION = 'food-ai-estimate-v4';
+const AI_FOOD_CACHE_PREFIX = 'healthTrackerAIFoodCache_';
 const AI_FOOD_CACHE_KEY = `healthTrackerAIFoodCache_${FOOD_AI_VERSION}`;
+const AI_FOOD_CACHE_CLEANUP_KEY = `healthTrackerAIFoodCacheCleanup_${FOOD_AI_VERSION}`;
 const COMPLEX_AI_FOOD_KEYWORDS = ['螺蛳粉','麻辣烫','冒菜','火锅','炒饭','蛋炒饭','炒面','炒粉','炒河粉','炸鸡','鸡排','鸡柳','汉堡','奶茶','杨枝甘露','生椰拿铁','盖浇饭','外卖套餐','饭套餐','手抓饼','鸡蛋灌饼','煎饼果子','烤冷面','酸辣粉','烧烤','炸串','烤串'];
 const AI_EXERCISE_CACHE_KEY = 'healthTrackerAIExerciseCache_v1';
 const AI_HEALTH_COACH_CACHE_KEY = 'healthTrackerAIHealthCoachV2Cache_v1';
@@ -6754,8 +6877,8 @@ const HEALTH_GOAL_TYPES = {
 function isSingleMode(){return APP_MODE==='single'}
 function isCoupleMode(){return APP_MODE==='couple'}
 const EMBEDDED_BAILIAN_CONFIG = {
-  apiKey:'sk-ws-H.ERLPXDR.XhWE.MEQCIFPXRyOho0Si7t0T4gp5HjfY2Ia0kt2gvyl7SBziKtQmAiAm4whuUG_XrAzW3DnjNGzXXr5TSDo7Qm2Nm9_RBQJw7Q',
-  modelId:'qwen3-vl-flash'
+  apiKey:'__server_managed__',
+  modelId:'__server_managed__'
 };
 const EMBEDDED_CLOUD_CONFIG = {
   url:'https://oyaountxtpbuwmtnzzuf.supabase.co',
@@ -6821,6 +6944,7 @@ let editingSleepId = null;
 let currentViewDate = loadLocalViewDate();
 let aiFoodSearchTimer = null;
 let aiFoodSearchRequestId = 0;
+let aiFoodSearchController = null;
 let aiExerciseSearchTimer = null;
 let aiExerciseSearchRequestId = 0;
 let aiHealthDraft = null;
@@ -8127,11 +8251,12 @@ function calcCalorieGapRecommendation(p,daily=null){
   const target=Math.round(Number(daily.targetCalories)||0);
   const consumed=Math.round(Number(daily.consumedCalories)||0);
   if(target<=0||!Number.isFinite(consumed)) return null;
+  const effectiveMaintenance=Math.max(0,Math.round(Number(daily.maintenanceCalories)||maintenance));
   const targetDifference=target-consumed;
-  const base={...strategy,maintenanceCalories:maintenance,targetCalories:target,consumedCalories:consumed,targetDifference};
+  const base={...strategy,maintenanceCalories:effectiveMaintenance,targetCalories:target,consumedCalories:consumed,targetDifference};
 
   if(goalType==='fat_loss'){
-    const actualDeficit=maintenance-consumed;
+    const actualDeficit=effectiveMaintenance-consumed;
     const resultBase={...base,actualDifference:actualDeficit};
     if(targetDifference<0){
       let note='无需通过极端减少下一餐补偿，关注周平均即可。';
@@ -8149,18 +8274,48 @@ function calcCalorieGapRecommendation(p,daily=null){
   }
 
   if(goalType==='muscle_gain'){
-    const actualSurplus=consumed-maintenance;
+    const actualSurplus=consumed-effectiveMaintenance;
     const resultBase={...base,actualDifference:actualSurplus};
     if(actualSurplus<strategy.min) return {...resultBase,tone:'warning',summary:targetDifference>0?`距离今日摄入目标还差 ${targetDifference} kcal，当前盈余低于建议区间。`:`今日能量摄入偏低，不利于增肌恢复。`,note:'建议增加蛋白质和优质碳水摄入。'};
     if(actualSurplus<=strategy.max) return {...resultBase,tone:'balanced',summary:`今日实际热量盈余约 ${actualSurplus} kcal，处于建议增肌区间。`,note:'继续保持蛋白质摄入，并配合力量训练。'};
     return {...resultBase,tone:'over',summary:`今日热量盈余偏高，约 ${actualSurplus} kcal。`,note:'无需继续加餐，保持稳定的小幅盈余即可。'};
   }
 
-  const maintenanceDifference=consumed-maintenance;
+  const maintenanceDifference=consumed-effectiveMaintenance;
   const resultBase={...base,actualDifference:maintenanceDifference};
   if(maintenanceDifference<strategy.min) return {...resultBase,tone:'near',summary:`今日摄入低于维持热量约 ${Math.abs(maintenanceDifference)} kcal。`,note:'可按饥饿感适量补充，避免长期摄入不足。'};
   if(maintenanceDifference<=strategy.max) return {...resultBase,tone:'balanced',summary:'今日摄入处于维持范围，继续保持即可。',note:'保持饮食结构和一周平均摄入稳定。'};
   return {...resultBase,tone:'over',summary:`今日摄入高于维持热量约 ${maintenanceDifference} kcal。`,note:'单日波动无需焦虑，关注周平均即可。'};
+}
+function calculateDailyCalorieBalance({baseCalorieTarget=0,exerciseCalories=0,caloriesConsumed=0}={}){
+  const safeKcal=value=>{const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0;};
+  const base=safeKcal(baseCalorieTarget);
+  const exercise=safeKcal(exerciseCalories);
+  const consumed=safeKcal(caloriesConsumed);
+  const hasTarget=base>0;
+  const dynamic=hasTarget?base+exercise:0;
+  return {baseCalorieTarget:base,exerciseCalories:exercise,dynamicCalorieTarget:dynamic,caloriesConsumed:consumed,netCalories:Math.round(consumed-exercise),remainingCalories:hasTarget?Math.round(dynamic-consumed):0,calorieBalance:hasTarget?Math.round(consumed-dynamic):0,hasTarget};
+}
+function getExerciseCalorieSummary(profile,date=currentViewDate,exerciseRecords=null){
+  const p=profile||getActiveProfile();
+  if(!p) return {recordedExerciseCalories:0,activityAllowanceCalories:0,exerciseCalories:0,activityFactor:1.2};
+  const records=Array.isArray(exerciseRecords)?exerciseRecords:getDailyRecord(p,date).exercise;
+  const seen=new Set();
+  let recordedExerciseCalories=0;
+  records.forEach((record,index)=>{
+    const key=record?.id?`id:${record.id}`:`row:${index}`;
+    if(seen.has(key)) return;
+    seen.add(key);
+    const calories=Number(record?.calories);
+    if(Number.isFinite(calories)&&calories>0) recordedExerciseCalories+=calories;
+  });
+  recordedExerciseCalories=Math.round(recordedExerciseCalories);
+  const bmr=Number(calcBMR(p))||0;
+  const factors={sedentary:1.2,light:1.375,moderate:1.55,active:1.725,veryActive:1.9};
+  const activityFactor=factors[p.activityLevel]||1.2;
+  const activityAllowanceCalories=bmr>0?Math.max(0,Math.round(bmr*(activityFactor-1.2))):0;
+  const exerciseCalories=Math.max(0,recordedExerciseCalories-activityAllowanceCalories);
+  return {recordedExerciseCalories,activityAllowanceCalories,exerciseCalories,activityFactor};
 }
 function mapLegacyGoalToHealthGoalType(goal){
   if(goal==='lose') return 'fat_loss';
@@ -8441,14 +8596,7 @@ function getTodayExercises(p){
   return getDailyRecord(p,currentViewDate).exercise;
 }
 function calcTodayBurnedCalories(p){
-  const exercises=getTodayExercises(p);
-  const weight=getLatestWeight(p);
-  const w=weight?weight.weight:60;
-  let total=0;
-  exercises.forEach(e=>{
-    total+=e.calories||0;
-  });
-  return Math.round(total);
+  return getExerciseCalorieSummary(p,currentViewDate,getTodayExercises(p)).recordedExerciseCalories;
 }
 function calcExerciseCalories(exercise,duration,profile){
   const weight=getLatestWeight(profile);
@@ -8690,7 +8838,7 @@ function _computeHealthScore(snap){
   const coverageCount=dims.filter(d=>d.has).length;
   // Build factor list with per-dimension detail
   const factors=dims.map(d=>{
-    if(d.key==='diet') return {name:d.label,hasData:d.has,pct:d.has?(snap.targetCals>0?snap.dietPct:50):0,detail:d.has?`${snap.intakeCalories} kcal${snap.targetCals>0?' · 目标'+snap.targetCals+' kcal':''}`:'未记录'};
+    if(d.key==='diet') return {name:d.label,hasData:d.has,pct:d.has?(snap.targetCals>0?snap.dietPct:50):0,detail:d.has?`${snap.intakeCalories} kcal${snap.targetCals>0?' · 动态目标 '+snap.targetCals+' kcal':''}`:'未记录'};
     if(d.key==='exercise') return {name:d.label,hasData:d.has,pct:d.has?snap.exercisePct:0,detail:d.has?`${snap.exerciseMinutes} 分钟`:'未记录'};
     if(d.key==='sleep') return {name:d.label,hasData:d.has,pct:d.has?snap.sleepPct:0,detail:d.has?formatShortSleep(snap.sleepMinutes):'未记录'};
     if(d.key==='water') return {name:d.label,hasData:d.has,pct:d.has?snap.waterPct:0,detail:d.has?`${snap.waterTotal}/${snap.waterGoal||0} ml`:'未记录'};
@@ -8763,8 +8911,10 @@ function getHealthSnapshot(profile,date=currentViewDate){
   });
   Object.keys(intake).forEach(k=>intake[k]=+intake[k].toFixed(1));
   const intakeCalories=Math.round(intake.calories);
-  const targetCals=targets?targets.calories:0;
-  const exerciseCalories=daily.exercise.reduce((sum,e)=>sum+(Number(e.calories)||0),0);
+  const baseTargetCals=targets?Math.max(0,Math.round(Number(targets.calories)||0)):0;
+  const exerciseSummary=getExerciseCalorieSummary(p,date,daily.exercise);
+  const calorieBudget=calculateDailyCalorieBalance({baseCalorieTarget:baseTargetCals,exerciseCalories:exerciseSummary.exerciseCalories,caloriesConsumed:intakeCalories});
+  const targetCals=calorieBudget.dynamicCalorieTarget;
   const exerciseMinutes=daily.exercise.reduce((sum,e)=>{
     const explicit=Number(e.duration);
     if(Number.isFinite(explicit)&&explicit>0) return sum+explicit;
@@ -8785,8 +8935,11 @@ function getHealthSnapshot(profile,date=currentViewDate){
   const scoreWeights=getGoalScoreWeights(p);
   // --- Health Engine: unified scoring via _computeHealthScore ---
   const _snapData={
-    profile:p,date,daily,targets,intake,intakeCalories,targetCals,
-    exerciseCalories:Math.round(exerciseCalories),exerciseMinutes,
+    profile:p,date,daily,targets,intake,intakeCalories,targetCals,baseTargetCals,calorieBudget,
+    exerciseCalories:calorieBudget.exerciseCalories,
+    recordedExerciseCalories:exerciseSummary.recordedExerciseCalories,
+    activityAllowanceCalories:exerciseSummary.activityAllowanceCalories,
+    exerciseMinutes,
     exerciseTarget,sleepTarget,healthGoal,goalStrategy,
     sleepMinutes,waterTotal,waterGoal,dietPct,exercisePct,sleepPct,waterPct,scoreWeights,
     hasFood:daily.food.length>0,
@@ -8834,7 +8987,7 @@ function formatShortSleep(minutes){
 function buildTodayHealthAiSummary(profile,snap){
   window.todayHealthAiSummaryCache=window.todayHealthAiSummaryCache||{};
   const key=[
-    profile.id,snap.date,snap.intakeCalories,snap.exerciseMinutes,snap.exerciseCalories,
+    profile.id,snap.date,snap.intakeCalories,snap.targetCals,snap.exerciseMinutes,snap.exerciseCalories,snap.recordedExerciseCalories,
     snap.sleepMinutes,snap.waterTotal,snap.waterGoal,snap.daily.food.length,
     snap.daily.exercise.length,snap.daily.sleep.length,snap.daily.water.length
   ].join('|');
@@ -8852,11 +9005,12 @@ function buildTodayHealthAiSummary(profile,snap){
     const scoreLabel=snap.healthScore?.score!==null&&snap.healthScore?.score!==undefined?getHealthStatusLabel(snap.score).label:'数据不足';
     lead=low.length?`今天状态${scoreLabel}，${low.slice(0,2).join('、')}还可以继续补充。`:`今天整体状态不错，主要健康习惯都有记录。`;
   }
+  const budget=snap.calorieBudget||calculateDailyCalorieBalance({baseCalorieTarget:snap.baseTargetCals,exerciseCalories:snap.exerciseCalories,caloriesConsumed:snap.intakeCalories});
   const dietText=snap.hasFood
-    ? `今日摄入约 ${snap.intakeCalories} kcal${snap.targetCals?`，完成目标 ${snap.dietPct}%`:''}，蛋白质约 ${Math.round(snap.intake.protein)}g。`
+    ? `今日摄入约 ${snap.intakeCalories} kcal${snap.targetCals?`，动态目标 ${snap.targetCals} kcal`:''}${budget.remainingCalories>0?`，还可摄入约 ${budget.remainingCalories} kcal`:budget.calorieBalance>0?`，超出约 ${budget.calorieBalance} kcal`:'，已达到今日目标'}，蛋白质约 ${Math.round(snap.intake.protein)}g。`
     : '今天暂未记录饮食，可以先补充一餐记录。';
   const exerciseText=snap.hasExercise
-    ? `今日运动 ${Math.round(snap.exerciseMinutes)} 分钟，消耗约 ${snap.exerciseCalories} kcal。`
+    ? `今日运动 ${Math.round(snap.exerciseMinutes)} 分钟，记录消耗约 ${snap.recordedExerciseCalories} kcal${snap.exerciseCalories>0?`，其中 ${snap.exerciseCalories} kcal 计入动态预算`:''}。`
     : '今天暂未记录运动，可以适当增加轻量活动。';
   const sleepText=snap.hasSleep
     ? `睡眠 ${formatSleepDuration(snap.sleepMinutes)}，质量：${sleepQuality}。`
@@ -8872,7 +9026,7 @@ function buildTodayHealthAiSummary(profile,snap){
   else if(goalType==='sleep_improve') advice=`围绕睡眠目标，今晚尽量接近 ${formatShortSleep(snap.sleepTarget)}，并固定睡前准备时间。`;
   else if(goalType==='fitness'&&snap.exerciseMinutes<snap.exerciseTarget) advice=`围绕体能目标，今天还可补足到 ${snap.exerciseTarget} 分钟活动量。`;
   else if(snap.waterPct>0&&snap.waterPct<60) advice='今天饮水偏少，晚些时候可以继续小口补充。';
-  else if(snap.hasFood&&snap.dietPct<60) advice='今日摄入相对偏低，晚餐可适当补充优质蛋白和蔬菜。';
+  else if(snap.hasFood&&budget.remainingCalories>0&&snap.dietPct<60) advice=`今日仍在动态目标范围内，还可按需要摄入约 ${budget.remainingCalories} kcal，优先补充优质蛋白和蔬菜。`;
   else if(!snap.hasExercise) advice='如果时间允许，可以安排 10-20 分钟散步或拉伸。';
   const result={lead:`${getGoalProgressHeadline(profile)}。${lead}`,dietText,exerciseText,sleepText,waterText,advice};
   window.todayHealthAiSummaryCache[key]=result;
@@ -8891,7 +9045,7 @@ function getSevenDayTrend(profile){
     totalCalories+=snap.intakeCalories;
     exerciseCount+=snap.daily.exercise.length;
     exerciseMinutes+=snap.exerciseMinutes;
-    exerciseCalories+=snap.exerciseCalories;
+    exerciseCalories+=snap.recordedExerciseCalories;
     if(snap.sleepMinutes>0){sleepTotal+=snap.sleepMinutes;sleepDays++;}
     waterPctTotal+=snap.waterPct;
   });
@@ -8975,6 +9129,7 @@ function getWeeklyReportSourceSignature(profile,date=currentViewDate){
       snap.intakeCalories,
       Math.round(snap.intake.protein||0),
       snap.exerciseMinutes,
+      snap.recordedExerciseCalories,
       snap.exerciseCalories,
       snap.sleepMinutes,
       snap.waterTotal,
@@ -9031,7 +9186,7 @@ function buildWeeklyReportInput(profile,date=currentViewDate){
     if(snap.hasFood&&snap.dietPct>=80&&snap.dietPct<=120) dietTargetDays++;
     exerciseCount+=snap.daily.exercise.length;
     exerciseMinutes+=snap.exerciseMinutes;
-    exerciseCalories+=snap.exerciseCalories;
+    exerciseCalories+=snap.recordedExerciseCalories;
     if(snap.sleepMinutes>0){
       sleepTotal+=snap.sleepMinutes;
       sleepDays++;
@@ -9054,7 +9209,9 @@ function buildWeeklyReportInput(profile,date=currentViewDate){
       diet_pct:snap.dietPct,
       exercise_count:snap.daily.exercise.length,
       exercise_minutes:Math.round(snap.exerciseMinutes),
-      exercise_calories:snap.exerciseCalories,
+      exercise_calories:snap.recordedExerciseCalories,
+      exercise_calories_counted_in_budget:snap.exerciseCalories,
+      dynamic_calorie_target:snap.targetCals,
       sleep_minutes:snap.sleepMinutes,
       water_ml:snap.waterTotal,
       water_goal_ml:snap.waterGoal,
@@ -9167,14 +9324,14 @@ async function callWeeklyReportAI(profile,date=currentViewDate){
   const aiCfg=getAIConfig();
   if(!aiCfg.apiKey||!aiCfg.modelId) return normalizeWeeklyReport(null,input);
   const prompt=`你是健康App里的个人AI健康周报分析师。请基于过去7天真实数据和health_goal生成一份个人健康总结报告。要求：1. 必须先按用户目标评价“是否接近目标”，不要只评价体重变化，例如减脂要判断下降是否符合计划，增肌要结合蛋白质和力量训练。2. 不要只复述数据，要发现问题、趋势和下周优先级。3. 如果数据不足，明确指出哪些数据不足，并给出具体补记录建议，不要空泛。4. 睡眠、饮水、饮食、运动建议必须围绕目标具体到时间、频次或动作。5. 健康评分是本周综合评分，不等于今日健康评分，也不等于AI每日计划完成率。6. 只返回严格JSON，不要Markdown，不要解释。JSON格式：{"week_summary":"","health_score":0,"body":{"weight_change":"","summary":""},"diet":{"score":0,"summary":"","advice":""},"exercise":{"score":0,"summary":"","advice":""},"sleep":{"score":0,"summary":"","advice":""},"water":{"score":0,"summary":"","advice":""},"next_week_plan":[""]}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{
+  const response=await fetch(getApiUrl('/api/weekly-report'),{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+aiCfg.apiKey},
-    body:JSON.stringify({model:aiCfg.modelId,messages:[{role:'user',content:prompt}],temperature:0.25,response_format:{type:'json_object'}})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(data?.error?.message||data?.message||`AI请求失败：${response.status}`);
-  const text=data?.choices?.[0]?.message?.content||'';
+  if(!response.ok) throw new Error(data?.error||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
   return normalizeWeeklyReport(extractJSONFromAIText(text),input);
 }
 async function generateWeeklyReport(profile,date=currentViewDate,{manual=false}={}){
@@ -9436,7 +9593,7 @@ function buildHealthProfileInput(profile,date=currentViewDate){
     if(snap.waterGoal&&snap.waterTotal>=snap.waterGoal) waterTargetDays++;
     exerciseCount+=snap.daily.exercise.length;
     exerciseMinutes+=snap.exerciseMinutes;
-    exerciseCalories+=snap.exerciseCalories;
+    exerciseCalories+=snap.recordedExerciseCalories;
     if(snap.sleepMinutes>0){
       sleepTotal+=snap.sleepMinutes;
       sleepMin=sleepMin===null?snap.sleepMinutes:Math.min(sleepMin,snap.sleepMinutes);
@@ -9606,14 +9763,14 @@ async function callHealthProfileAI(profile,date=currentViewDate){
   const aiCfg=getAIConfig();
   if(!aiCfg.apiKey||!aiCfg.modelId) return {content:normalizeHealthProfile(null,input),input};
   const prompt=`你是健康App里的AI个人健康画像分析师。请基于最近30天长期健康数据和health_goal，为用户生成动态个人健康画像。要求：1. 不是单日总结，要发现长期规律，例如工作日睡眠不足、运动类型单一、饮食记录不规律、饮水稳定等。2. 必须输出goal_match_pct，表示当前行为与目标的匹配度或完成度，减脂/增肌要结合目标进度、饮食蛋白和运动，睡眠目标要重点看睡眠时长与规律。3. 数据不足时必须说明可信度较低，并给出继续记录建议。4. profile_type由你根据数据和目标自动判断，不限于健康保持型、减脂改善型、增肌提升型、久坐改善型、睡眠优化型、饮食调整型。5. 改善方向必须有原因和优先级。6. 只返回严格JSON，不要Markdown，不要解释。JSON格式：{"profile_type":"","profile_title":"","health_summary":"","strengths":[""],"improvements":[{"title":"","reason":"","priority":"high"}],"habits":[{"name":"","level":"good"}],"long_term_goal":"","next_month_focus":[""],"confidence":0,"goal_match_pct":0}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{
+  const response=await fetch(getApiUrl('/api/health-profile'),{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+aiCfg.apiKey},
-    body:JSON.stringify({model:aiCfg.modelId,messages:[{role:'user',content:prompt}],temperature:0.25,response_format:{type:'json_object'}})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(data?.error?.message||data?.message||`AI请求失败：${response.status}`);
-  const text=data?.choices?.[0]?.message?.content||'';
+  if(!response.ok) throw new Error(data?.error||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
   return {content:normalizeHealthProfile(extractJSONFromAIText(text),input),input};
 }
 async function generateHealthProfile(profile,date=currentViewDate,{manual=false}={}){
@@ -10038,14 +10195,14 @@ async function callHealthCoachAI(profile,date,slot){
   if(!aiCfg.apiKey||!aiCfg.modelId) return normalizeHealthCoachAdvice(null,snap,slot);
   const input=buildHealthCoachInput(profile,date,slot);
   const prompt=`你是一个健康App中的AI健康教练。请根据用户健康数据和health_goal生成个性化建议，只返回严格JSON，不要Markdown，不要解释。JSON字段必须为：summary(string, 40字以内), diet_advice(string), exercise_advice(string), water_advice(string), sleep_advice(string), action_plan(array，最多4项，每项为{task:string,done:boolean,type:string})。注意：不要返回health_score字段，健康评分由系统统一计算。建议必须服从用户目标：减脂关注热量、蛋白和饭后活动；增肌关注蛋白和力量训练；睡眠目标关注入睡时间、时长和规律；体能目标关注运动频率和活动量。建议要温和、具体、可执行，不要医疗诊断。当前分析阶段：${slot}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{
+  const response=await fetch(getApiUrl('/api/health-coach'),{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+aiCfg.apiKey},
-    body:JSON.stringify({model:aiCfg.modelId,messages:[{role:'user',content:prompt}],temperature:0.3})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(data?.error?.message||data?.message||`AI请求失败：${response.status}`);
-  const text=data?.choices?.[0]?.message?.content||'';
+  if(!response.ok) throw new Error(data?.error||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
   return normalizeHealthCoachAdvice(extractJSONFromAIText(text),snap,slot);
 }
 async function generateHealthCoachAdvice(profile,date,slot,{manual=false}={}){
@@ -10204,6 +10361,7 @@ function getDailyTasksSourceSignature(profile,date=currentViewDate){
     Math.round(snap.intake.carbs||0),
     Math.round(snap.intake.fat||0),
     snap.exerciseMinutes,
+    snap.recordedExerciseCalories,
     snap.exerciseCalories,
     snap.sleepMinutes,
     snap.waterTotal,
@@ -10263,7 +10421,8 @@ function buildDailyTasksInput(profile,date){
       foods:(snap.daily.food||[]).flatMap(r=>(r.foods||[]).map(f=>f.name)).slice(0,12),
       exercise_records:(snap.daily.exercise||[]).map(e=>({name:e.name||'',detail:e.detail||'',calories:e.calories||0})).slice(0,8),
       exercise_minutes:snap.exerciseMinutes,
-      exercise_calories:snap.exerciseCalories,
+      exercise_calories:snap.recordedExerciseCalories,
+      exercise_calories_counted_in_budget:snap.exerciseCalories,
       sleep_minutes:snap.sleepMinutes,
       sleep_quality:snap.daily.sleep.length?sleepQMap[snap.daily.sleep[snap.daily.sleep.length-1].quality||'normal']||'一般':'未记录',
       water_ml:snap.waterTotal,
@@ -10502,14 +10661,14 @@ async function callDailyTasksAI(profile,date){
   if(!aiCfg.apiKey||!aiCfg.modelId) return normalizeDailyTasksPlan(null,profile,date,snap);
   const input=buildDailyTasksInput(profile,date);
   const prompt=`你是健康App里的AI每日健康行动计划生成器。请严格基于输入数据和health_goal生成用户今天能完成的1-5个具体任务。规则：1. 任务必须服从用户当前目标，减脂不要生成增肌增重任务，增肌不要只给有氧消耗任务，睡眠目标要优先分析入睡时间、睡眠时长和规律。2. 已达标的项目不要继续推荐同类任务，例如饮水已达到或超过目标就不要推荐继续喝水；可在summary里说明“饮水目标已完成，保持当前状态”。3. 无健康记录或数据很少时，只给1-2个具体启动任务，不要输出“保持健康、改善生活方式、注意饮食、适当运动”这类空泛建议。4. 健康状态良好时最多给1-2个低负担任务，不要制造任务压力。5. high表示当前最需要改善的问题，medium表示建议优化，low表示保持习惯。6. 每个任务必须包含具体动作和数量/时长/时间，例如喝多少ml水、晚饭后步行多少分钟、增加多少g蛋白质、几点准备睡眠。7. type只能是water、food、exercise、sleep、habit；action按type填写：water=open_water_record，food=open_food_record，exercise=open_exercise_record，sleep=open_sleep_record，habit=open_today_overview。8. 不要医疗诊断。只返回严格JSON，不要Markdown，不要解释。JSON格式：{"summary":"","tasks":[{"id":"","type":"water|food|exercise|sleep|habit","title":"","description":"","short_reason":"","reason":"","current_data":"","suggestion":"","priority":"high|medium|low","action":"","completed":false}]}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{
+  const response=await fetch(getApiUrl('/api/daily-tasks'),{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+aiCfg.apiKey},
-    body:JSON.stringify({model:aiCfg.modelId,messages:[{role:'user',content:prompt}],temperature:0.25})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(data?.error?.message||data?.message||`AI请求失败：${response.status}`);
-  const text=data?.choices?.[0]?.message?.content||'';
+  if(!response.ok) throw new Error(data?.error||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
   return normalizeDailyTasksPlan(extractJSONFromAIText(text),profile,date,snap);
 }
 async function generateDailyTasksPlan(profile,date=currentViewDate,{manual=false}={}){
@@ -10645,7 +10804,10 @@ function renderHomeNutritionCard(profile,snap){
   const intake=snap.intake||{calories:0,protein:0,carbs:0,fat:0,fiber:0};
   const targets=snap.targets||null;
   const calories=Math.round(snap.intakeCalories||intake.calories||0);
-  const calorieTarget=Number(snap.targetCals||targets?.calories)||0;
+  const calorieTarget=Number(snap.targetCals)||0;
+  const baseCalorieTarget=Number(snap.baseTargetCals||targets?.calories)||0;
+  const countedExerciseCalories=Number(snap.exerciseCalories)||0;
+  const recordedExerciseCalories=Number(snap.recordedExerciseCalories)||0;
   const caloriePct=calorieTarget>0?Math.min(100,Math.round(calories/calorieTarget*100)):null;
   const nutrients=[
     {key:'protein',label:'蛋白质',cls:'protein'},
@@ -10668,7 +10830,7 @@ function renderHomeNutritionCard(profile,snap){
     </div>`;
   }).join('');
   const calorieAdvice=snap.hasFood&&calorieTarget>0
-    ?calcCalorieGapRecommendation(profile,{consumedCalories:calories,targetCalories:calorieTarget})
+    ?calcCalorieGapRecommendation(profile,{consumedCalories:calories,targetCalories:calorieTarget,maintenanceCalories:(Number(calcMaintenanceTDEE(profile))||0)+countedExerciseCalories})
     :null;
   wrap.innerHTML=`
     <div class="home-nutrition-hero">
@@ -10677,7 +10839,7 @@ function renderHomeNutritionCard(profile,snap){
         <small>当日摄入</small>
       </div>
       <div class="home-nutrition-goal">${calorieTarget>0
-        ?`目标 <strong>${calorieTarget} kcal</strong> · 完成 <strong>${caloriePct}%</strong>`
+        ?`动态目标 <strong>${calorieTarget} kcal</strong> · 完成 <strong>${caloriePct}%</strong>${countedExerciseCalories>0?` · 基础 ${baseCalorieTarget} + 运动 ${countedExerciseCalories}`:(recordedExerciseCalories>0?' · 运动已包含在活动基线':'')}`
         :'营养目标待完善'}</div>
     </div>
     <div class="home-calorie-track" aria-label="热量完成度 ${caloriePct===null?'未设置':caloriePct+'%'}"><div class="home-calorie-fill" style="width:${caloriePct||0}%"></div></div>
@@ -12903,11 +13065,11 @@ function renderNutritionCard(){
   nameEl.textContent=getDisplayName(p);
   const intake=calcTodayIntake(p);
   const targets=calcNutrientTargets(p);
-  const burned=calcTodayBurnedCalories(p);
-  // 饮食完成度 = 食物摄入 / 每日热量目标（不扣运动消耗，避免与 TDEE 活动系数重复计算）
+  const snap=getHealthSnapshot(p,currentViewDate);
+  const burned=snap.recordedExerciseCalories;
   const intakeCalories=Math.round(intake.calories);
-  // 净摄入仅作为参考数据展示
-  const netCalories=Math.round(intake.calories-burned);
+  const netCalories=snap.calorieBudget.netCalories;
+  const dynamicTarget=snap.calorieBudget.dynamicCalorieTarget;
   const summaryDate=document.getElementById('dietSummaryDate');
   if(summaryDate) summaryDate.textContent=formatDate(currentViewDate);
   const summaryGrid=document.getElementById('dietSummaryGrid');
@@ -12928,14 +13090,14 @@ function renderNutritionCard(){
   const ringWrap=document.getElementById('calorieRing');
   // 首页已经使用同一份 intake/targets 渲染紧凑概览；健康页不再保留重复圆环。
   if(!ringWrap) return;
-  if(targets){
-    const pct=Math.min(intakeCalories/targets.calories,1);
+  if(targets&&dynamicTarget>0){
+    const pct=Math.min(intakeCalories/dynamicTarget,1);
     const r=48,circum=2*Math.PI*r;
     const offset=circum*(1-pct);
 
-    // Gap target: recommended intake to reach target (not yet consumed) — 基于食物摄入，不含运动
-    const gapCalories=Math.max(0,targets.calories-intakeCalories);
-    const gapPct=Math.min(gapCalories/targets.calories,1);
+    // Gap target follows the unified dynamic calorie budget.
+    const gapCalories=Math.max(0,snap.calorieBudget.remainingCalories);
+    const gapPct=Math.min(gapCalories/dynamicTarget,1);
     const gapR=38,gapCircum=2*Math.PI*gapR;
     const gapOffset=gapCircum*(1-gapPct);
 
@@ -12974,7 +13136,8 @@ function renderNutritionCard(){
     const subEl=ringWrap.parentElement.querySelector('.nutrition-sub');
     if(subEl){
       const pctRound=Math.round(pct*100);
-      subEl.textContent=`目标${targets.calories} · 完成度${pctRound}% · 运动消耗${burned}kcal · 净摄入${netCalories}kcal(参考)`;
+      const budgetParts=snap.exerciseCalories>0?`基础${snap.baseTargetCals} + 运动${snap.exerciseCalories}`:`基础目标${snap.baseTargetCals}`;
+      subEl.textContent=`动态目标${dynamicTarget} (${budgetParts}) · 完成度${pctRound}% · 运动记录${burned}kcal · 净摄入${netCalories}kcal`;
     }
   }else{
     // targets=null（资料不完整导致 TDEE 算不出）。
@@ -13733,6 +13896,8 @@ function openRecordDetail(type){
   activeRecordDetailType=type;
   const modal=document.getElementById('recordDetailModal');
   if(!modal) return;
+  const content=document.getElementById('recordDetailContent');
+  if(content) content.scrollTop=0;
   modal.classList.add('show');
   GlassScrollLock.lock('modal:recordDetailModal');
   renderRecordDetail(type);
@@ -13829,12 +13994,19 @@ function renderRecordDetail(type){
   const p=getActiveProfile();
   const wrap=document.getElementById('recordDetailContent');
   if(!wrap||!p) return;
+  const renderKey=`${getProfileDataId(p)||p.id||''}|${currentViewDate}|${type}`;
+  const restoreScroll=wrap.dataset.renderKey===renderKey?Math.max(0,wrap.scrollTop||0):0;
   if(type==='food') renderFoodRecordDetail(wrap,p);
   else if(type==='weight') renderWeightRecordDetail(wrap,p);
   else if(type==='water') renderWaterRecordDetail(wrap,p);
   else if(type==='exercise') renderExerciseRecordDetail(wrap,p);
   else if(type==='sleep') renderSleepRecordDetail(wrap,p);
   else if(type==='steps') renderStepsRecordDetail(wrap,p);
+  wrap.dataset.renderKey=renderKey;
+  requestAnimationFrame(()=>{
+    if(!wrap.isConnected||wrap.dataset.renderKey!==renderKey) return;
+    wrap.scrollTop=Math.min(restoreScroll,Math.max(0,wrap.scrollHeight-wrap.clientHeight));
+  });
   if(window.GlassUI) GlassUI.enhance(wrap);
 }
 function renderFoodRecordDetail(wrap,p){
@@ -14637,6 +14809,20 @@ function setCachedAIFood(query,food){
     console.warn('AI food cache write error:',e);
   }
 }
+function cleanupLegacyAIFoodCaches(){
+  try{
+    if(localStorage.getItem(AI_FOOD_CACHE_CLEANUP_KEY)==='1') return;
+    const legacyKeys=[];
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key&&key.startsWith(AI_FOOD_CACHE_PREFIX)&&key!==AI_FOOD_CACHE_KEY) legacyKeys.push(key);
+    }
+    legacyKeys.forEach(key=>localStorage.removeItem(key));
+    localStorage.setItem(AI_FOOD_CACHE_CLEANUP_KEY,'1');
+  }catch(e){
+    console.warn('Legacy AI food cache cleanup error:',e);
+  }
+}
 function showSearchResults(wrap){
   if(!wrap) return;
   if(wrap.id==='searchResults') wrap.classList.add('food-search-results-inline');
@@ -14718,6 +14904,10 @@ function cancelPendingFoodSearch(){
     clearTimeout(aiFoodSearchTimer);
     aiFoodSearchTimer=null;
   }
+  if(aiFoodSearchController){
+    aiFoodSearchController.abort();
+    aiFoodSearchController=null;
+  }
   aiFoodSearchRequestId++;
 }
 function resolveFoodSearchContext(options={}){
@@ -14737,10 +14927,11 @@ function logFoodSearchDebug(stage,context,data={}){
     resultCount:Number(data.resultCount||0)
   });
 }
-async function searchFoodWithAI(query){
+async function searchFoodWithAI(query,signal){
   const response=await fetch(getApiUrl('/api/food-search'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
+    signal,
     body:JSON.stringify({query})
   });
   let data=null;
@@ -14852,8 +15043,10 @@ function renderSearchResults(query,options={}){
     aiFoodSearchTimer=setTimeout(async()=>{
       aiFoodSearchTimer=null;
       if(requestId!==aiFoodSearchRequestId||input.value.trim().toLowerCase()!==q) return;
+      const controller=new AbortController();
+      aiFoodSearchController=controller;
       try{
-        const aiFood=await searchFoodWithAI(rawQuery);
+        const aiFood=await searchFoodWithAI(rawQuery,controller.signal);
         if(requestId!==aiFoodSearchRequestId||input.value.trim().toLowerCase()!==q) return;
         if(!aiFood){
           wrap.innerHTML='<div style="padding:10px;text-align:center;color:var(--txt3);font-size:12px">没有找到可靠的食物信息，请尝试输入更具体的食物名称</div>';
@@ -14863,12 +15056,15 @@ function renderSearchResults(query,options={}){
         setCachedAIFood(rawQuery,aiFood);
         renderAISearchResult(aiFood,rawQuery,false,context);
       }catch(err){
+        if(err?.name==='AbortError') return;
         if(requestId!==aiFoodSearchRequestId||input.value.trim().toLowerCase()!==q) return;
         console.error('AI food search error:',err);
         wrap.innerHTML='<div style="padding:10px;text-align:center;color:var(--red);font-size:12px">AI搜索暂时不可用，请稍后重试</div>';
         showSearchResults(wrap);
+      }finally{
+        if(aiFoodSearchController===controller) aiFoodSearchController=null;
       }
-    },500);
+    },250);
     return;
   }
   cancelPendingFoodSearch();
@@ -14921,7 +15117,7 @@ function formatBytes(bytes){
 function logFoodAI(stage,data={}){
   console.info('[FoodAI]',{stage,...data});
 }
-function compressFoodImage(file,{maxSide=1280,quality=.76}={}){
+function compressFoodImage(file,{maxSide=1024,quality=.76}={}){
   const start=performance.now();
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -14980,7 +15176,8 @@ function normalizePhotoFoodItem(item,phase='quick'){
   const name=String(item?.food||item?.name||'未知食物').trim()||'未知食物';
   const ref=findNutritionReference(name);
   const estimatedWeight=Number(item?.estimatedWeight??item?.weight??item?.estimated_weight??item?.amount);
-  const amount=Number.isFinite(estimatedWeight)&&estimatedWeight>0?Math.round(estimatedWeight):(ref?getFoodBaseAmount(ref):100);
+  const weightStep=estimatedWeight<100?5:10;
+  const amount=Number.isFinite(estimatedWeight)&&estimatedWeight>0?Math.max(weightStep,Math.round(estimatedWeight/weightStep)*weightStep):(ref?getFoodBaseAmount(ref):100);
   const per100={
     cal:Number(item?.calories_per_100g??item?.calPer100g??item?.caloriesPer100g),
     pro:Number(item?.protein_per_100g??item?.proteinPer100g),
@@ -15009,7 +15206,7 @@ function normalizePhotoFoodItem(item,phase='quick'){
     fib:base.fib,
     amount,
     estimatedWeight:amount,
-    confidence:item?.confidence||'medium',
+    confidence:['low','medium','high'].includes(String(item?.confidence||'').toLowerCase())?String(item.confidence).toLowerCase():'medium',
     estimateReason:item?.reason||item?.estimateReason||'图片估算重量可能存在误差，请按实际份量修正',
     aiAdvice:item?.advice||item?.aiAdvice||item?.suggestion||'图片估算重量可能存在误差，请按实际份量修正',
     aiStage:phase
@@ -15019,64 +15216,24 @@ async function callFoodVisionAI(photoURL,promptText,aiCfg,stage){
   const aiStart=performance.now();
   const uploadBytes=getDataURLBytes(photoURL);
   logFoodAI('upload',{stage,uploadBytes,uploadSize:formatBytes(uploadBytes)});
-  const response=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{
+  const response=await fetch(getApiUrl('/api/food-photo'),{
     method:'POST',
     headers:{
       'Content-Type':'application/json',
-      'Authorization':'Bearer '+aiCfg.apiKey,
     },
     body:JSON.stringify({
-      model:aiCfg.modelId,
-      messages:[{
-        role:'user',
-        content:[
-          {type:'text',text:promptText},
-          {type:'image_url',image_url:{url:photoURL}}
-        ]
-      }]
+      prompt:promptText,
+      image:photoURL
     })
   });
-  const data=await response.json();
+  const data=await response.json().catch(()=>({}));
   const aiMs=Math.round(performance.now()-aiStart);
   logFoodAI('AI',{stage,ms:aiMs,ok:response.ok});
   if(!response.ok){
-    const msg=data?.error?.message||data?.message||`请求失败：HTTP ${response.status}`;
+    const msg=data?.error||data?.message||`请求失败：HTTP ${response.status}`;
     throw new Error(msg);
   }
-  return data?.choices?.[0]?.message?.content||'';
-}
-async function enrichPhotoFoodNutrition(photoURL,targetProfileId,aiCfg,totalStart){
-  const content=document.getElementById('aiModalContent');
-  try{
-    const promptText='请基于图片和已识别食物，补全重量估算、营养信息和一句简短饮食建议。返回JSON数组，每项包含：food, estimatedWeight(整数克，只给大致估算), confidence(low/medium/high), calories_per_100g, protein_per_100g, fat_per_100g, carbs_per_100g, fiber_per_100g, reason, advice。不要给过度精确重量；看不清时confidence用low。只返回JSON数组。已识别食物：'+aiAnalysisFoods.map(f=>f.name).join('、');
-    const parseStart=performance.now();
-    const text=await callFoodVisionAI(photoURL,promptText,aiCfg,'detail');
-    const foods=parseAIJsonArray(text);
-    logFoodAI('parse',{stage:'detail',ms:Math.round(performance.now()-parseStart),count:foods.length});
-    if(foods.length){
-      const currentByName=new Map(aiAnalysisFoods.map(f=>[String(f.name||'').trim(),f]));
-      aiAnalysisFoods=foods.map(f=>{
-        const enriched=normalizePhotoFoodItem(f,'detail');
-        const current=currentByName.get(String(enriched.name||'').trim());
-        if(current?.userAdjustedWeight){
-          enriched.amount=current.amount;
-          enriched.quantity=roundFoodValue(enriched.amount/enriched.base_amount,2);
-          enriched.userAdjustedWeight=true;
-        }
-        return enriched;
-      });
-      renderAIResults(photoURL,targetProfileId,{detailReady:true});
-    }else if(content){
-      const note=content.querySelector('[data-ai-detail-status]');
-      if(note) note.textContent='营养详情解析失败，可先手动修正重量后添加';
-    }
-  }catch(err){
-    console.error('Food detail AI error:',err);
-    const note=content?.querySelector('[data-ai-detail-status]');
-    if(note) note.textContent='营养补全失败，可先手动修正重量后添加';
-  }finally{
-    logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
-  }
+  return data?.text||'';
 }
 async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId||getHealthWriteProfile()?.id||''){
   aiAnalysisTargetProfileId=targetProfileId;
@@ -15095,20 +15252,19 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
       <div class="ai-scanning">
         <img src="${photoURL}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px">
         <div class="ai-scan-ring"></div>
-        <div class="ai-scan-text">正在快速识别食物...</div>
+        <div class="ai-scan-text">正在识别食物并估算营养...</div>
       </div>`;
 
     try{
-      const promptText='请快速识别图片中的食物，只返回JSON数组。每项包含：food(食物名称), category(主食/菜肴/肉类/水果/饮品/其他), confidence(low/medium/high)。不要估算重量，不要营养分析，不要健康建议。只返回JSON数组。';
+      const promptText='请一次完成图片中的菜品识别、份量估算和营养估算，只返回严格JSON数组，不要Markdown或解释。每项必须包含：food(食物名称)、category(主食/菜肴/肉类/水果/饮品/其他)、estimatedWeight(合理取整的估算克数)、confidence(low/medium/high)、calories_per_100g、protein_per_100g、fat_per_100g、carbs_per_100g、fiber_per_100g、reason、advice。根据餐盘占比、常见盛装方式和常规份量估算重量；不要生成假精确重量，无法判断时使用合理的粗粒度整数并将confidence降为low；营养值按该菜品常见做法的每100g数值估算；reason简短说明图片判断依据；advice提醒用户可按实际食用量调整。';
       const parseStart=performance.now();
-      const text=await callFoodVisionAI(photoURL,promptText,aiCfg,'quick');
+      const text=await callFoodVisionAI(photoURL,promptText,aiCfg,'complete');
       const foods=parseAIJsonArray(text);
-      logFoodAI('parse',{stage:'quick',ms:Math.round(performance.now()-parseStart),count:foods.length});
+      logFoodAI('parse',{stage:'complete',ms:Math.round(performance.now()-parseStart),count:foods.length});
       if(!foods.length) throw new Error('无法解析AI返回结果');
-      aiAnalysisFoods=foods.map(f=>normalizePhotoFoodItem(f,'quick'));
-      renderAIResults(photoURL,targetProfileId,{detailReady:false});
-      // 第二阶段后台补全重量、营养和建议，不阻塞首屏展示
-      enrichPhotoFoodNutrition(photoURL,targetProfileId,aiCfg,totalStart);
+      aiAnalysisFoods=foods.map(f=>normalizePhotoFoodItem(f,'complete'));
+      logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
+      renderAIResults(photoURL,targetProfileId,{detailReady:true});
       return;
     }catch(err){
       console.error('Bailian API error:',err);
@@ -15366,7 +15522,7 @@ async function handlePhotoFile(file,{zone:targetZone=null,onAnalysisStart=null}=
     if(!zone) throw new Error('拍照识别容器不存在');
     zone.classList.add('has-photo');
     zone.innerHTML=`<div style="padding:18px 12px;text-align:center;color:var(--txt3);font-size:12px">正在压缩图片...</div>`;
-    const compressed=await compressFoodImage(file,{maxSide:1280,quality:.76});
+    const compressed=await compressFoodImage(file,{maxSide:1024,quality:.76});
     const url=compressed.url;
     zone.innerHTML=`<img src="${url}"><button class="ph-clear" id="phClear" aria-label="清除图片">${icon('x')}</button>`;
     document.getElementById('phClear').addEventListener('click',(ev)=>{
@@ -16508,7 +16664,7 @@ function showEditPopover(trigger,title,bodyHTML,onSave){
   pop.id='editPopover';
   pop.innerHTML=`
     <div class="edit-popover-title"><span>${escapeHTML(title)}</span><button class="edit-popover-close" type="button" aria-label="关闭">${icon('x')}</button></div>
-    <div class="edit-popover-body">${bodyHTML}</div>
+    <div class="edit-popover-body modal-scroll-region">${bodyHTML}</div>
     <div class="edit-actions">
       <button type="button" class="cancel">取消</button>
       <button type="button" class="save">保存修改</button>
@@ -18327,7 +18483,7 @@ async function initCloudSync(){
 // ==================== GLASS SCROLL LOCK ====================
 const GlassScrollLock=(()=>{
   const tokens=new Map();
-  const allowedSelector='#settingsModal #settingsForm,.glass-birthday-years,.time-wheel-scroll,.glass-menu,.glass-date-panel,.ex-dropdown,.modal,.edit-popover,.search-results,.qa-search-results,.quick-add-panel';
+  const allowedSelector='.modal-scroll-region,#settingsModal #settingsForm,.glass-birthday-years,.time-wheel-scroll,.glass-menu,.glass-date-panel,.ex-dropdown,.modal,.edit-popover,.search-results,.qa-search-results,.quick-add-panel';
   let scrollY=0;
   let touchLastY=0;
 
@@ -18428,6 +18584,7 @@ const GlassScrollLock=(()=>{
       e.preventDefault();
       return;
     }
+    if(root.classList?.contains('time-wheel-scroll')||root.classList?.contains('modal-scroll-region')) return;
     const currentY=e.touches?.[0]?.clientY??touchLastY;
     const deltaY=touchLastY-currentY;
     touchLastY=currentY;
@@ -19200,6 +19357,7 @@ function init(){
     try{return fn()}
     catch(err){console.error(`[Init] ${label} failed:`,err);return undefined}
   };
+  initStep('cleanupLegacyAIFoodCaches',cleanupLegacyAIFoodCaches);
   initStep('applyTheme',()=>applyTheme(getInitialTheme()));
   initStep('renderIcons',()=>renderIcons(document));
   initStep('setupAppPageShell',setupAppPageShell);
