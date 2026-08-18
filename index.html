@@ -7470,6 +7470,18 @@ body.health-compare-page-active .app{
 .ledger-hero-edit:not(.is-hidden){display:flex;align-items:center;gap:6px;margin-top:6px;max-width:168px}
 .ledger-hero-edit .ledger-amount-input{font-size:22px;text-align:left;min-height:40px;padding:6px 10px;flex:1;min-width:0;border-radius:12px}
 .ledger-settings{margin-top:4px}
+.ledger-form-fields{margin:0 0 2px}
+.ledger-form-field{margin-bottom:11px}
+.ledger-form-field:last-child{margin-bottom:12px}
+.ledger-form-field>label{display:block;font-size:12px;color:var(--txt2);margin-bottom:5px;min-height:18px;line-height:18px;font-weight:600}
+.ledger-form-field .form-select{
+  width:100%;min-height:44px;height:44px;padding:10px 34px 10px 12px;
+  border-radius:12px;border:1px solid var(--card-border);background:var(--glass-field);
+  color:var(--txt);font-size:13px;font-weight:600;box-sizing:border-box;
+}
+[data-theme="light"] .ledger-form-field .form-select{background:rgba(255,255,255,0.62)}
+.ledger-form-field .form-select:focus{border-color:var(--gold-l);outline:none}
+.ledger-settings-rows .ls-row:first-child{border-top:0}
 .ledger-ai-items-area{
   background:transparent;border:0;border-radius:0;padding:8px 0 2px;margin-bottom:0;max-height:none;overflow:visible;
 }
@@ -7600,6 +7612,17 @@ body.health-compare-page-active .app{
   font-size:13px;font-weight:700;color:var(--txt);text-align:center;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+.fs-compact-stepper-input-wrap{
+  display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;padding:0 2px;
+}
+.fs-compact-stepper-input{
+  width:42px;min-width:0;max-width:100%;border:0;background:transparent;
+  font-size:13px;font-weight:700;color:var(--txt);text-align:right;padding:0;
+  outline:none;font-variant-numeric:tabular-nums;-moz-appearance:textfield;
+}
+.fs-compact-stepper-input::-webkit-outer-spin-button,
+.fs-compact-stepper-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.fs-compact-stepper-unit{font-size:13px;font-weight:700;color:var(--txt);flex-shrink:0;line-height:1}
 .food-sync-split-section{margin:4px 0 2px 26px}
 .food-sync-split-head{font-size:11px;color:var(--txt3);margin-bottom:2px}
 .food-sync-split-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:1px 0}
@@ -13980,12 +14003,6 @@ function refreshLedgerEditorDisplays(form){
     const n=parseFloat(String(amt.value||'').replace(/[^0-9.]/g,''));
     amtText.textContent=Number.isFinite(n)?n.toFixed(2):(amt.value||'0.00');
   }
-  const payer=form.querySelector('#ledgerExpPayer');
-  const payerVal=form.querySelector('#ledgerExpPayerValue');
-  if(payer&&payerVal) payerVal.textContent=getLedgerFieldValueText(payer);
-  const cat=form.querySelector('#ledgerExpCategory');
-  const catVal=form.querySelector('#ledgerExpCategoryValue');
-  if(cat&&catVal) catVal.textContent=getLedgerFieldValueText(cat);
   const mer=form.querySelector('#ledgerExpMerchant');
   const merVal=form.querySelector('#ledgerExpMerchantValue');
   if(mer&&merVal){
@@ -14849,22 +14866,22 @@ function openCoupleLedgerEditor(expenseId){
     </div>
     <div class="ledger-settings-divider"></div>
     <div class="ledger-settings">
-      <div class="ls-row">
-        <span class="ls-row-label">付款人</span>
-        <span class="ls-row-value" id="ledgerExpPayerValue">${escapeHTML(defaultPayerName)}</span>
-        <span class="ls-row-chevron">›</span>
-        <select class="ls-row-native" id="ledgerExpPayer">
-          ${payerOpts.map(o=>`<option value="${o.id}" ${existing?.paidByProfileId===o.id||(!existing&&owner&&o.id===owner.id)?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}
-        </select>
+      <div class="ledger-form-fields">
+        <div class="form-group ledger-form-field">
+          <label for="ledgerExpPayer">付款人</label>
+          <select class="form-select" id="ledgerExpPayer">
+            ${payerOpts.map(o=>`<option value="${o.id}" ${existing?.paidByProfileId===o.id||(!existing&&owner&&o.id===owner.id)?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group ledger-form-field">
+          <label for="ledgerExpCategory">分类</label>
+          <select class="form-select" id="ledgerExpCategory">
+            ${LEDGER_CATEGORIES.map(c=>`<option value="${c}" ${(existing&&resolveLedgerCategory(existing.category)===c)||(!existing&&c==='food')?'selected':''}>${LEDGER_CATEGORY_LABELS[c]}</option>`).join('')}
+          </select>
+        </div>
       </div>
-      <div class="ls-row">
-        <span class="ls-row-label">分类</span>
-        <span class="ls-row-value" id="ledgerExpCategoryValue">${escapeHTML(LEDGER_CATEGORY_LABELS[defaultCat]||'餐饮')}</span>
-        <span class="ls-row-chevron">›</span>
-        <select class="ls-row-native" id="ledgerExpCategory">
-          ${LEDGER_CATEGORIES.map(c=>`<option value="${c}" ${(existing&&resolveLedgerCategory(existing.category)===c)||(!existing&&c==='food')?'selected':''}>${LEDGER_CATEGORY_LABELS[c]}</option>`).join('')}
-        </select>
-      </div>
+      <div class="ledger-settings-divider"></div>
+      <div class="ledger-settings-rows">
       <div class="ls-row" data-ledger-view="merchant" data-ledger-open="merchant">
         <span class="ls-row-label">商家</span>
         <span class="ls-row-value ${merchantVal?'':'is-placeholder'}" id="ledgerExpMerchantValue">${escapeHTML(merchantVal||'未填写')}</span>
@@ -14901,6 +14918,7 @@ function openCoupleLedgerEditor(expenseId){
       <div class="ls-row-edit is-hidden" data-ledger-edit="note">
         <input class="form-input" id="ledgerExpNote" type="text" maxlength="200" value="${escapeHTML(noteVal)}" placeholder="选填">
       </div>
+      </div>
       ${isEdit&&existing&&Array.isArray(existing.orderItems)&&existing.orderItems.length>0?`
         ${(()=>{
           const links=Array.isArray(existing.linkedFoodRecordIds)?existing.linkedFoodRecordIds.filter(Boolean):[];
@@ -14925,8 +14943,6 @@ function openCoupleLedgerEditor(expenseId){
   modal.querySelector('#coupleLedgerClose')?.addEventListener('click',()=>closeLedgerEditor());
   form.querySelector('#ledgerExpCancel').addEventListener('click',()=>closeLedgerEditor());
   form.querySelector('#ledgerExpSave').addEventListener('click',saveCoupleLedgerExpense);
-  form.querySelector('#ledgerExpPayer')?.addEventListener('change',()=>refreshLedgerEditorDisplays(form));
-  form.querySelector('#ledgerExpCategory')?.addEventListener('change',()=>refreshLedgerEditorDisplays(form));
   const amtInput=form.querySelector('#ledgerExpAmount');
   const amtEditBtn=form.querySelector('#ledgerExpAmountEditBtn');
   if(amtInput){
@@ -15394,12 +15410,51 @@ async function openFoodSyncEditor(expenseId){
     renderIcons(modal);
   }
 }
-function fsCompactStepper(idx, valText, minusAttr, plusAttr){
+function fsCompactStepper(idx, numVal, unit, inputKind, minusAttr, plusAttr){
+  const safeVal=Number.isFinite(Number(numVal))?Math.round(Number(numVal)):0;
   return `<div class="fs-compact-stepper">
     <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${minusAttr}>−</button>
-    <span class="fs-compact-stepper-val">${valText}</span>
+    <div class="fs-compact-stepper-input-wrap">
+      <input type="number" class="fs-compact-stepper-input" data-idx="${idx}" data-fs-input="${inputKind}" inputmode="numeric" value="${safeVal}" aria-label="数值">
+      <span class="fs-compact-stepper-unit">${unit}</span>
+    </div>
     <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${plusAttr}>+</button>
   </div>`;
+}
+function applyFoodSyncPortionWeight(idx, grams){
+  const item=_foodSyncState?.items?.[idx];
+  if(!item) return;
+  const n=Number(grams);
+  if(!Number.isFinite(n)||n<1){renderFoodSyncForm();return;}
+  item.consumedWeightG=Math.max(1,Math.min(9999,Math.round(n)));
+  renderFoodSyncForm();
+}
+function applyFoodSyncCustomPct(idx, pct){
+  const item=_foodSyncState?.items?.[idx];
+  if(!item) return;
+  const n=Number(pct);
+  if(!Number.isFinite(n)){renderFoodSyncForm();return;}
+  item.portionPct=Math.max(0,Math.min(200,Math.round(n)));
+  item.customPctOpen=true;
+  renderFoodSyncForm();
+}
+function applyFoodSyncSplitRatio(idx, who, pct){
+  const item=_foodSyncState?.items?.[idx];
+  if(!item||!who) return;
+  const n=Number(pct);
+  if(!Number.isFinite(n)){renderFoodSyncForm();return;}
+  const key='split'+(who==='owner'?'Owner':'Partner');
+  item[key]=Math.max(0,Math.min(100,Math.round(n)));
+  renderFoodSyncForm();
+}
+function applyFoodSyncSplitGrams(idx, who, grams){
+  const item=_foodSyncState?.items?.[idx];
+  if(!item||!who) return;
+  const n=Number(grams);
+  if(!Number.isFinite(n)||n<0){renderFoodSyncForm();return;}
+  const key='split'+(who==='owner'?'OwnerGrams':'PartnerGrams');
+  item[key]=Math.max(0,Math.min(9999,Math.round(n)));
+  renderFoodSyncForm();
 }
 function renderFoodSyncForm(){
   if(!_foodSyncState) return;
@@ -15470,11 +15525,11 @@ function renderFoodSyncForm(){
             <div class="food-sync-split-head">分配</div>
             <div class="food-sync-split-row">
               <span class="food-sync-split-name">${escapeHTML(s.ownerName)}</span>
-              ${fsCompactStepper(i,`${Math.round(item.splitOwnerGrams)}g`,'data-split-grams-adjust="owner" data-weight-delta="-10"','data-split-grams-adjust="owner" data-weight-delta="10"')}
+              ${fsCompactStepper(i,item.splitOwnerGrams,'g','split-grams-owner','data-split-grams-adjust="owner" data-weight-delta="-10"','data-split-grams-adjust="owner" data-weight-delta="10"')}
             </div>
             <div class="food-sync-split-row">
               <span class="food-sync-split-name">${escapeHTML(s.partnerName)}</span>
-              ${fsCompactStepper(i,`${Math.round(item.splitPartnerGrams)}g`,'data-split-grams-adjust="partner" data-weight-delta="-10"','data-split-grams-adjust="partner" data-weight-delta="10"')}
+              ${fsCompactStepper(i,item.splitPartnerGrams,'g','split-grams-partner','data-split-grams-adjust="partner" data-weight-delta="-10"','data-split-grams-adjust="partner" data-weight-delta="10"')}
             </div>
             <div class="food-sync-split-foot"><span>已分配</span><span class="food-sync-split-foot-val">${assignedG}g / ${totalG}g</span></div>
             <div class="food-sync-split-foot"><span>剩余</span><span class="food-sync-split-foot-val">${remainG}g</span></div>`;
@@ -15483,11 +15538,11 @@ function renderFoodSyncForm(){
           html+=`<div class="food-sync-split-head">分配比例</div>
             <div class="food-sync-split-row">
               <span class="food-sync-split-name">${escapeHTML(s.ownerName)}</span>
-              ${fsCompactStepper(i,`${Math.round(item.splitOwner)}%`,'data-split-ratio-adjust="owner" data-ratio-delta="-5"','data-split-ratio-adjust="owner" data-ratio-delta="5"')}
+              ${fsCompactStepper(i,item.splitOwner,'%','split-ratio-owner','data-split-ratio-adjust="owner" data-ratio-delta="-5"','data-split-ratio-adjust="owner" data-ratio-delta="5"')}
             </div>
             <div class="food-sync-split-row">
               <span class="food-sync-split-name">${escapeHTML(s.partnerName)}</span>
-              ${fsCompactStepper(i,`${Math.round(item.splitPartner)}%`,'data-split-ratio-adjust="partner" data-ratio-delta="-5"','data-split-ratio-adjust="partner" data-ratio-delta="5"')}
+              ${fsCompactStepper(i,item.splitPartner,'%','split-ratio-partner','data-split-ratio-adjust="partner" data-ratio-delta="-5"','data-split-ratio-adjust="partner" data-ratio-delta="5"')}
             </div>
             <div class="food-sync-split-foot"><span>剩余</span><span class="food-sync-split-foot-val">${remainPct}%</span></div>`;
         }
@@ -15503,7 +15558,7 @@ function renderFoodSyncForm(){
           const pctFromWeight=(!swG||swG<=0)?null:Math.round((item.consumedWeightG||0)/(swG*item.quantity)*100);
           html+=`<div class="food-sync-portion-row">
             <span class="food-sync-portion-row-label">份量</span>
-            ${fsCompactStepper(i,`${Math.round(item.consumedWeightG||0)}g`,'data-weight-adjust="-10"','data-weight-adjust="10"')}
+            ${fsCompactStepper(i,item.consumedWeightG,'g','weight','data-weight-adjust="-10"','data-weight-adjust="10"')}
           </div>`;
           if(pctFromWeight!=null) html+=`<div class="food-sync-portion-hint">≈ ${pctFromWeight}%</div>`;
           else html+=`<div class="food-sync-portion-hint">整份重量：未可靠识别</div>`;
@@ -15520,7 +15575,7 @@ function renderFoodSyncForm(){
           if(customOpen){
             html+=`<div class="food-sync-custom-row">
               <span class="food-sync-custom-label">自定义比例</span>
-              ${fsCompactStepper(i,`${Math.round(item.portionPct)}%`,'data-custom-adjust="-5"','data-custom-adjust="5"')}
+              ${fsCompactStepper(i,item.portionPct,'%','custom-pct','data-custom-adjust="-5"','data-custom-adjust="5"')}
             </div>`;
           }else if(isPreset&&item.portionPct===100){
             const approxG=swG&&swG>0?Math.round(swG*item.quantity):null;
@@ -15586,9 +15641,7 @@ function bindFoodSyncFormEvents(){
       const delta=Number(btn.dataset.customAdjust);
       const item=_foodSyncState.items[idx];
       if(!item) return;
-      item.portionPct=Math.max(0,Math.min(200,(Number(item.portionPct)||0)+delta));
-      item.customPctOpen=true;
-      renderFoodSyncForm();
+      applyFoodSyncCustomPct(idx,(Number(item.portionPct)||0)+delta);
     });
   });
   form.querySelectorAll('.food-sync-portion-btn[data-portion-mode]').forEach(btn=>{
@@ -15621,8 +15674,7 @@ function bindFoodSyncFormEvents(){
       const delta=Number(btn.dataset.weightAdjust);
       const item=_foodSyncState.items[idx];
       if(!item) return;
-      item.consumedWeightG=Math.max(1,(item.consumedWeightG||0)+delta);
-      renderFoodSyncForm();
+      applyFoodSyncPortionWeight(idx,(item.consumedWeightG||0)+delta);
     });
   });
   form.querySelectorAll('[data-split-ratio-adjust]').forEach(btn=>{
@@ -15633,8 +15685,7 @@ function bindFoodSyncFormEvents(){
       const item=_foodSyncState.items[idx];
       if(!item||!who) return;
       const key='split'+(who==='owner'?'Owner':'Partner');
-      item[key]=Math.max(0,Math.min(100,(Number(item[key])||0)+delta));
-      renderFoodSyncForm();
+      applyFoodSyncSplitRatio(idx,who,(Number(item[key])||0)+delta);
     });
   });
   form.querySelectorAll('[data-split-grams-adjust]').forEach(btn=>{
@@ -15645,8 +15696,29 @@ function bindFoodSyncFormEvents(){
       const item=_foodSyncState.items[idx];
       if(!item||!who) return;
       const key='split'+(who==='owner'?'OwnerGrams':'PartnerGrams');
-      item[key]=Math.max(0,(Number(item[key])||0)+delta);
-      renderFoodSyncForm();
+      applyFoodSyncSplitGrams(idx,who,(Number(item[key])||0)+delta);
+    });
+  });
+  form.querySelectorAll('.fs-compact-stepper-input').forEach(inp=>{
+    if(inp._fsBound) return;
+    inp._fsBound=true;
+    const commit=()=>{
+      const idx=Number(inp.dataset.idx);
+      const kind=inp.dataset.fsInput;
+      const raw=inp.value.trim();
+      if(raw===''){renderFoodSyncForm();return;}
+      const n=Number(raw);
+      if(kind==='weight') applyFoodSyncPortionWeight(idx,n);
+      else if(kind==='custom-pct') applyFoodSyncCustomPct(idx,n);
+      else if(kind==='split-ratio-owner') applyFoodSyncSplitRatio(idx,'owner',n);
+      else if(kind==='split-ratio-partner') applyFoodSyncSplitRatio(idx,'partner',n);
+      else if(kind==='split-grams-owner') applyFoodSyncSplitGrams(idx,'owner',n);
+      else if(kind==='split-grams-partner') applyFoodSyncSplitGrams(idx,'partner',n);
+      else renderFoodSyncForm();
+    };
+    inp.addEventListener('blur',commit);
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();inp.blur();}
     });
   });
   form.querySelectorAll('.food-sync-who-btn').forEach(btn=>{
