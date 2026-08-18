@@ -184,6 +184,241 @@
   --home-font-caption:12px;
   --home-font-micro:11px;
 }
+
+/* =========================================================
+   DESIGN SYSTEM FOUNDATION V1
+   Phase 1A — tokens + canonical primitives only.
+   Legacy tokens (--gold, --home-gold, etc.) remain; do not
+   migrate pages in this phase. New UI MUST use ds-* / tokens.
+   ========================================================= */
+
+/* --- Spacing scale (4 / 8 / 12 / 16 / 24 / 32) --- */
+:root{
+  --space-xs:4px;
+  --space-sm:8px;
+  --space-md:12px;
+  --space-lg:16px;
+  --space-xl:24px;
+  --space-2xl:32px;
+  /* --- Radius scale --- */
+  --radius-sm:8px;
+  --radius-control:12px;
+  --radius-card:18px;
+  --radius-modal:24px;
+  --radius-pill:999px;
+  /* --- Shadow / elevation (no gold glow by default) --- */
+  --shadow-none:none;
+  --shadow-card:0 2px 8px rgba(0,0,0,0.10);
+  --shadow-modal:0 18px 46px rgba(0,0,0,0.34),0 1px 0 rgba(255,255,255,0.08) inset;
+  --shadow-focus:0 0 0 3px rgba(212,175,55,0.13);
+  --glow-brand:0 0 12px rgba(212,175,55,0.35);
+  /* --- Touch targets (mobile-first) --- */
+  --touch-min:44px;
+  --touch-min-sm:40px;
+  /* --- Semantic accent (maps legacy; no destructive merge) --- */
+  --accent:var(--gold);
+  --accent-text:var(--gold-l);
+  --accent-dark:var(--gold-d);
+  --accent-gradient:var(--gold-grad);
+  --accent-tonal:rgba(212,175,55,0.10);
+  --accent-tonal-hover:rgba(212,175,55,0.16);
+  --accent-border:rgba(212,175,55,0.22);
+  --accent-border-strong:rgba(212,175,55,0.40);
+  --accent-focus-ring:var(--shadow-focus);
+  /* Home-scoped accent (keep separate from --accent until Phase 2) */
+  --accent-home:var(--home-gold);
+  --accent-home-text:var(--home-gold-l);
+  --accent-home-tonal:var(--home-gold-soft);
+  --accent-home-glow:var(--home-gold-glow);
+}
+[data-theme="light"]{
+  --shadow-card:0 2px 8px rgba(76,55,12,0.08);
+  --shadow-modal:0 18px 44px rgba(76,55,12,0.14),0 1px 0 rgba(255,255,255,0.86) inset;
+  --shadow-focus:0 0 0 3px rgba(166,111,0,0.12);
+  --glow-brand:0 0 10px rgba(166,111,0,0.22);
+  --accent-tonal:rgba(166,111,0,0.10);
+  --accent-tonal-hover:rgba(166,111,0,0.16);
+  --accent-border:rgba(166,111,0,0.22);
+  --accent-border-strong:rgba(166,111,0,0.36);
+}
+
+/* --- Glow policy (documented; enforce in new components) ---
+   ALLOWED:  FAB (--glow-brand), primary .btn-gold CTA only.
+   FORBIDDEN default: buttons, cards, inputs, chips, rows, loading. */
+
+/* --- Touch hit-area utility (icon stays small; hit expands) --- */
+.ds-hit{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  min-width:var(--touch-min);min-height:var(--touch-min);
+  padding:0;border:0;background:transparent;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.ds-hit--sm{min-width:var(--touch-min-sm);min-height:var(--touch-min-sm)}
+
+/* --- CANONICAL Chip (.ds-chip) — use for filters, tags, quick picks --- */
+.ds-chip{
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  padding:7px 12px;border-radius:var(--radius-pill);
+  border:1px solid var(--accent-border);
+  background:rgba(255,255,255,0.03);
+  color:var(--txt2);font-size:12px;font-weight:600;
+  cursor:pointer;transition:background .15s,border-color .15s,color .15s;
+  box-shadow:var(--shadow-none);white-space:nowrap;
+}
+[data-theme="light"] .ds-chip{background:rgba(0,0,0,0.03)}
+.ds-chip:hover{border-color:var(--accent-border-strong);color:var(--txt)}
+.ds-chip.active{
+  background:var(--accent-tonal);border-color:var(--accent-border-strong);
+  color:var(--accent-text);
+}
+.ds-chip:disabled,.ds-chip.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.ds-chip--sm{padding:5px 10px;font-size:11px}
+.ds-chip--md{padding:7px 12px;font-size:12px}
+
+/* --- CANONICAL Segmented (.meal-seg) — see existing rules below --- */
+
+/* --- CANONICAL Setting Row (.ds-setting-row) --- */
+.ds-setting-row{
+  display:flex;align-items:center;gap:var(--space-sm);
+  width:100%;min-height:48px;padding:0 var(--space-sm);
+  border:0;border-bottom:1px solid rgba(212,175,55,0.06);
+  background:transparent;color:inherit;font:inherit;text-align:left;
+  cursor:pointer;box-shadow:var(--shadow-none);
+  -webkit-tap-highlight-color:transparent;
+}
+[data-theme="light"] .ds-setting-row{border-bottom-color:rgba(120,92,18,0.08)}
+.ds-setting-row:last-child{border-bottom:0}
+.ds-setting-row__label{
+  flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--txt);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ds-setting-row__desc{
+  display:block;font-size:11px;font-weight:500;color:var(--txt3);
+  margin-top:1px;line-height:1.35;
+}
+.ds-setting-row__value{
+  flex:0 1 auto;max-width:55%;font-size:13px;color:var(--txt3);
+  text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ds-setting-row__value.is-placeholder{color:var(--txt3);opacity:.85}
+.ds-setting-row__chevron{
+  flex:0 0 14px;width:14px;height:14px;color:var(--txt3);
+  display:flex;align-items:center;justify-content:center;
+}
+.ds-setting-row__chevron .ui-icon{width:13px;height:13px}
+.ds-setting-row:disabled,.ds-setting-row.disabled{opacity:.48;cursor:not-allowed;pointer-events:none}
+.ds-setting-row:focus-visible{outline:none;box-shadow:var(--accent-focus-ring);border-radius:var(--radius-sm)}
+
+/* --- CANONICAL Empty State (.empty-state) --- */
+.empty-state{
+  text-align:center;padding:var(--space-xl) var(--space-sm);
+  color:var(--txt3);line-height:1.65;
+}
+.empty-state__icon{
+  width:40px;height:40px;margin:0 auto var(--space-sm);
+  color:var(--txt3);opacity:.55;
+}
+.empty-state__icon .ui-icon{width:100%;height:100%}
+.empty-state__title{font-size:14px;font-weight:600;color:var(--txt2);margin-bottom:4px}
+.empty-state__desc{font-size:12px;color:var(--txt3);max-width:280px;margin:0 auto}
+.empty-state__action{margin-top:var(--space-md);display:flex;justify-content:center;gap:var(--space-sm);flex-wrap:wrap}
+
+/* --- CANONICAL Spinner (.ds-spinner) — no gold glow --- */
+@keyframes ds-spin{to{transform:rotate(360deg)}}
+.ds-spinner{
+  display:inline-block;border-radius:50%;
+  border:2px solid rgba(212,175,55,0.12);
+  border-top-color:var(--accent);
+  animation:ds-spin .85s linear infinite;
+  box-shadow:var(--shadow-none);
+}
+[data-theme="light"] .ds-spinner{border-color:rgba(166,111,0,0.12);border-top-color:var(--accent)}
+.ds-spinner--inline{width:16px;height:16px;border-width:2px}
+.ds-spinner--section{width:40px;height:40px;border-width:3px}
+.ds-spinner--modal{width:56px;height:56px;border-width:3px}
+.ds-loading{display:flex;flex-direction:column;align-items:center;gap:var(--space-md);padding:var(--space-xl) var(--space-sm)}
+.ds-loading__text{font-size:13px;color:var(--txt2)}
+
+/* --- CANONICAL Stepper (.ds-stepper) ---
+   Spec: mobile 210–230px, ± touch≥44px, integrated suffix, no nested capsule.
+   .fs-compact-stepper is kept as a legacy alias so Food Sync doesn't break.
+   New UI should use .ds-stepper; existing Food Sync will be dual-classed. */
+.ds-stepper{
+  display:grid;grid-template-columns:44px 1fr 44px;align-items:stretch;
+  width:min(200px,100%);min-width:180px;max-width:210px;height:42px;
+  border-radius:var(--radius-pill);border:1px solid var(--accent-border);
+  background:var(--glass-field);overflow:hidden;flex-shrink:0;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.ds-stepper:focus-within{
+  border-color:rgba(212,175,55,0.55);
+  box-shadow:var(--accent-focus-ring);
+}
+.ds-stepper-btn{
+  height:100%;border:0;background:transparent;color:var(--accent-text);
+  font-size:18px;font-weight:700;cursor:pointer;display:grid;place-items:center;
+  padding:0;min-height:42px;flex:0 0 44px;
+  -webkit-tap-highlight-color:transparent;
+}
+.ds-stepper-btn:active{background:var(--accent-tonal)}
+.ds-stepper-input-wrap{
+  display:flex;align-items:center;justify-content:center;gap:2px;
+  min-width:96px;flex:1 1 auto;min-height:42px;overflow:visible;
+  padding:0 8px;margin:0;cursor:text;-webkit-tap-highlight-color:transparent;
+}
+.ds-stepper-input,
+.ds-stepper-input:hover,
+.ds-stepper-input:focus,
+.ds-stepper-input:focus-visible,
+.ds-stepper-input:active{
+  width:100%;min-width:52px;max-width:72px;flex:1 1 52px;
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  outline:none!important;border-radius:0!important;min-height:0!important;height:auto!important;
+  font-size:21px;font-weight:800;color:var(--txt);text-align:center;padding:0!important;
+  font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield;
+  -webkit-appearance:none;line-height:1.15;caret-color:var(--accent-text);
+  -webkit-tap-highlight-color:transparent;
+}
+.ds-stepper:focus-within .ds-stepper-input{color:var(--accent-text)}
+.ds-stepper-input::-webkit-outer-spin-button,
+.ds-stepper-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;appearance:none}
+.ds-stepper-unit{font-size:15px;font-weight:600;color:var(--txt);flex-shrink:0;line-height:1;margin-left:1px;pointer-events:none;user-select:none}
+.ds-stepper:focus-within .ds-stepper-unit{color:var(--accent-text)}
+/* compact variant for tight layouts (two-person split etc.) */
+.ds-stepper--compact{
+  width:min(200px,100%);min-width:180px;max-width:210px;
+}
+@media(max-width:600px){
+  .ds-stepper{width:min(230px,100%);min-width:210px;max-width:230px;height:44px}
+  .ds-stepper-btn{min-height:44px}
+  .ds-stepper-input-wrap{min-width:104px;min-height:44px;padding:0 10px}
+  .ds-stepper-input,.ds-stepper-input:hover,.ds-stepper-input:focus,.ds-stepper-input:focus-visible,.ds-stepper-input:active{min-width:58px;max-width:78px;flex:1 1 58px;font-size:21px!important}
+  .ds-stepper-unit{font-size:16px;font-weight:600}
+}
+/* theme overrides (prevent any global form-input rules clobbering the naked input) */
+:root:not([data-theme="light"]) .ds-stepper .ds-stepper-input,
+:root:not([data-theme="light"]) .ds-stepper .ds-stepper-input:hover,
+:root:not([data-theme="light"]) .ds-stepper .ds-stepper-input:focus,
+:root:not([data-theme="light"]) .ds-stepper .ds-stepper-input:focus-visible,
+:root:not([data-theme="light"]) .ds-stepper .ds-stepper-input:active,
+[data-theme="light"] .ds-stepper .ds-stepper-input,
+[data-theme="light"] .ds-stepper .ds-stepper-input:hover,
+[data-theme="light"] .ds-stepper .ds-stepper-input:focus,
+[data-theme="light"] .ds-stepper .ds-stepper-input:focus-visible,
+[data-theme="light"] .ds-stepper .ds-stepper-input:active{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  outline:none!important;border-radius:0!important;
+}
+/* LEGACY ALIAS — .fs-compact-stepper remains usable so existing HTML keeps working */
+
+/* --- Button variant aliases (canonical names) --- */
+/* Primary: .btn-gold | Tonal: .btn-tonal / .btn-tonal-gold | Ghost: .btn-ghost | Small: .btn-sm */
+
+/* --- Modal / Sheet standard (Phase 1A: spec only, no migration) ---
+   Overlay → Modal/Sheet → Header → Scrollable Body → Optional Sticky Footer
+   Requirements: safe-area, scroll body, sticky footer, keyboard, close, stack-top.
+   Reference implementation: #quickAddPanel (bottom sheet), .modal-overlay + .modal (dialogs). */
+
 body{
   background:var(--bg);color:var(--txt);
   font-family:"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
@@ -326,6 +561,7 @@ html.android-app .app{padding-top:calc(6px + var(--safe-top,0px))}
 .sub-page-section-title{font-size:15px;font-weight:650;color:var(--txt);margin-bottom:12px;display:flex;align-items:center;gap:6px}
 .sub-page-section-title .ui-icon{width:16px;height:16px;color:var(--gold-l)}
 .sub-page-empty{font-size:13px;color:var(--txt3);line-height:1.65;padding:12px 2px;text-align:center}
+/* LEGACY empty: migrate to .empty-state in Phase 1B */
 
 /* Health compare detail page — inherits the established sub-page/card system. */
 .health-compare-score-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
@@ -787,6 +1023,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .qa-bmi-info .bi-label{font-size:11px;color:var(--txt2)}
 .qa-bmi-info .bi-badge{font-size:12px;font-weight:700;margin-top:2px}
 .qa-ex-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+/* LEGACY chip: migrate to .ds-chip in Phase 1B */
 .qa-ex-chip{
   padding:7px 12px;border-radius:20px;
   border:1px solid var(--card-border);
@@ -809,6 +1046,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   margin-bottom:10px;text-align:center;
 }
 .qa-search-wrap{position:relative;margin-bottom:10px}
+/* CANONICAL segmented control — reuse .meal-seg + .meal-seg-btn for new UI */
 .meal-seg{display:flex;gap:3px;margin:0 0 10px;background:rgba(255,255,255,0.05);border-radius:10px;padding:3px}
 [data-theme="light"] .meal-seg{background:rgba(0,0,0,0.04)}
 .meal-seg-btn{flex:1;border:none;background:transparent;color:var(--txt2);font-size:12px;padding:7px 0;border-radius:8px;cursor:pointer;transition:all .2s;white-space:nowrap;font-weight:500}
@@ -1226,14 +1464,14 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 }
 .btn-gold:hover{box-shadow:0 0 12px rgba(212,175,55,0.4);transform:translateY(-1px)}
 .btn-gold:active{transform:translateY(0);box-shadow:0 3px 10px rgba(0,0,0,0.20) inset}
-.btn-tonal-gold{
+.btn-tonal,.btn-tonal-gold{
   background:rgba(212,175,55,0.10);color:var(--gold-l);
   border:1px solid rgba(212,175,55,0.22);
 }
-.btn-tonal-gold:hover{background:rgba(212,175,55,0.16);box-shadow:0 0 8px rgba(212,175,55,0.15)}
-.btn-tonal-gold:active{background:rgba(212,175,55,0.20);transform:scale(.98)}
-[data-theme="light"] .btn-tonal-gold{background:rgba(212,175,55,0.12);border-color:rgba(212,175,55,0.30)}
-[data-theme="light"] .btn-tonal-gold:hover{background:rgba(212,175,55,0.20)}
+.btn-tonal:hover,.btn-tonal-gold:hover{background:rgba(212,175,55,0.16);box-shadow:0 0 8px rgba(212,175,55,0.15)}
+.btn-tonal:active,.btn-tonal-gold:active{background:rgba(212,175,55,0.20);transform:scale(.98)}
+[data-theme="light"] .btn-tonal,[data-theme="light"] .btn-tonal-gold{background:rgba(212,175,55,0.12);border-color:rgba(212,175,55,0.30)}
+[data-theme="light"] .btn-tonal:hover,[data-theme="light"] .btn-tonal-gold:hover{background:rgba(212,175,55,0.20)}
 .btn-ghost{
   background:rgba(255,255,255,0.05);color:var(--txt2);
   border:1px solid var(--card-border);
@@ -1368,6 +1606,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .today-health-card{padding:0;margin-bottom:0;background:none;border:none;box-shadow:none}
 /* ===== Dashboard Empty State ===== */
 .dash-empty{text-align:center;padding:20px 8px}
+/* LEGACY empty: migrate to .empty-state in Phase 1B */
 .dash-empty-title{font-size:14px;color:var(--txt2);font-weight:600;margin-bottom:4px}
 .dash-empty-sub{font-size:11px;color:var(--txt3);margin-bottom:14px}
 .dash-empty-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
@@ -2381,6 +2620,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .settings-goal-mini span{display:block;font-size:9px;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .settings-goal-mini strong{display:block;font-size:11px;color:var(--txt);font-weight:850;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .settings-list{display:flex;flex-direction:column}
+/* LEGACY settings row (icon column): migrate to .ds-setting-row in Phase 1B */
 .settings-list-row{width:100%;min-height:46px;border:0;border-top:1px solid rgba(212,175,55,.07);background:transparent;color:inherit;padding:0;display:grid;grid-template-columns:28px minmax(0,1fr) minmax(0,auto) 14px;gap:8px;align-items:center;text-align:left;font:inherit;min-width:0}
 .settings-list-row:first-child{border-top:0}
 button.settings-list-row{cursor:pointer}
@@ -2574,23 +2814,27 @@ button.settings-list-row{cursor:pointer}
 .search-results::-webkit-scrollbar-thumb{background:var(--gold-d);border-radius:2px}
 .search-item{
   display:flex;align-items:center;justify-content:space-between;
-  padding:7px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.03);
-  transition:background .15s;
+  padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);
+  transition:background .12s;min-height:var(--touch-min);
+  -webkit-tap-highlight-color:transparent;
 }
-.search-item:hover{background:rgba(212,175,55,0.06)}
+.search-item:hover{background:rgba(212,175,55,0.05)}
+.search-item:active{background:rgba(212,175,55,0.08)}
 .search-item:last-child{border-bottom:none}
-.search-item .si-name{font-size:12px;color:var(--txt)}
-.search-item .si-cat{font-size:9px;color:var(--txt3);margin-left:4px}
-.search-item .si-cal{font-size:11px;color:var(--gold)}
-.ai-search-item{display:block;padding:9px 10px}
+.search-item .si-name{font-size:13px;color:var(--txt);font-weight:600}
+.search-item .si-cat{font-size:10px;color:var(--txt3);margin-left:4px;font-weight:500}
+.search-item .si-cal{font-size:12px;color:var(--txt2);font-weight:700;font-variant-numeric:tabular-nums}
+.ai-search-item{display:block;padding:10px 12px}
 .ai-search-main{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
-.ai-search-left{min-width:0;display:flex;flex-direction:column;gap:3px}
+.ai-search-left{min-width:0;display:flex;flex-direction:column;gap:2px}
 .ai-search-source{font-size:10px;color:var(--txt3);line-height:1.35}
-.ai-search-kcal{font-size:14px;color:var(--gold);font-weight:750;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ai-search-kcal{font-size:14px;color:var(--accent-text);font-weight:750;white-space:nowrap;font-variant-numeric:tabular-nums}
 .ai-detail-toggle{
-  margin-top:5px;padding:0;border:0;background:transparent;color:var(--gold-l);
-  font-size:10px;line-height:1.5;cursor:pointer;text-align:left;
+  margin-top:4px;padding:0;border:0;background:transparent;color:var(--txt3);
+  font-size:10px;line-height:1.5;cursor:pointer;text-align:left;font-weight:600;
+  transition:color .12s;
 }
+.ai-detail-toggle:hover{color:var(--accent-text)}
 .ai-food-details{
   margin-top:8px;padding:8px;border-radius:10px;background:rgba(255,255,255,.035);
   border:1px solid rgba(212,175,55,.12);font-size:10px;color:var(--txt3);
@@ -2601,108 +2845,125 @@ button.settings-list-row{cursor:pointer}
 .ai-analysis{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);line-height:1.45;color:var(--txt2)}
 .added-foods{display:flex;flex-direction:column;gap:8px}
 .food-draft-panel{margin-top:4px}
-.food-draft-title{font-size:13px;font-weight:700;color:var(--gold-l);margin:0 0 8px}
-.food-draft-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.food-draft-title{font-size:12px;font-weight:700;color:var(--txt2);margin:0 0 6px;letter-spacing:.02em}
+.food-draft-list{display:flex;flex-direction:column;gap:0;margin-bottom:8px}
 .food-draft-item{
-  display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
-  padding:8px 10px;border-radius:10px;border:1px solid var(--card-border);
-  background:rgba(255,255,255,0.03);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+  padding:10px 0;border-radius:0;border:0;border-bottom:1px solid rgba(255,255,255,.04);
+  background:transparent;
 }
-[data-theme="light"] .food-draft-item{background:rgba(255,255,255,0.55)}
+.food-draft-item:last-child{border-bottom:0}
+[data-theme="light"] .food-draft-item{border-bottom-color:rgba(0,0,0,.05);background:transparent}
 .food-draft-item-main{flex:1;min-width:0}
-.food-draft-item-name{font-size:13px;font-weight:650;color:var(--txt);line-height:1.3}
-.food-draft-item-meta{font-size:11px;color:var(--txt3);margin-top:2px;line-height:1.35}
-.food-draft-item-macros{font-size:10px;color:var(--txt3);margin-top:2px}
-.food-draft-item-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.food-draft-item-name{font-size:13px;font-weight:700;color:var(--txt);line-height:1.3}
+.food-draft-item-meta{font-size:11px;color:var(--txt3);margin-top:1px;line-height:1.35}
+.food-draft-item-macros{font-size:10px;color:var(--txt3);margin-top:1px}
+.food-draft-item-actions{display:flex;flex-direction:row;gap:2px;flex-shrink:0;align-items:flex-start}
 .food-draft-action-btn{
-  border:0;background:transparent;color:var(--gold-l);font-size:11px;font-weight:600;
-  padding:2px 4px;cursor:pointer;white-space:nowrap;
+  border:0;background:transparent;color:var(--txt3);font-size:11px;font-weight:600;
+  padding:4px 6px;cursor:pointer;white-space:nowrap;min-height:var(--touch-min-sm);
+  display:flex;align-items:center;
+  -webkit-tap-highlight-color:transparent;transition:color .12s;
 }
-.food-draft-inline-edit{margin:0 0 6px;padding:0 0 2px}
+.food-draft-action-btn:hover,.food-draft-action-btn:active{color:var(--accent-text)}
+.food-draft-inline-edit{margin:0 0 4px;padding:0}
 .food-draft-totals{
-  padding:8px 10px;border-radius:10px;border:1px solid rgba(212,175,55,0.14);
-  background:rgba(212,175,55,0.06);margin-bottom:10px;
+  padding:10px 0;border-radius:0;border:0;border-top:1px solid rgba(212,175,55,0.08);
+  background:transparent;margin-bottom:8px;
 }
-.food-draft-totals-kcal{font-size:18px;font-weight:800;color:var(--gold-l);line-height:1.2}
-.food-draft-totals-macros{font-size:11px;color:var(--txt3);margin-top:3px}
+.food-draft-totals-kcal{font-size:20px;font-weight:800;color:var(--txt);line-height:1.2}
+.food-draft-totals-macros{font-size:11px;color:var(--txt3);margin-top:2px}
 .food-draft-footer{display:flex;gap:8px;margin-top:4px}
 .food-draft-footer .btn{flex:1}
-.food-draft-edit-actions{display:flex;gap:8px;margin-top:10px}
+.food-draft-edit-actions{display:flex;gap:8px;margin-top:8px}
 .food-draft-edit-actions .btn{flex:1}
 .food-draft-search-banner{
-  font-size:11px;color:var(--gold-l);padding:6px 10px;margin-bottom:8px;
-  border-radius:8px;border:1px dashed rgba(212,175,55,0.25);cursor:pointer;text-align:center;
+  font-size:12px;color:var(--txt3);padding:8px 10px;margin-bottom:8px;
+  border-radius:var(--radius-sm);border:1px dashed var(--accent-border);cursor:pointer;text-align:center;
+  min-height:var(--touch-min);display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;transition:color .12s,background .12s;
 }
+.food-draft-search-banner:hover,.food-draft-search-banner:active{color:var(--accent-text);background:var(--accent-tonal)}
 .food-portion-card{
-  padding:9px;border-radius:10px;background:rgba(255,255,255,0.035);
-  border:1px solid rgba(212,175,55,.13);text-align:left;
+  padding:10px 10px 8px;border-radius:var(--radius-control);
+  background:transparent;border:0;border-bottom:1px solid rgba(212,175,55,.08);
+  text-align:left;
 }
-.food-portion-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
-.food-portion-name{font-size:12px;color:var(--txt);font-weight:650}
-.food-portion-meta{font-size:9px;color:var(--txt3);margin-top:2px}
-.food-portion-kcal{font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap}
-.food-portion-nutrients{font-size:9px;color:var(--txt3);margin-top:2px;text-align:right}
-.food-portion-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 22px;gap:7px;align-items:end}
+.food-portion-card:last-child{border-bottom:0}
+.food-portion-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.food-portion-name{font-size:13px;color:var(--txt);font-weight:700;line-height:1.3}
+.food-portion-meta{font-size:10px;color:var(--txt3);margin-top:1px}
+.food-portion-kcal{font-size:13px;color:var(--accent-text);font-weight:750;white-space:nowrap}
+.food-portion-nutrients{font-size:10px;color:var(--txt3);margin-top:1px;text-align:right}
+.food-portion-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 28px;gap:6px;align-items:end}
 .food-portion-field{min-width:0}
-.food-portion-field>label{display:block;font-size:9px;color:var(--txt3);margin:0 0 4px}
+.food-portion-field>label{display:block;font-size:9px;color:var(--txt3);margin:0 0 3px}
+/* LEGACY: AI food-portion stepper (two-row layout: quantity + grams). Structure
+   differs from ds-stepper pill; retain until food-portion-card is redesigned. */
 .food-serving-stepper,.food-grams-control{
-  box-sizing:border-box;height:42px;display:flex;align-items:center;
-  border:1px solid rgba(212,175,55,.22);border-radius:999px;
-  background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.025));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 8px 18px rgba(0,0,0,.08);
-  overflow:visible;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease;
+  box-sizing:border-box;height:40px;display:flex;align-items:center;
+  border:1px solid var(--accent-border);border-radius:var(--radius-pill);
+  background:var(--glass-field);
+  box-shadow:none;
+  overflow:visible;transition:border-color .15s ease,box-shadow .15s ease;
 }
 .food-serving-stepper:focus-within,.food-grams-control:focus-within{
-  border-color:rgba(244,209,96,.48);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 0 0 3px rgba(212,175,55,.10),0 10px 22px rgba(0,0,0,.10);
+  border-color:rgba(212,175,55,.5);
+  box-shadow:var(--accent-focus-ring);
 }
 .food-portion-btn{
-  flex:0 0 32px;flex-shrink:0;width:32px;height:32px;margin:4px;border-radius:999px;
-  border:1px solid rgba(212,175,55,.22);background:rgba(255,255,255,.055);color:var(--gold);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.10);font-size:16px;line-height:1;
+  flex:0 0 32px;flex-shrink:0;width:32px;height:32px;margin:3px;border-radius:var(--radius-pill);
+  border:0;background:transparent;color:var(--accent-text);
+  box-shadow:none;font-size:16px;line-height:1;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:background .16s ease,color .16s ease,transform .12s ease,border-color .16s ease;
+  min-width:40px;min-height:40px;
+  transition:background .15s ease,color .15s ease,transform .1s ease;
+  -webkit-tap-highlight-color:transparent;
 }
-.food-portion-btn:hover{background:rgba(212,175,55,.15);border-color:rgba(212,175,55,.38);color:var(--gold-l)}
-.food-portion-btn:active{background:rgba(212,175,55,.22);transform:scale(.93)}
+.food-portion-btn:hover{background:var(--accent-tonal);color:var(--accent-text)}
+.food-portion-btn:active{background:var(--accent-tonal-hover);transform:scale(.94)}
 .food-portion-input{
   min-width:0;flex:1 1 0;width:auto;height:100%;padding:0 2px;border:0!important;outline:0;
   background:transparent!important;box-shadow:none!important;color:var(--txt);
-  font-size:13px;font-weight:750;text-align:center;font-variant-numeric:tabular-nums;
+  font-size:14px;font-weight:750;text-align:center;font-variant-numeric:tabular-nums;
   appearance:textfield;-moz-appearance:textfield;
-  overflow:hidden;text-overflow:ellipsis;
+  overflow:hidden;text-overflow:ellipsis;caret-color:var(--accent-text);
+  border-radius:0!important;
 }
 .food-portion-input::-webkit-inner-spin-button,.food-portion-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-.food-portion-unit{padding-right:5px;padding-left:2px;font-size:10px;font-weight:650;color:var(--gold-l);white-space:nowrap;flex:0 0 auto}
-.food-grams-control{border-radius:14px;padding-left:6px;background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(255,255,255,.035))}
+.food-portion-unit{padding-right:5px;padding-left:2px;font-size:11px;font-weight:600;color:var(--txt2);white-space:nowrap;flex:0 0 auto}
+.food-grams-control{border-radius:var(--radius-pill);padding-left:4px}
 .food-portion-del{
-  align-self:end;width:28px;height:28px;margin:0 0 7px;border-radius:999px;
-  border:1px solid rgba(248,113,113,.20);cursor:pointer;
-  background:rgba(248,113,113,.08);color:var(--red);font-size:14px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+  align-self:end;width:28px;height:28px;min-width:40px;min-height:40px;
+  margin:0 0 4px;border-radius:var(--radius-pill);
+  border:0;cursor:pointer;
+  background:transparent;color:var(--txt3);font-size:14px;
+  box-shadow:none;
   display:flex;align-items:center;justify-content:center;
-  transition:background .16s ease,transform .12s ease,border-color .16s ease;
+  transition:background .15s ease,transform .1s ease,color .15s ease;
+  -webkit-tap-highlight-color:transparent;
 }
-.food-portion-del:hover{background:rgba(248,113,113,.15);border-color:rgba(248,113,113,.34)}
-.food-portion-del:active{transform:scale(.92)}
+.food-portion-del:hover{background:rgba(248,113,113,.1);color:var(--red)}
+.food-portion-del:active{transform:scale(.93);color:var(--red)}
 .food-portion-ai-note{
-  margin:0 0 8px;padding:7px 8px;border-radius:9px;background:rgba(212,175,55,.08);
-  border:1px solid rgba(212,175,55,.16);color:var(--txt2);font-size:10px;line-height:1.45;
+  margin:0 0 6px;padding:6px 8px;border-radius:var(--radius-sm);
+  background:var(--accent-tonal);border:0;color:var(--txt2);font-size:10px;line-height:1.45;
 }
-.food-weight-quick{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:8px;align-items:center}
+.food-weight-quick{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:6px;align-items:center}
 .food-weight-quick button,.food-detail-toggle{
-  min-height:28px;border-radius:999px;border:1px solid rgba(212,175,55,.20);
-  background:rgba(255,255,255,.045);color:var(--txt2);font-size:10px;cursor:pointer;
+  min-height:32px;border-radius:var(--radius-pill);border:1px solid var(--accent-border);
+  background:transparent;color:var(--txt2);font-size:10px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
 }
 .food-weight-quick button:active,.food-detail-toggle:active{transform:scale(.96)}
 .food-weight-quick span{
-  display:flex;align-items:center;justify-content:center;min-height:28px;border-radius:999px;
-  background:rgba(212,175,55,.12);color:var(--gold-l);font-size:11px;font-weight:750;
+  display:flex;align-items:center;justify-content:center;min-height:32px;border-radius:var(--radius-pill);
+  background:var(--accent-tonal);color:var(--accent-text);font-size:11px;font-weight:750;
 }
-.food-detail-toggle{width:100%;margin-top:7px}
+.food-detail-toggle{width:100%;margin-top:6px;border:0;background:transparent;color:var(--txt3);font-size:11px;font-weight:600}
 .food-detail-panel{
-  margin-top:7px;padding:8px;border-radius:10px;background:rgba(255,255,255,.035);
-  border:1px solid rgba(212,175,55,.12);display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;
+  margin-top:6px;padding:8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.025);
+  border:0;border-top:1px solid rgba(212,175,55,.06);display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;
 }
 .food-detail-panel[hidden]{display:none!important}
 .food-detail-panel div{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -2710,14 +2971,16 @@ button.settings-list-row{cursor:pointer}
 .food-detail-panel strong{font-size:11px;color:var(--txt);font-weight:650;word-break:break-word}
 [data-theme="light"] .food-serving-stepper,
 [data-theme="light"] .food-grams-control{
-  background:linear-gradient(145deg,rgba(255,255,255,.78),rgba(255,250,238,.52));
-  border-color:rgba(166,111,0,.24);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.86),0 8px 18px rgba(76,55,12,.06);
+  background:rgba(255,255,255,.65);
+  border-color:var(--accent-border);
+  box-shadow:none;
 }
-[data-theme="light"] .food-portion-btn{background:rgba(255,255,255,.58);border-color:rgba(166,111,0,.22)}
-[data-theme="light"] .food-portion-del{background:rgba(248,113,113,.07)}
-[data-theme="light"] .food-weight-quick button,[data-theme="light"] .food-detail-toggle{background:rgba(255,255,255,.62);border-color:rgba(166,111,0,.20)}
-[data-theme="light"] .food-detail-panel{background:rgba(255,255,255,.58)}
+[data-theme="light"] .food-portion-card{border-bottom-color:rgba(0,0,0,.06)}
+[data-theme="light"] .food-portion-btn{background:transparent;border:0}
+[data-theme="light"] .food-portion-del{background:transparent}
+[data-theme="light"] .food-portion-ai-note{background:rgba(166,111,0,.06)}
+[data-theme="light"] .food-weight-quick button,[data-theme="light"] .food-detail-toggle{background:rgba(255,255,255,.45);border-color:var(--accent-border)}
+[data-theme="light"] .food-detail-panel{background:rgba(255,255,255,.4)}
 @media(max-width:600px){
   .ai-search-item{padding:8px 9px}
   .ai-search-kcal{font-size:13px}
@@ -2740,6 +3003,7 @@ button.settings-list-row{cursor:pointer}
 .quick-foods{display:flex;flex-direction:column;gap:6px}
 .qf-section-title{font-size:10px;color:var(--txt3);font-weight:600;display:flex;align-items:center;gap:4px;margin-top:2px}
 .qf-chips{display:flex;flex-wrap:wrap;gap:4px}
+/* LEGACY chip: migrate to .ds-chip in Phase 1B */
 .qf-chip{
   display:inline-flex;align-items:center;gap:4px;
   padding:4px 8px;border-radius:12px;cursor:pointer;
@@ -2876,6 +3140,7 @@ button.settings-list-row{cursor:pointer}
 [data-app-page="health"] #chartCard>.chart-controls{display:grid;grid-template-columns:auto auto;align-items:center;justify-content:space-between;gap:8px 16px;margin-bottom:7px}
 [data-app-page="health"] #periodSeg,[data-app-page="health"] #metricSeg{flex-wrap:nowrap;min-width:0}
 [data-app-page="health"] #chartStats{grid-column:1 / -1;width:100%;margin:0}
+/* LEGACY segmented: prefer .meal-seg for new UI; migrate chart .seg in Phase 1B */
 .seg{display:flex;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);flex-shrink:0}
 .seg-btn{
   padding:4px 10px;cursor:pointer;font-size:11px;font-weight:600;
@@ -3159,6 +3424,7 @@ button.settings-list-row{cursor:pointer}
 .ai-scanning{
   display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;
 }
+/* LEGACY spinner: prefer .ds-spinner .ds-spinner--modal for new UI */
 .ai-scan-ring{
   width:60px;height:60px;border-radius:50%;
   border:3px solid rgba(212,175,55,0.15);border-top-color:var(--gold);
@@ -3168,10 +3434,12 @@ button.settings-list-row{cursor:pointer}
 .ai-scan-text{font-size:13px;color:var(--gold)}
 .ai-results{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .ai-add-more{
-  text-align:center;padding:6px;font-size:11px;color:var(--gold);
-  cursor:pointer;border-radius:6px;border:1px dashed var(--card-border);
+  text-align:center;padding:8px;font-size:12px;color:var(--txt3);font-weight:600;
+  cursor:pointer;border-radius:var(--radius-sm);border:1px dashed var(--accent-border);
+  min-height:var(--touch-min);display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;transition:color .12s,background .12s;
 }
-.ai-add-more:hover{border-color:var(--gold)}
+.ai-add-more:hover,.ai-add-more:active{color:var(--accent-text);background:var(--accent-tonal)}
 
 /* ===== Toast ===== */
 .toast-container{position:fixed;bottom:calc(var(--immersive-bottom-nav-height,70px) + var(--toast-bottom-gap,12px));right:20px;z-index:5200;display:flex;flex-direction:column;gap:8px}
@@ -4177,6 +4445,9 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
 }
 .glass-dropdown,
 .glass-date-field,
+/* LEGACY stepper (general): used for weight, exercise, settings, food-editor inputs.
+   Dynamically created by enhanceStepper(). Canonical = .ds-stepper (Phase 1B-1).
+   Retain .glass-stepper until all dynamic-enhance usage is refactored (Phase 1B-2+). */
 .glass-stepper{
   position:relative;
   min-width:0;
@@ -7642,7 +7913,8 @@ body.health-compare-page-active .app{
 .ledger-ai-edit-row:last-child{border-bottom:none}
 .ledger-ai-edit-row .ledger-ai-edit-name{flex:1;min-width:0;min-height:38px;font-size:13px}
 .ledger-ai-edit-row .ledger-ai-qty-group{flex:0 0 auto}
-.ledger-ai-edit-row .ledger-ai-qty-group .glass-stepper-btn{width:26px;min-width:26px}
+.ledger-ai-edit-row .ledger-ai-qty-group .glass-stepper-btn,
+.ledger-ai-edit-row .ledger-ai-qty-group .ds-stepper-btn{width:44px;min-width:44px}
 .ledger-ai-qty-input{font-size:12px!important;font-weight:700}
 .ledger-ai-price-wrap{display:flex;align-items:center;flex:0 0 108px;border:1px solid var(--card-border);border-radius:12px;overflow:hidden;background:var(--glass-field)}
 .ledger-ai-price-prefix{font-size:12px;color:var(--txt3);padding:0 4px 0 8px;font-weight:600;flex-shrink:0}
@@ -7736,6 +8008,7 @@ body.health-compare-page-active .app{
 .food-sync-who{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 6px 26px}
 .food-sync-who-label{font-size:11px;color:var(--txt3);margin-right:2px;flex-shrink:0}
 .food-sync-who .qa-ex-chip{margin:0;padding:5px 10px;font-size:11px}
+/* CANONICAL compact stepper — mobile 210–230px, ±44px touch, integrated suffix */
 .fs-compact-stepper{
   display:grid;grid-template-columns:44px 1fr 44px;align-items:stretch;
   width:min(200px,100%);min-width:180px;max-width:210px;height:42px;
@@ -14887,10 +15160,12 @@ function renderEditableOrderItems(items){
           <input class="form-input ledger-ai-edit-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30">
           <button class="ls-edit-link" type="button" data-ledger-ai-done="${i}">完成</button>
         </div>
-        <div class="ledger-ai-qty-group glass-stepper compact">
-          <button class="glass-stepper-btn ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},-1)">−</button>
-          <input class="ledger-ai-qty-input" id="ledgerAIQty_${i}" type="number" min="1" value="${oi.quantity}" readonly aria-label="订单数量">
-          <button class="glass-stepper-btn ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},1)">+</button>
+        <div class="ledger-ai-qty-group ds-stepper ds-stepper--compact">
+          <button class="ds-stepper-btn ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},-1)">−</button>
+          <label class="ds-stepper-input-wrap">
+            <input class="ds-stepper-input ledger-ai-qty-input" id="ledgerAIQty_${i}" type="number" min="1" value="${oi.quantity}" readonly inputmode="numeric" aria-label="订单数量">
+          </label>
+          <button class="ds-stepper-btn ledger-ai-qty-btn" type="button" onclick="adjustLedgerAIQty(${i},1)">+</button>
         </div>
         <span style="flex:1"></span>
         <div class="ledger-ai-price-wrap">
@@ -15696,13 +15971,14 @@ async function openFoodSyncEditor(expenseId){
 }
 function fsCompactStepper(idx, numVal, unit, inputKind, minusAttr, plusAttr){
   const safeVal=Number.isFinite(Number(numVal))?Math.round(Number(numVal)):0;
-  return `<div class="fs-compact-stepper">
-    <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${minusAttr}>−</button>
-    <label class="fs-compact-stepper-input-wrap">
-      <input type="text" class="fs-compact-stepper-input" data-glass-enhanced="stepper" data-idx="${idx}" data-fs-input="${inputKind}" inputmode="numeric" autocomplete="off" value="${safeVal}" aria-label="数值">
-      <span class="fs-compact-stepper-unit">${unit}</span>
+  /* dual-class: fs-compact-stepper (legacy selectors) + ds-stepper (canonical) */
+  return `<div class="fs-compact-stepper ds-stepper">
+    <button type="button" class="fs-compact-stepper-btn ds-stepper-btn" data-idx="${idx}" ${minusAttr}>−</button>
+    <label class="fs-compact-stepper-input-wrap ds-stepper-input-wrap">
+      <input type="text" class="fs-compact-stepper-input ds-stepper-input" data-glass-enhanced="stepper" data-idx="${idx}" data-fs-input="${inputKind}" inputmode="numeric" autocomplete="off" value="${safeVal}" aria-label="数值">
+      <span class="fs-compact-stepper-unit ds-stepper-unit">${unit}</span>
     </label>
-    <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${plusAttr}>+</button>
+    <button type="button" class="fs-compact-stepper-btn ds-stepper-btn" data-idx="${idx}" ${plusAttr}>+</button>
   </div>`;
 }
 function fsStepperRestoreValue(inp){
@@ -18962,10 +19238,12 @@ function foodDraftItemMetaText(f){
 }
 function foodDraftCompactRowHTML(f,i){
   const p=prepareFoodPortion(f);
+  const n=calculateFoodNutrition(p,p.amount);
   return `<div class="food-draft-item" data-draft-idx="${i}">
     <div class="food-draft-item-main">
       <div class="food-draft-item-name">${escapeHTML(p.name)}</div>
       <div class="food-draft-item-meta">${foodDraftItemMetaText(p)}</div>
+      <div class="food-draft-item-macros">P${n.protein}g · C${n.carbs}g · F${n.fat}g</div>
     </div>
     <div class="food-draft-item-actions">
       <button type="button" class="food-draft-action-btn" data-draft-edit="${i}">编辑</button>
@@ -18975,8 +19253,8 @@ function foodDraftCompactRowHTML(f,i){
 }
 function renderFoodDraftReviewHTML(){
   const totals=getFoodDraftTotals();
-  const totalLabel=foodDraft.length>1?`共 ${totals.cal} kcal`:`本次合计 ${totals.cal} kcal`;
-  const macroTotals=foodDraft.length>1?`<div class="food-draft-totals-macros">P ${totals.pro}g · C ${totals.carb}g · F ${totals.fat}g</div>`:'';
+  const totalLabel=`${totals.cal} kcal`;
+  const macroTotals=`<div class="food-draft-totals-macros">P ${totals.pro}g · C ${totals.carb}g · F ${totals.fat}g</div>`;
   let html=`<div class="food-draft-panel">
     <div class="food-draft-title">本次待添加</div>
     <div class="food-draft-list">`;
@@ -21751,14 +22029,14 @@ function renderAISearchResult(food,query,fromCache=false,options={}){
   if(!wrap||!input) return;
   const safeFood=normalizeAIFood(food);
   if(!safeFood){
-    wrap.innerHTML='<div style="padding:10px;text-align:center;color:var(--txt3);font-size:12px">没有找到可靠的食物信息，请尝试输入更具体的食物名称</div>';
+    wrap.innerHTML='<div class="empty-state" style="padding:16px 10px"><div class="empty-state__desc">没有找到可靠的食物信息，请尝试输入更具体的食物名称</div></div>';
     showSearchResults(wrap);
     return;
   }
   const min=Math.round(safeFood.calorieMin||safeFood.cal);
   const max=Math.round(safeFood.calorieMax||safeFood.cal);
   const rangeText=min&&max&&min!==max?`${min}-${max} kcal`:'接近当前估算';
-  wrap.innerHTML=`<div style="padding:6px 10px;color:var(--gold);font-size:11px">✨ AI估算${fromCache?'（缓存）':''}</div>
+  wrap.innerHTML=`<div style="padding:6px 12px;color:var(--txt3);font-size:10px;font-weight:600">AI估算${fromCache?' · 缓存':''}</div>
     <div class="search-item ai-search-item" data-ai-food="1">
       <div class="ai-search-main">
         <div class="ai-search-left">
@@ -21843,7 +22121,7 @@ function renderSearchResults(query,options={}){
   if(results.length===0){
     cancelPendingFoodSearch();
     if(!q){
-      wrap.innerHTML='<div style="padding:10px;text-align:center;color:var(--txt3);font-size:12px">未找到相关食物</div>';
+      wrap.innerHTML='<div class="empty-state" style="padding:16px 10px"><div class="empty-state__desc">未找到相关食物</div></div>';
       showSearchResults(wrap);
       return;
     }
@@ -21853,7 +22131,7 @@ function renderSearchResults(query,options={}){
       return;
     }
     const requestId=aiFoodSearchRequestId;
-    wrap.innerHTML='<div style="padding:10px;text-align:center;color:var(--txt3);font-size:12px">本地食物库未找到，AI 正在搜索……</div>';
+    wrap.innerHTML='<div class="ds-loading" style="padding:16px 10px"><div class="ds-spinner ds-spinner--inline"></div><div class="ds-loading__text">本地食物库未找到，AI 正在搜索…</div></div>';
     showSearchResults(wrap);
     logFoodSearchDebug('request-ai',context,{query:rawQuery,aiRequested:true,requestId});
     aiFoodSearchTimer=setTimeout(async()=>{
@@ -21866,7 +22144,7 @@ function renderSearchResults(query,options={}){
         const aiFood=await searchFoodWithAI(canonical,controller.signal);
         if(requestId!==aiFoodSearchRequestId||input.value.trim().toLowerCase()!==q) return;
         if(!aiFood){
-          wrap.innerHTML='<div style="padding:10px;text-align:center;color:var(--txt3);font-size:12px">没有找到可靠的食物信息，请尝试输入更具体的食物名称</div>';
+          wrap.innerHTML='<div class="empty-state" style="padding:16px 10px"><div class="empty-state__desc">没有找到可靠的食物信息，请尝试输入更具体的食物名称</div></div>';
           showSearchResults(wrap);
           return;
         }
@@ -21878,7 +22156,7 @@ function renderSearchResults(query,options={}){
         if(err?.name==='AbortError') return;
         if(requestId!==aiFoodSearchRequestId||input.value.trim().toLowerCase()!==q) return;
         console.error('AI food search error:',err);
-        wrap.innerHTML='<div style="padding:10px;text-align:center;color:var(--red);font-size:12px">AI搜索暂时不可用，请稍后重试</div>';
+        wrap.innerHTML='<div class="empty-state" style="padding:16px 10px"><div class="empty-state__desc" style="color:var(--red)">AI搜索暂时不可用，请稍后重试</div></div>';
         showSearchResults(wrap);
       }finally{
         if(aiFoodSearchController===controller) aiFoodSearchController=null;
@@ -26629,7 +26907,7 @@ const GlassUI=(()=>{
 
   function enhanceStepper(input){
     if(!input||input.dataset.glassEnhanced==='stepper'||isHiddenByType(input)) return;
-    if(input.closest('.glass-stepper')||input.closest('.fs-compact-stepper')||input.classList.contains('fs-compact-stepper-input')) return;
+    if(input.closest('.glass-stepper')||input.closest('.fs-compact-stepper')||input.closest('.ds-stepper')||input.classList.contains('fs-compact-stepper-input')||input.classList.contains('ds-stepper-input')) return;
     input.dataset.glassEnhanced='stepper';
     const wrap=document.createElement('div');
     wrap.className='glass-stepper';
@@ -27045,7 +27323,7 @@ const GlassUI=(()=>{
 
   function enhance(root=document){
     root.querySelectorAll?.('select:not([data-glass-enhanced])').forEach(enhanceSelect);
-    root.querySelectorAll?.('input[type="number"]:not([data-glass-enhanced]):not(.fs-compact-stepper-input)').forEach(enhanceStepper);
+    root.querySelectorAll?.('input[type="number"]:not([data-glass-enhanced]):not(.fs-compact-stepper-input):not(.ds-stepper-input)').forEach(enhanceStepper);
     root.querySelectorAll?.('input[type="date"]:not([data-glass-enhanced])').forEach(enhanceDateInput);
   }
 
