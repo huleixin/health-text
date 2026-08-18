@@ -918,6 +918,10 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   background:radial-gradient(300px circle at 50% -35%,rgba(212,175,55,0.08),transparent 64%);
   opacity:.58;
 }
+.date-title-row{
+  position:relative;z-index:1;
+  display:flex;align-items:center;justify-content:center;
+}
 .date-title-btn{
   position:relative;z-index:1;
   width:100%;border:none;background:transparent;color:var(--txt);
@@ -929,10 +933,36 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .date-title-date{white-space:nowrap}
 .date-title-btn .date-arrow{font-size:11px;color:var(--gold);transition:transform .2s}
 .date-title-btn:hover .date-arrow{transform:translateY(1px)}
+.date-today-btn{
+  position:absolute;right:-4px;top:50%;z-index:2;
+  transform:translateY(calc(-50% - 3px));
+  min-width:40px;min-height:40px;
+  padding:8px 10px;border:0;border-radius:10px;
+  background:rgba(212,175,55,0.08);color:var(--gold-l);
+  font-size:12px;font-weight:650;line-height:1;letter-spacing:.02em;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.date-today-btn[hidden]{display:none!important}
+.date-today-btn:active{opacity:.72}
+[data-theme="light"] .date-today-btn{background:rgba(166,111,0,0.08)}
 .date-picker-hidden{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
-.week-strip{position:relative;z-index:1;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%;overflow:visible;touch-action:pan-y;transition:transform .22s ease,opacity .22s ease}
-.week-strip.week-slide-left{transform:translateX(-22px);opacity:.45}
-.week-strip.week-slide-right{transform:translateX(22px);opacity:.45}
+.week-rail-viewport{
+  position:relative;z-index:1;
+  overflow:hidden;width:100%;
+  touch-action:pan-y;
+}
+.week-rail-track{
+  display:flex;will-change:transform;
+  backface-visibility:hidden;
+}
+.week-rail-track.is-dragging{transition:none}
+.week-rail-track.is-snapping{transition:transform .28s cubic-bezier(0.32,0.72,0,1)}
+.week-strip{
+  position:relative;z-index:1;
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:6px;width:100%;min-width:100%;flex:0 0 100%;
+  box-sizing:border-box;overflow:visible;touch-action:pan-y;
+}
 .day-cell{display:block;min-width:0}
 .day-label{font-size:9px;color:var(--txt3);font-weight:700;line-height:1;white-space:nowrap}
 .day-circle{
@@ -6890,6 +6920,8 @@ body.child-page-active .app{
   align-items:stretch;
   height:auto;
   overflow:visible;
+  flex:0 0 100%;
+  min-width:100%;
 }
 #dateNavigator .day-cell{
   display:flex;
@@ -7950,11 +7982,16 @@ function abTestRestore(){
 
   <!-- Date Navigator -->
   <section class="date-nav" id="dateNavigator">
-    <button class="date-title-btn" id="dateTitleBtn" type="button">
-      <span id="dateTitleText"></span><span class="date-arrow">▼</span>
-    </button>
+    <div class="date-title-row">
+      <button class="date-title-btn" id="dateTitleBtn" type="button">
+        <span id="dateTitleText"></span><span class="date-arrow">▼</span>
+      </button>
+      <button type="button" class="date-today-btn" id="dateTodayBtn" hidden>今天</button>
+    </div>
     <input class="date-picker-hidden" id="datePickerInput" type="date">
-    <div class="week-strip" id="weekStrip"></div>
+    <div class="week-rail-viewport" id="weekRailViewport">
+      <div class="week-rail-track" id="weekRailTrack"></div>
+    </div>
   </section>
 
   <!-- Today Health Overview -->
@@ -10813,22 +10850,15 @@ function completionRingClass(percent,hasData=true){
   return 'ring-low';
 }
 
-function renderDateNavigator(){
-  const title=document.getElementById('dateTitleText');
-  const picker=document.getElementById('datePickerInput');
-  const week=document.getElementById('weekStrip');
-  if(!title||!picker||!week) return;
-  picker.value=currentViewDate;
-  const start=getMonday(currentViewDate);
+let weekRailDragMoved=false;
+let weekRailPointerId=null;
+let weekRailSnapping=false;
+
+function buildWeekStripDaysHTML(start){
   const labels=['周一','周二','周三','周四','周五','周六','周日'];
   const p=getActiveProfile();
   const today=dateFromDateTimeValue();
-  const currentIsToday=currentViewDate===today;
-  title.innerHTML=`<span class="date-title-main">
-    <span class="date-title-kicker">${currentIsToday?'今天':'查看'}</span>
-    <span class="date-title-date">${formatDateTitle(currentViewDate)}</span>
-  </span>`;
-  week.innerHTML=labels.map((label,i)=>{
+  return labels.map((label,i)=>{
     const date=addDays(start,i);
     const day=Number(date.slice(-2));
     const detail=getDailyCompletionDetails(p,date);
@@ -10849,45 +10879,168 @@ function renderDateNavigator(){
       </button>
     </div>`;
   }).join('');
-  week.querySelectorAll('.day-circle').forEach(btn=>{
-    btn.addEventListener('click',()=>{
+}
+
+function getWeekRailWidth(){
+  const viewport=document.getElementById('weekRailViewport');
+  return viewport?.clientWidth||viewport?.getBoundingClientRect().width||1;
+}
+
+function setWeekRailTransform(offsetPx,animate){
+  const track=document.getElementById('weekRailTrack');
+  if(!track) return;
+  const w=getWeekRailWidth();
+  track.classList.toggle('is-snapping',!!animate);
+  track.classList.toggle('is-dragging',!animate);
+  track.style.transform=`translate3d(${-w+offsetPx}px,0,0)`;
+}
+
+function resetWeekRailPosition(animate=false){
+  setWeekRailTransform(0,animate);
+}
+
+function renderDateNavigator(){
+  const title=document.getElementById('dateTitleText');
+  const picker=document.getElementById('datePickerInput');
+  const track=document.getElementById('weekRailTrack');
+  const todayBtn=document.getElementById('dateTodayBtn');
+  if(!title||!picker||!track) return;
+  picker.value=currentViewDate;
+  const start=getMonday(currentViewDate);
+  const today=dateFromDateTimeValue();
+  const currentIsToday=currentViewDate===today;
+  title.innerHTML=`<span class="date-title-main">
+    <span class="date-title-kicker">${currentIsToday?'今天':'查看'}</span>
+    <span class="date-title-date">${formatDateTitle(currentViewDate)}</span>
+  </span>`;
+  if(todayBtn) todayBtn.hidden=currentIsToday;
+  track.innerHTML=`
+    <div class="week-strip">${buildWeekStripDaysHTML(addDays(start,-7))}</div>
+    <div class="week-strip" id="weekStrip">${buildWeekStripDaysHTML(start)}</div>
+    <div class="week-strip">${buildWeekStripDaysHTML(addDays(start,7))}</div>`;
+  weekRailSnapping=false;
+  weekRailDragMoved=false;
+  resetWeekRailPosition(false);
+  track.querySelectorAll('.day-circle').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      if(weekRailDragMoved){
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       saveLocalViewDate(btn.dataset.date);
       renderDateDependentViews();
     });
   });
-  bindWeekSwipe(week);
+  bindWeekRailDrag();
 }
 
 function switchWeek(direction){
-  const week=document.getElementById('weekStrip');
-  if(!week) return;
-  const cls=direction>0?'week-slide-left':'week-slide-right';
-  week.classList.add(cls);
-  setTimeout(()=>{
-    saveLocalViewDate(addDays(currentViewDate,direction*7));
-    renderDateDependentViews();
-    requestAnimationFrame(()=>document.getElementById('weekStrip')?.classList.remove('week-slide-left','week-slide-right'));
-  },180);
+  saveLocalViewDate(addDays(currentViewDate,direction*7));
+  renderDateDependentViews();
 }
 
-function bindWeekSwipe(week){
-  if(!week) return;
-  let startX=0,startY=0,startTime=0;
-  week.ontouchstart=e=>{
-    const t=e.touches?.[0];
-    if(!t) return;
-    startX=t.clientX;
-    startY=t.clientY;
-    startTime=Date.now();
-  };
-  week.ontouchend=e=>{
-    const t=e.changedTouches?.[0];
-    if(!t) return;
-    const dx=t.clientX-startX;
-    const dy=t.clientY-startY;
-    if(Math.abs(dx)<48||Math.abs(dx)<Math.abs(dy)*1.2||Date.now()-startTime>700) return;
-    switchWeek(dx<0?1:-1);
-  };
+function bindWeekRailDrag(){
+  const viewport=document.getElementById('weekRailViewport');
+  const track=document.getElementById('weekRailTrack');
+  if(!viewport||!track||viewport.dataset.weekRailBound==='1') return;
+  viewport.dataset.weekRailBound='1';
+  const DRAG_THRESHOLD=8;
+  let startX=0,startY=0,lastX=0,lastT=0,velX=0,dragX=0,locked=null;
+
+  function endPointer(e){
+    if(e.pointerId!==weekRailPointerId) return;
+    try{viewport.releasePointerCapture(e.pointerId);}catch(_){}
+    weekRailPointerId=null;
+    const wasHorizontal=locked==='x'&&weekRailDragMoved;
+    locked=null;
+    if(!wasHorizontal){
+      weekRailDragMoved=false;
+      resetWeekRailPosition(false);
+      return;
+    }
+    const w=getWeekRailWidth();
+    const threshold=Math.max(48,w*0.2);
+    let dir=0;
+    if(dragX<-threshold||velX<-0.45) dir=1;
+    else if(dragX>threshold||velX>0.45) dir=-1;
+    weekRailSnapping=true;
+    const targetOffset=dir===0?0:(-dir*w);
+    setWeekRailTransform(targetOffset,true);
+    const currentTrack=document.getElementById('weekRailTrack');
+    let settled=false;
+    const settle=()=>{
+      if(settled) return;
+      settled=true;
+      currentTrack?.removeEventListener('transitionend',onEnd);
+      weekRailSnapping=false;
+      if(dir){
+        const nextTrack=document.getElementById('weekRailTrack');
+        if(nextTrack){
+          nextTrack.classList.remove('is-snapping','is-dragging');
+          nextTrack.style.transition='none';
+          nextTrack.style.transform=`translate3d(${-getWeekRailWidth()}px,0,0)`;
+        }
+        switchWeek(dir);
+      }else{
+        resetWeekRailPosition(false);
+        setTimeout(()=>{weekRailDragMoved=false;},0);
+      }
+    };
+    const onEnd=ev=>{
+      if(ev.propertyName&&ev.propertyName!=='transform') return;
+      settle();
+    };
+    currentTrack?.addEventListener('transitionend',onEnd);
+    setTimeout(settle,360);
+    velX=0;
+    dragX=0;
+  }
+
+  viewport.addEventListener('pointerdown',e=>{
+    if(e.button>0||weekRailSnapping||weekRailPointerId!==null) return;
+    weekRailPointerId=e.pointerId;
+    startX=e.clientX;
+    startY=e.clientY;
+    lastX=e.clientX;
+    lastT=performance.now();
+    velX=0;
+    dragX=0;
+    locked=null;
+    weekRailDragMoved=false;
+  });
+  viewport.addEventListener('pointermove',e=>{
+    if(e.pointerId!==weekRailPointerId) return;
+    const dx=e.clientX-startX;
+    const dy=e.clientY-startY;
+    if(!locked){
+      if(Math.abs(dx)<DRAG_THRESHOLD&&Math.abs(dy)<DRAG_THRESHOLD) return;
+      locked=Math.abs(dx)>Math.abs(dy)?'x':'y';
+      if(locked!=='x') return;
+      try{viewport.setPointerCapture(e.pointerId);}catch(_){}
+    }
+    if(locked!=='x') return;
+    weekRailDragMoved=true;
+    dragX=dx;
+    const now=performance.now();
+    velX=(e.clientX-lastX)/Math.max(1,now-lastT);
+    lastX=e.clientX;
+    lastT=now;
+    setWeekRailTransform(dragX,false);
+    if(e.cancelable) e.preventDefault();
+  },{passive:false});
+  viewport.addEventListener('pointerup',endPointer);
+  viewport.addEventListener('pointercancel',endPointer);
+  viewport.addEventListener('click',e=>{
+    if(!weekRailDragMoved) return;
+    e.preventDefault();
+    e.stopPropagation();
+    weekRailDragMoved=false;
+  },true);
+  window.addEventListener('resize',()=>{
+    if(weekRailPointerId!==null||weekRailSnapping) return;
+    resetWeekRailPosition(false);
+  });
 }
 
 // ==================== UI RENDERING ====================
@@ -14581,12 +14734,12 @@ function renderLedgerAIOrders(form){
       </div>`;
     }else{
       html+=`<div class="ledger-ai-order-card${selected?' selected':''}" data-order-idx="${i}">
-        <div class="ledger-ai-order-card-head">
-          <div class="ledger-ai-order-card-merchant">${escapeHTML(merchant)}</div>
-          <div class="ledger-ai-order-card-amount">${amount}</div>
-        </div>
+      <div class="ledger-ai-order-card-head">
+        <div class="ledger-ai-order-card-merchant">${escapeHTML(merchant)}</div>
+        <div class="ledger-ai-order-card-amount">${amount}</div>
+      </div>
         <div class="ledger-ai-order-card-use"><button type="button">${selected?'当前使用':'使用这笔'}</button></div>
-      </div>`;
+    </div>`;
     }
   });
   area.innerHTML=html;
@@ -14693,12 +14846,12 @@ function renderEditableOrderItems(items){
           <span class="ledger-ai-fee-view-amt">¥${Number(oi.unitPrice||0).toFixed(2)}</span>
         </div>`;
       }else{
-        html+=`<div class="ledger-ai-fee-row" data-idx="${i}">
-          <input class="ledger-ai-fee-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30">
-          <div class="ledger-ai-price-wrap">
-            <span class="ledger-ai-price-prefix">¥</span>
-            <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
-          </div>
+      html+=`<div class="ledger-ai-fee-row" data-idx="${i}">
+        <input class="ledger-ai-fee-name" type="text" value="${escapeHTML(oi.name)}" data-field="name" maxlength="30">
+        <div class="ledger-ai-price-wrap">
+          <span class="ledger-ai-price-prefix">¥</span>
+          <input class="ledger-ai-price-input" type="number" step="0.01" min="0" value="${oi.unitPrice.toFixed(2)}" data-field="unitPrice" oninput="updateLedgerAIItem(${i})">
+        </div>
           <button class="ls-edit-link" type="button" data-ledger-ai-done="${i}">完成</button>
         </div>`;
       }
@@ -14973,25 +15126,25 @@ function openCoupleLedgerEditor(expenseId){
         <span class="ledger-hero-num" id="ledgerExpAmountText">${amountDisplay||'0.00'}</span>
       </div>
       <div class="ledger-hero-edit is-hidden" data-ledger-edit="amount">
-        <span class="ledger-amount-symbol">¥</span>
+      <span class="ledger-amount-symbol">¥</span>
         <input class="form-input ledger-amount-input" id="ledgerExpAmount" type="text" inputmode="decimal" placeholder="0.00" value="${amountDisplay}">
-      </div>
+    </div>
     </div>
     <div class="ledger-settings-divider"></div>
     <div class="ledger-settings">
       <div class="ledger-form-fields">
         <div class="form-group ledger-form-field">
           <label for="ledgerExpPayer">付款人</label>
-          <select class="form-select" id="ledgerExpPayer">
-            ${payerOpts.map(o=>`<option value="${o.id}" ${existing?.paidByProfileId===o.id||(!existing&&owner&&o.id===owner.id)?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}
-          </select>
-        </div>
+        <select class="form-select" id="ledgerExpPayer">
+          ${payerOpts.map(o=>`<option value="${o.id}" ${existing?.paidByProfileId===o.id||(!existing&&owner&&o.id===owner.id)?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}
+        </select>
+      </div>
         <div class="form-group ledger-form-field">
           <label for="ledgerExpCategory">分类</label>
-          <select class="form-select" id="ledgerExpCategory">
-            ${LEDGER_CATEGORIES.map(c=>`<option value="${c}" ${(existing&&resolveLedgerCategory(existing.category)===c)||(!existing&&c==='food')?'selected':''}>${LEDGER_CATEGORY_LABELS[c]}</option>`).join('')}
-          </select>
-        </div>
+        <select class="form-select" id="ledgerExpCategory">
+          ${LEDGER_CATEGORIES.map(c=>`<option value="${c}" ${(existing&&resolveLedgerCategory(existing.category)===c)||(!existing&&c==='food')?'selected':''}>${LEDGER_CATEGORY_LABELS[c]}</option>`).join('')}
+        </select>
+      </div>
       </div>
       <div class="ledger-settings-divider"></div>
       <div class="ledger-settings-rows">
@@ -14999,7 +15152,7 @@ function openCoupleLedgerEditor(expenseId){
         <span class="ls-row-label">商家</span>
         <span class="ls-row-value ${merchantVal?'':'is-placeholder'}" id="ledgerExpMerchantValue">${escapeHTML(merchantVal||'未填写')}</span>
         <span class="ls-row-chevron">›</span>
-      </div>
+        </div>
       <div class="ls-row-edit is-hidden" data-ledger-edit="merchant">
         <input class="form-input" id="ledgerExpMerchant" type="text" maxlength="40" value="${escapeHTML(merchantVal)}" placeholder="如：海底捞">
       </div>
@@ -15021,7 +15174,7 @@ function openCoupleLedgerEditor(expenseId){
             return `${escapeHTML(p.title)}${fs?` · ${fs}${fe?' - '+fe:''}`:''}`;
           })()}</span>
         <span class="ls-row-chevron">›</span>
-      </div>
+        </div>
       <input type="hidden" id="ledgerExpPeriod" value="${defaultPeriodId||''}">
       <div class="ls-row" data-ledger-view="note" data-ledger-open="note">
         <span class="ls-row-label">备注</span>
@@ -15044,10 +15197,10 @@ function openCoupleLedgerEditor(expenseId){
     </div>
     </div>
     <div class="ledger-modal-footer">
-      <div class="couple-form-actions">
-        <button class="btn btn-ghost" type="button" id="ledgerExpCancel">取消</button>
-        ${isEdit?`<button class="btn btn-ghost" type="button" id="ledgerExpDelete" style="color:var(--red,#f87171)">删除</button>`:''}
-        <button class="btn btn-gold" type="button" id="ledgerExpSave" data-ledger-exp-id="${expenseId||''}">保存</button>
+    <div class="couple-form-actions">
+      <button class="btn btn-ghost" type="button" id="ledgerExpCancel">取消</button>
+      ${isEdit?`<button class="btn btn-ghost" type="button" id="ledgerExpDelete" style="color:var(--red,#f87171)">删除</button>`:''}
+      <button class="btn btn-gold" type="button" id="ledgerExpSave" data-ledger-exp-id="${expenseId||''}">保存</button>
       </div>
     </div>`;
   renderIcons(modal);
@@ -15826,14 +15979,14 @@ function renderFoodSyncForm(){
         <span class="ls-row-label">时间</span>
         <span class="ls-row-value" id="foodSyncDateTimeText">${formatCompactLedgerDateTime(dateTimeVal)}</span>
         <span class="ls-row-chevron">›</span>
-      </div>
+    </div>
       <div class="ls-row">
         <span class="ls-row-label">餐次</span>
         <span class="ls-row-value" id="foodSyncMealValue">${MEAL_LABELS[s.meal]||''}</span>
         <span class="ls-row-chevron">›</span>
         <select class="ls-row-native" id="foodSyncMeal">${MEAL_KEYS.map(k=>`<option value="${k}" ${k===s.meal?'selected':''}>${MEAL_LABELS[k]}</option>`).join('')}</select>
       </div>
-    </div>`;
+  </div>`;
   s.items.forEach((item,i)=>{
     const nutri=item.nutrition;
     const found=nutri.found!==false;
@@ -15921,7 +16074,7 @@ function bindFoodSyncFormEvents(){
     const customOpenBtn=e.target.closest('[data-custom-open]');
     if(customOpenBtn){
       const idx=Number(customOpenBtn.dataset.idx);
-      const item=_foodSyncState.items[idx];
+          const item=_foodSyncState.items[idx];
       if(item){
         item.customPctOpen=true;
         patchFoodSyncPortionPct(idx);
@@ -15971,7 +16124,7 @@ function bindFoodSyncFormEvents(){
       const idx=Number(ratioAdj.dataset.idx);
       const who=ratioAdj.dataset.splitRatioAdjust;
       const delta=Number(ratioAdj.dataset.ratioDelta);
-      const item=_foodSyncState.items[idx];
+            const item=_foodSyncState.items[idx];
       if(item&&who){
         const key='split'+(who==='owner'?'Owner':'Partner');
         applyFoodSyncSplitRatio(idx,who,(Number(item[key])||0)+delta);
@@ -15983,7 +16136,7 @@ function bindFoodSyncFormEvents(){
       const idx=Number(gramsAdj.dataset.idx);
       const who=gramsAdj.dataset.splitGramsAdjust;
       const delta=Number(gramsAdj.dataset.weightDelta);
-      const item=_foodSyncState.items[idx];
+            const item=_foodSyncState.items[idx];
       if(item&&who){
         const key='split'+(who==='owner'?'OwnerGrams':'PartnerGrams');
         applyFoodSyncSplitGrams(idx,who,(Number(item[key])||0)+delta);
@@ -16014,8 +16167,8 @@ function bindFoodSyncFormEvents(){
         updateFoodSyncSummary();
       }
       return;
-    }
-  });
+      }
+    });
   }
   const dtBtn=form.querySelector('#foodSyncDateTimeBtn');
   if(dtBtn&&!dtBtn._fsBound){
@@ -18736,26 +18889,26 @@ function bindOneFoodPortionCard(card,foods,onDelete,refresh){
   }
   if(card.dataset.portionBound==='1') return;
   card.dataset.portionBound='1';
-  const idx=Number(card.dataset.portionIndex);
-  foods[idx]=prepareFoodPortion(foods[idx]);
-  const updateAmount=(value,userAdjusted=false)=>{const f=foods[idx];f.amount=Math.max(1,Number(value)||f.base_amount);f.quantity=roundFoodValue(f.amount/f.base_amount,2);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
-  const updateQuantity=(value,userAdjusted=false)=>{const f=foods[idx];f.quantity=Math.max(.01,Number(value)||1);f.amount=roundFoodValue(f.base_amount*f.quantity,1);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
-  card.querySelector('[data-portion-amount]').addEventListener('input',e=>updateAmount(e.target.value,true));
-  card.querySelector('[data-portion-quantity]').addEventListener('change',e=>updateQuantity(e.target.value,true));
-  card.querySelector('[data-portion-action="minus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.round(foods[idx].quantity)-1),true));
-  card.querySelector('[data-portion-action="plus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.floor(foods[idx].quantity)+1),true));
-  card.querySelectorAll('[data-weight-delta]').forEach(btn=>{
-    btn.addEventListener('click',()=>updateAmount((Number(foods[idx].amount)||foods[idx].base_amount)+Number(btn.dataset.weightDelta||0),true));
-  });
-  card.querySelector('[data-portion-action="detail"]')?.addEventListener('click',e=>{
-    const panel=card.querySelector('[data-food-detail]');
-    const showDetail=panel.hidden;
-    panel.hidden=!showDetail;
-    panel.dataset.expanded=String(showDetail);
-    e.currentTarget.setAttribute('aria-expanded',String(showDetail));
-    e.currentTarget.textContent=showDetail?'收起详情':'查看详情';
-  });
-  card.querySelector('[data-portion-action="delete"]').addEventListener('click',()=>onDelete(idx));
+    const idx=Number(card.dataset.portionIndex);
+    foods[idx]=prepareFoodPortion(foods[idx]);
+    const updateAmount=(value,userAdjusted=false)=>{const f=foods[idx];f.amount=Math.max(1,Number(value)||f.base_amount);f.quantity=roundFoodValue(f.amount/f.base_amount,2);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
+    const updateQuantity=(value,userAdjusted=false)=>{const f=foods[idx];f.quantity=Math.max(.01,Number(value)||1);f.amount=roundFoodValue(f.base_amount*f.quantity,1);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
+    card.querySelector('[data-portion-amount]').addEventListener('input',e=>updateAmount(e.target.value,true));
+    card.querySelector('[data-portion-quantity]').addEventListener('change',e=>updateQuantity(e.target.value,true));
+    card.querySelector('[data-portion-action="minus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.round(foods[idx].quantity)-1),true));
+    card.querySelector('[data-portion-action="plus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.floor(foods[idx].quantity)+1),true));
+    card.querySelectorAll('[data-weight-delta]').forEach(btn=>{
+      btn.addEventListener('click',()=>updateAmount((Number(foods[idx].amount)||foods[idx].base_amount)+Number(btn.dataset.weightDelta||0),true));
+    });
+    card.querySelector('[data-portion-action="detail"]')?.addEventListener('click',e=>{
+      const panel=card.querySelector('[data-food-detail]');
+      const showDetail=panel.hidden;
+      panel.hidden=!showDetail;
+      panel.dataset.expanded=String(showDetail);
+      e.currentTarget.setAttribute('aria-expanded',String(showDetail));
+      e.currentTarget.textContent=showDetail?'收起详情':'查看详情';
+    });
+    card.querySelector('[data-portion-action="delete"]').addEventListener('click',()=>onDelete(idx));
 }
 function getFoodDraftTotals(items=foodDraft){
   const totals={cal:0,pro:0,carb:0,fat:0};
@@ -21380,7 +21533,7 @@ function renderQuickFoods(){
         renderFoodDraftShell();
       }else{
         foodDraft.push(prepareFoodPortion({...food,source:'search',quantity:1}));
-        renderAddedFoods();
+      renderAddedFoods();
       }
       showToast(`已加入 ${food.name}`,'success');
     });
@@ -24261,7 +24414,7 @@ function setupQuickAddPanel(){
     carouselLastX=e.clientX;
     carouselLastT=now;
     setCarouselTransform(carouselDragX,false);
-    e.preventDefault();
+      e.preventDefault();
   });
   function endCarouselPointer(e){
     if(e.pointerId!==carouselPointerId) return;
@@ -25303,6 +25456,14 @@ function bindEvents(){
     const picker=document.getElementById('datePickerInput');
     if(picker.showPicker) picker.showPicker();
     else picker.click();
+  });
+  document.getElementById('dateTodayBtn')?.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const today=todayStr();
+    if(currentViewDate===today) return;
+    saveLocalViewDate(today);
+    renderDateDependentViews();
   });
   document.getElementById('datePickerInput').addEventListener('change',e=>{
     if(!isValidDateStr(e.target.value)) return;
