@@ -7613,16 +7613,22 @@ body.health-compare-page-active .app{
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .fs-compact-stepper-input-wrap{
-  display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;padding:0 2px;
+  display:flex;align-items:center;justify-content:center;gap:0;
+  min-width:0;overflow:hidden;padding:0 1px;
 }
-.fs-compact-stepper-input{
-  width:42px;min-width:0;max-width:100%;border:0;background:transparent;
-  font-size:13px;font-weight:700;color:var(--txt);text-align:right;padding:0;
-  outline:none;font-variant-numeric:tabular-nums;-moz-appearance:textfield;
+.fs-compact-stepper-input,
+.fs-compact-stepper-input:hover,
+.fs-compact-stepper-input:focus{
+  width:32px;min-width:28px;max-width:40px;flex:0 0 auto;
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  outline:none!important;border-radius:0!important;min-height:0!important;height:auto!important;
+  font-size:13px;font-weight:700;color:var(--txt);text-align:center;padding:0!important;
+  font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield;
+  -webkit-appearance:none;
 }
 .fs-compact-stepper-input::-webkit-outer-spin-button,
-.fs-compact-stepper-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.fs-compact-stepper-unit{font-size:13px;font-weight:700;color:var(--txt);flex-shrink:0;line-height:1}
+.fs-compact-stepper-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;appearance:none}
+.fs-compact-stepper-unit{font-size:13px;font-weight:700;color:var(--txt);flex-shrink:0;line-height:1;margin-left:1px}
 .food-sync-split-section{margin:4px 0 2px 26px}
 .food-sync-split-head{font-size:11px;color:var(--txt3);margin-bottom:2px}
 .food-sync-split-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:1px 0}
@@ -15415,11 +15421,42 @@ function fsCompactStepper(idx, numVal, unit, inputKind, minusAttr, plusAttr){
   return `<div class="fs-compact-stepper">
     <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${minusAttr}>−</button>
     <div class="fs-compact-stepper-input-wrap">
-      <input type="number" class="fs-compact-stepper-input" data-idx="${idx}" data-fs-input="${inputKind}" inputmode="numeric" value="${safeVal}" aria-label="数值">
+      <input type="text" class="fs-compact-stepper-input" data-glass-enhanced="stepper" data-idx="${idx}" data-fs-input="${inputKind}" inputmode="numeric" autocomplete="off" value="${safeVal}" aria-label="数值">
       <span class="fs-compact-stepper-unit">${unit}</span>
     </div>
     <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${plusAttr}>+</button>
   </div>`;
+}
+function fsStepperRestoreValue(inp){
+  if(!inp||!_foodSyncState) return;
+  const idx=Number(inp.dataset.idx);
+  const kind=inp.dataset.fsInput;
+  const item=_foodSyncState.items[idx];
+  if(!item) return;
+  if(kind==='weight') inp.value=String(Math.round(item.consumedWeightG||0));
+  else if(kind==='custom-pct') inp.value=String(Math.round(item.portionPct||0));
+  else if(kind==='split-ratio-owner') inp.value=String(Math.round(item.splitOwner||0));
+  else if(kind==='split-ratio-partner') inp.value=String(Math.round(item.splitPartner||0));
+  else if(kind==='split-grams-owner') inp.value=String(Math.round(item.splitOwnerGrams||0));
+  else if(kind==='split-grams-partner') inp.value=String(Math.round(item.splitPartnerGrams||0));
+}
+function commitFoodSyncStepperInput(inp){
+  if(!inp||!_foodSyncState) return;
+  const idx=Number(inp.dataset.idx);
+  const kind=inp.dataset.fsInput;
+  const raw=String(inp.value||'').trim();
+  if(raw===''){fsStepperRestoreValue(inp);return;}
+  const n=Number(raw);
+  if(!Number.isFinite(n)||!/^\d+(\.\d+)?$/.test(raw)){
+    fsStepperRestoreValue(inp);
+    return;
+  }
+  if(kind==='weight') applyFoodSyncPortionWeight(idx,n);
+  else if(kind==='custom-pct') applyFoodSyncCustomPct(idx,n);
+  else if(kind==='split-ratio-owner') applyFoodSyncSplitRatio(idx,'owner',n);
+  else if(kind==='split-ratio-partner') applyFoodSyncSplitRatio(idx,'partner',n);
+  else if(kind==='split-grams-owner') applyFoodSyncSplitGrams(idx,'owner',n);
+  else if(kind==='split-grams-partner') applyFoodSyncSplitGrams(idx,'partner',n);
 }
 function applyFoodSyncPortionWeight(idx, grams){
   const item=_foodSyncState?.items?.[idx];
@@ -15702,21 +15739,8 @@ function bindFoodSyncFormEvents(){
   form.querySelectorAll('.fs-compact-stepper-input').forEach(inp=>{
     if(inp._fsBound) return;
     inp._fsBound=true;
-    const commit=()=>{
-      const idx=Number(inp.dataset.idx);
-      const kind=inp.dataset.fsInput;
-      const raw=inp.value.trim();
-      if(raw===''){renderFoodSyncForm();return;}
-      const n=Number(raw);
-      if(kind==='weight') applyFoodSyncPortionWeight(idx,n);
-      else if(kind==='custom-pct') applyFoodSyncCustomPct(idx,n);
-      else if(kind==='split-ratio-owner') applyFoodSyncSplitRatio(idx,'owner',n);
-      else if(kind==='split-ratio-partner') applyFoodSyncSplitRatio(idx,'partner',n);
-      else if(kind==='split-grams-owner') applyFoodSyncSplitGrams(idx,'owner',n);
-      else if(kind==='split-grams-partner') applyFoodSyncSplitGrams(idx,'partner',n);
-      else renderFoodSyncForm();
-    };
-    inp.addEventListener('blur',commit);
+    inp.addEventListener('blur',()=>commitFoodSyncStepperInput(inp));
+    inp.addEventListener('change',()=>commitFoodSyncStepperInput(inp));
     inp.addEventListener('keydown',e=>{
       if(e.key==='Enter'){e.preventDefault();inp.blur();}
     });
@@ -25711,7 +25735,7 @@ const GlassUI=(()=>{
 
   function enhanceStepper(input){
     if(!input||input.dataset.glassEnhanced==='stepper'||isHiddenByType(input)) return;
-    if(input.closest('.glass-stepper')) return;
+    if(input.closest('.glass-stepper')||input.closest('.fs-compact-stepper')||input.classList.contains('fs-compact-stepper-input')) return;
     input.dataset.glassEnhanced='stepper';
     const wrap=document.createElement('div');
     wrap.className='glass-stepper';
@@ -26127,7 +26151,7 @@ const GlassUI=(()=>{
 
   function enhance(root=document){
     root.querySelectorAll?.('select:not([data-glass-enhanced])').forEach(enhanceSelect);
-    root.querySelectorAll?.('input[type="number"]:not([data-glass-enhanced])').forEach(enhanceStepper);
+    root.querySelectorAll?.('input[type="number"]:not([data-glass-enhanced]):not(.fs-compact-stepper-input)').forEach(enhanceStepper);
     root.querySelectorAll?.('input[type="date"]:not([data-glass-enhanced])').forEach(enhanceDateInput);
   }
 
