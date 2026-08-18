@@ -7853,7 +7853,7 @@ body.health-compare-page-active .app{
 .ls-edit-link:active{color:var(--gold-l)}
 .ls-row-edit{margin:6px 0 10px}
 .is-hidden{display:none!important}
-.ledger-settings-divider{height:1px;background:rgba(255,255,255,0.06);margin:4px 0 2px}
+.ledger-settings-divider{height:1px;background:rgba(255,255,255,0.06);margin:8px 0 2px}
 [data-theme="light"] .ledger-settings-divider{background:rgba(0,0,0,0.06)}
 .ledger-settings .ls-row-native,.food-sync-settings .ls-row-native{
   position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;
@@ -7874,24 +7874,26 @@ body.health-compare-page-active .app{
 .ledger-source-meta{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;color:var(--txt3)}
 .ledger-source-meta strong{margin-left:auto;color:var(--txt2);font-weight:650;font-variant-numeric:tabular-nums}
 .ledger-source-pill{font-size:10px;color:var(--txt3);padding:1px 7px;border-radius:999px;border:1px solid var(--card-border)}
-.ledger-hero{padding:12px 0 6px}
-.ledger-hero-kicker{font-size:12px;color:var(--txt3);font-weight:600}
+.ledger-hero{padding:10px 0 4px}
+.ledger-hero-kicker{font-size:11px;color:var(--txt3);font-weight:600}
 .ledger-hero-display{display:flex;align-items:baseline;gap:4px;margin-top:2px;cursor:pointer}
-.ledger-hero-yen,.ledger-hero-num{font-size:28px;font-weight:850;color:var(--gold-l);letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.ledger-hero-yen,.ledger-hero-num{font-size:26px;font-weight:850;color:var(--txt);letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.ledger-hero-yen{font-size:18px;font-weight:750;color:var(--txt2)}
 .ledger-hero-edit:not(.is-hidden){display:flex;align-items:center;gap:6px;margin-top:6px;max-width:168px}
 .ledger-hero-edit .ledger-amount-input{font-size:22px;text-align:left;min-height:40px;padding:6px 10px;flex:1;min-width:0;border-radius:12px}
 .ledger-settings{margin-top:4px}
-.ledger-form-fields{margin:0 0 2px}
-.ledger-form-field{margin-bottom:11px}
-.ledger-form-field:last-child{margin-bottom:12px}
-.ledger-form-field>label{display:block;font-size:12px;color:var(--txt2);margin-bottom:5px;min-height:18px;line-height:18px;font-weight:600}
+.ledger-form-fields{margin:0 0 2px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ledger-form-field{margin-bottom:0}
+.ledger-form-field:last-child{margin-bottom:0}
+.ledger-form-field>label{display:block;font-size:10px;color:var(--txt3);margin-bottom:3px;font-weight:700;letter-spacing:.02em}
 .ledger-form-field .form-select{
-  width:100%;min-height:44px;height:44px;padding:10px 34px 10px 12px;
-  border-radius:12px;border:1px solid var(--card-border);background:var(--glass-field);
+  width:100%;min-height:42px;height:42px;padding:0 30px 0 10px;
+  border-radius:var(--radius-control);border:1px solid var(--card-border);background:var(--glass-field);
   color:var(--txt);font-size:13px;font-weight:600;box-sizing:border-box;
 }
 [data-theme="light"] .ledger-form-field .form-select{background:rgba(255,255,255,0.62)}
-.ledger-form-field .form-select:focus{border-color:var(--gold-l);outline:none}
+.ledger-form-field .form-select:focus{border-color:var(--accent-border-strong);outline:none}
+@media(max-width:360px){.ledger-form-fields{grid-template-columns:1fr}}
 .ledger-settings-rows .ls-row:first-child{border-top:0}
 .ledger-ai-items-area{
   background:transparent;border:0;border-radius:0;padding:8px 0 2px;margin-bottom:0;max-height:none;overflow:visible;
@@ -8007,6 +8009,7 @@ body.health-compare-page-active .app{
 .food-sync-item-weight-info{font-size:10px;color:var(--txt3);margin:0 0 4px 26px}
 .food-sync-who{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 6px 26px}
 .food-sync-who-label{font-size:11px;color:var(--txt3);margin-right:2px;flex-shrink:0}
+.food-sync-who .ds-chip{margin:0}
 .food-sync-who .qa-ex-chip{margin:0;padding:5px 10px;font-size:11px}
 /* CANONICAL compact stepper — mobile 210–230px, ±44px touch, integrated suffix */
 .fs-compact-stepper{
@@ -8095,7 +8098,7 @@ body.health-compare-page-active .app{
 .food-sync-summary{border-radius:0;border:0;border-top:1px solid rgba(255,255,255,0.05);padding:10px 0 0;margin-top:8px;background:transparent}
 [data-theme="light"] .food-sync-summary{background:transparent;border-top-color:rgba(0,0,0,0.06)}
 .food-sync-summary-title{font-size:12px;font-weight:650;color:var(--txt3);margin-bottom:4px}
-.food-sync-summary-kcal{font-size:20px;font-weight:800;color:var(--gold-l);line-height:1.2;margin:2px 0 4px;font-variant-numeric:tabular-nums}
+.food-sync-summary-kcal{font-size:20px;font-weight:800;color:var(--txt);line-height:1.2;margin:2px 0 4px;font-variant-numeric:tabular-nums}
 .food-sync-summary-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--txt2);padding:4px 0 0}
 .food-sync-summary-row b{color:var(--txt);font-weight:650}
 .food-sync-summary-nutri{display:flex;gap:10px;font-size:11px;color:var(--txt3);padding:0;margin:0 0 4px}
@@ -8158,10 +8161,10 @@ body.health-compare-page-active .app{
 .ledger-period-list-date{font-size:11px;color:var(--txt3);margin-top:1px}
 .ledger-period-list-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .ledger-period-group-label{font-size:11px;color:var(--txt2);font-weight:600;margin-bottom:4px;letter-spacing:0.3px}
-.ledger-amount-input{font-size:22px;font-weight:850;color:var(--gold-l);text-align:center}
+.ledger-amount-input{font-size:22px;font-weight:850;color:var(--txt);text-align:left;caret-color:var(--accent-text)}
 .ledger-amount-input::placeholder{color:var(--txt3);font-weight:600}
 .ledger-form-amount-wrap{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 0}
-.ledger-form-amount-wrap .ledger-amount-symbol{font-size:22px;font-weight:850;color:var(--gold)}
+.ledger-form-amount-wrap .ledger-amount-symbol{font-size:22px;font-weight:850;color:var(--txt2)}
 [data-theme="light"] .ledger-overview-item,.ledger-overview-item{background:linear-gradient(150deg,rgba(255,255,255,0.04),rgba(255,255,255,0.012))}
 .ledger-cat-stats-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .ledger-cat-stats-title{font-size:11px;font-weight:700;color:var(--txt3)}
@@ -16305,10 +16308,10 @@ function renderFoodSyncForm(){
       <div class="food-sync-item-nutri">蛋白质${Math.round((nutri.protein||0)*item.quantity)}g · 碳水${Math.round((nutri.carbs||0)*item.quantity)}g · 脂肪${Math.round((nutri.fat||0)*item.quantity)}g</div>
       <div class="food-sync-who">
         <span class="food-sync-who-label">谁吃了</span>
-        <button class="qa-ex-chip food-sync-who-btn ${item.who==='owner'?'active':''}" type="button" data-idx="${i}" data-who="owner">${escapeHTML(s.ownerName)}</button>`;
+        <button class="ds-chip ds-chip--sm food-sync-who-btn ${item.who==='owner'?'active':''}" type="button" data-idx="${i}" data-who="owner">${escapeHTML(s.ownerName)}</button>`;
       if(s.partnerAvailable){
-        html+=`<button class="qa-ex-chip food-sync-who-btn ${item.who==='partner'?'active':''}" type="button" data-idx="${i}" data-who="partner">${escapeHTML(s.partnerName)}</button>
-        <button class="qa-ex-chip food-sync-who-btn ${item.who==='both'?'active':''}" type="button" data-idx="${i}" data-who="both">两个人</button>`;
+        html+=`<button class="ds-chip ds-chip--sm food-sync-who-btn ${item.who==='partner'?'active':''}" type="button" data-idx="${i}" data-who="partner">${escapeHTML(s.partnerName)}</button>
+        <button class="ds-chip ds-chip--sm food-sync-who-btn ${item.who==='both'?'active':''}" type="button" data-idx="${i}" data-who="both">两个人</button>`;
       }
       html+=`</div>
       <div class="food-sync-allocation" data-idx="${i}">${buildFoodSyncAllocationHTML(item,i,s)}</div>`;
