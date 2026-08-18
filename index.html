@@ -18644,27 +18644,56 @@ function bindFoodPortionControls(root,foods,onDelete){
     if(carbs) carbs.textContent=`${n.carbs}g`;
   };
   root.querySelectorAll('.food-portion-card').forEach(card=>{
-    const idx=Number(card.dataset.portionIndex);
-    foods[idx]=prepareFoodPortion(foods[idx]);
-    const updateAmount=(value,userAdjusted=false)=>{const f=foods[idx];f.amount=Math.max(1,Number(value)||f.base_amount);f.quantity=roundFoodValue(f.amount/f.base_amount,2);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
-    const updateQuantity=(value,userAdjusted=false)=>{const f=foods[idx];f.quantity=Math.max(.01,Number(value)||1);f.amount=roundFoodValue(f.base_amount*f.quantity,1);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
-    card.querySelector('[data-portion-amount]').addEventListener('input',e=>updateAmount(e.target.value,true));
-    card.querySelector('[data-portion-quantity]').addEventListener('change',e=>updateQuantity(e.target.value,true));
-    card.querySelector('[data-portion-action="minus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.round(foods[idx].quantity)-1),true));
-    card.querySelector('[data-portion-action="plus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.floor(foods[idx].quantity)+1),true));
-    card.querySelectorAll('[data-weight-delta]').forEach(btn=>{
-      btn.addEventListener('click',()=>updateAmount((Number(foods[idx].amount)||foods[idx].base_amount)+Number(btn.dataset.weightDelta||0),true));
-    });
-    card.querySelector('[data-portion-action="detail"]')?.addEventListener('click',e=>{
-      const panel=card.querySelector('[data-food-detail]');
-      const showDetail=panel.hidden;
-      panel.hidden=!showDetail;
-      panel.dataset.expanded=String(showDetail);
-      e.currentTarget.setAttribute('aria-expanded',String(showDetail));
-      e.currentTarget.textContent=showDetail?'收起详情':'查看详情';
-    });
-    card.querySelector('[data-portion-action="delete"]').addEventListener('click',()=>onDelete(idx));
+    bindOneFoodPortionCard(card,foods,onDelete,refresh);
   });
+}
+function bindOneFoodPortionCard(card,foods,onDelete,refresh){
+  if(!refresh){
+    refresh=(card,food)=>{
+      const n=calculateFoodNutrition(food,food.amount);
+      const per100=calculateFoodNutrition(food,100);
+      card.querySelector('[data-portion-kcal]').textContent=n.calories;
+      card.querySelector('[data-portion-nutrients]').textContent=`蛋白 ${n.protein}g · 脂肪 ${n.fat}g · 碳水 ${n.carbs}g`;
+      card.querySelector('[data-portion-quantity]').value=food.quantity;
+      card.querySelector('[data-portion-amount]').value=food.amount;
+      const current=card.querySelector('[data-weight-current]');
+      if(current) current.textContent=`${Math.round(food.amount)}g`;
+      const weight=card.querySelector('[data-detail-weight]');
+      if(weight) weight.textContent=`${Math.round(food.amount)}g`;
+      const per100El=card.querySelector('[data-detail-per100]');
+      if(per100El) per100El.textContent=`${per100.calories} kcal`;
+      const cal=card.querySelector('[data-detail-calories]');
+      if(cal) cal.textContent=`${n.calories} kcal`;
+      const pro=card.querySelector('[data-detail-protein]');
+      if(pro) pro.textContent=`${n.protein}g`;
+      const fat=card.querySelector('[data-detail-fat]');
+      if(fat) fat.textContent=`${n.fat}g`;
+      const carbs=card.querySelector('[data-detail-carbs]');
+      if(carbs) carbs.textContent=`${n.carbs}g`;
+    };
+  }
+  if(card.dataset.portionBound==='1') return;
+  card.dataset.portionBound='1';
+  const idx=Number(card.dataset.portionIndex);
+  foods[idx]=prepareFoodPortion(foods[idx]);
+  const updateAmount=(value,userAdjusted=false)=>{const f=foods[idx];f.amount=Math.max(1,Number(value)||f.base_amount);f.quantity=roundFoodValue(f.amount/f.base_amount,2);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
+  const updateQuantity=(value,userAdjusted=false)=>{const f=foods[idx];f.quantity=Math.max(.01,Number(value)||1);f.amount=roundFoodValue(f.base_amount*f.quantity,1);if(userAdjusted) f.userAdjustedWeight=true;refresh(card,f)};
+  card.querySelector('[data-portion-amount]').addEventListener('input',e=>updateAmount(e.target.value,true));
+  card.querySelector('[data-portion-quantity]').addEventListener('change',e=>updateQuantity(e.target.value,true));
+  card.querySelector('[data-portion-action="minus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.round(foods[idx].quantity)-1),true));
+  card.querySelector('[data-portion-action="plus"]').addEventListener('click',()=>updateQuantity(Math.max(1,Math.floor(foods[idx].quantity)+1),true));
+  card.querySelectorAll('[data-weight-delta]').forEach(btn=>{
+    btn.addEventListener('click',()=>updateAmount((Number(foods[idx].amount)||foods[idx].base_amount)+Number(btn.dataset.weightDelta||0),true));
+  });
+  card.querySelector('[data-portion-action="detail"]')?.addEventListener('click',e=>{
+    const panel=card.querySelector('[data-food-detail]');
+    const showDetail=panel.hidden;
+    panel.hidden=!showDetail;
+    panel.dataset.expanded=String(showDetail);
+    e.currentTarget.setAttribute('aria-expanded',String(showDetail));
+    e.currentTarget.textContent=showDetail?'收起详情':'查看详情';
+  });
+  card.querySelector('[data-portion-action="delete"]').addEventListener('click',()=>onDelete(idx));
 }
 function getFoodQuantity(food,amount,unitText){
   if(amount===null||amount===undefined||amount==='') return '';
@@ -21234,7 +21263,14 @@ function renderAISearchResult(food,query,fromCache=false,options={}){
     }
     item.addEventListener('click',e=>{
       if(e.target.closest?.('[data-ai-detail-toggle]')||e.target.closest?.('[data-ai-food-details]')) return;
-      addedFoods.push(prepareFoodPortion({...safeFood,quantity:1}));
+      const picked=prepareFoodPortion({...safeFood,quantity:1});
+      if(typeof context.onFoodSelect==='function'){
+        context.onFoodSelect(picked);
+        input.value='';
+        hideSearchResults(wrap);
+        return;
+      }
+      addedFoods.push(picked);
       input.value='';
       hideSearchResults(wrap);
       renderAddedFoods(addedWrap,context);
@@ -21340,7 +21376,14 @@ function renderSearchResults(query,options={}){
         return;
       }
       const food=FOOD_DB[+item.dataset.idx];
-      addedFoods.push(prepareFoodPortion({...food,quantity:1}));
+      const picked=prepareFoodPortion({...food,quantity:1});
+      if(typeof context.onFoodSelect==='function'){
+        context.onFoodSelect(picked);
+        input.value='';
+        hideSearchResults(wrap);
+        return;
+      }
+      addedFoods.push(picked);
       input.value='';
       hideSearchResults(wrap);
       renderAddedFoods(addedWrap,context);
@@ -21573,6 +21616,55 @@ function runDemoAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId,to
   },700);
 }
 
+function appendAIAnalysisFood(food,{photoURL,targetProfileId,detailReady,onDeleteFood}={}){
+  const prepared=prepareFoodPortion(food);
+  aiAnalysisFoods.push(prepared);
+  const idx=aiAnalysisFoods.length-1;
+  const resultsEl=document.getElementById('aiResults');
+  if(!resultsEl){
+    renderAIResults(photoURL,targetProfileId,{detailReady});
+    return;
+  }
+  resultsEl.insertAdjacentHTML('beforeend',foodPortionCardHTML(prepared,idx));
+  const card=resultsEl.querySelector(`.food-portion-card[data-portion-index="${idx}"]`);
+  if(card) bindOneFoodPortionCard(card,aiAnalysisFoods,onDeleteFood||(()=>{}));
+}
+function openAIFoodSearchPicker(meta={}){
+  cancelPendingFoodSearch();
+  const modal=document.getElementById('quickActionModal');
+  modal.dataset.quickAction='ai-food-search';
+  document.getElementById('quickActionTitle').textContent='搜索添加食物';
+  document.getElementById('quickActionContent').innerHTML=`
+    <div class="qa-modal-section">
+      <div class="qa-search-wrap">
+        <input type="text" class="qa-modal-input" id="qaFoodSearchInput" placeholder="搜索食物名称..." autocomplete="off">
+      </div>
+      <div class="qa-search-results search-results" id="qaSearchResults" style="display:none"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="qaFoodSearchCancel" style="width:100%;margin-top:10px">取消</button>
+    </div>`;
+  openQuickActionModal();
+  renderIcons(document.getElementById('quickActionContent'));
+  const searchInput=document.getElementById('qaFoodSearchInput');
+  const resultsEl=document.getElementById('qaSearchResults');
+  const context={
+    input:searchInput,
+    wrap:resultsEl,
+    onFoodSelect:food=>{
+      appendAIAnalysisFood(food,meta);
+      closeQuickActionModal();
+      showToast(`已添加 ${food.name}`,'success');
+    }
+  };
+  searchInput.addEventListener('input',e=>renderSearchResults(e.target.value,context));
+  searchInput.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      e.stopPropagation();
+      closeQuickActionModal();
+    }
+  });
+  document.getElementById('qaFoodSearchCancel').addEventListener('click',closeQuickActionModal);
+  searchInput.focus();
+}
 function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{detailReady=true}={}){
   aiAnalysisTargetProfileId=targetProfileId;
   // Auto-init meal based on current time (only on first render, not re-renders)
@@ -21593,7 +21685,7 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
   aiAnalysisFoods.forEach((f,i)=>{html+=foodPortionCardHTML(f,i)});
 
   html+=`</div>
-    <div class="ai-add-more" id="aiAddMore">+ 添加更多食物</div>
+    <div class="ai-add-more" id="aiAddMore">+ 搜索添加食物</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-ghost" id="aiRescanBtn" style="flex:1">重新识别</button>
       <button class="btn btn-gold" id="aiConfirmBtn" style="flex:1">确认添加</button>
@@ -21603,12 +21695,10 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
 
   // Bind events
   bindMealSelector(content);
-  bindFoodPortionControls(content,aiAnalysisFoods,idx=>{aiAnalysisFoods.splice(idx,1);renderAIResults(photoURL,targetProfileId,{detailReady})});
+  const onDeleteFood=idx=>{aiAnalysisFoods.splice(idx,1);renderAIResults(photoURL,targetProfileId,{detailReady})};
+  bindFoodPortionControls(content,aiAnalysisFoods,onDeleteFood);
   document.getElementById('aiAddMore').addEventListener('click',()=>{
-    // Add a random food
-    const random=FOOD_DB[Math.floor(Math.random()*FOOD_DB.length)];
-    aiAnalysisFoods.push(prepareFoodPortion({...random,quantity:1}));
-    renderAIResults(photoURL,targetProfileId,{detailReady});
+    openAIFoodSearchPicker({photoURL,targetProfileId,detailReady,onDeleteFood});
   });
   document.getElementById('aiRescanBtn').addEventListener('click',()=>{
     startAIAnalysis(photoURL,targetProfileId);
