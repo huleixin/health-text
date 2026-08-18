@@ -7597,15 +7597,15 @@ body.health-compare-page-active .app{
 .food-sync-who-label{font-size:11px;color:var(--txt3);margin-right:2px;flex-shrink:0}
 .food-sync-who .qa-ex-chip{margin:0;padding:5px 10px;font-size:11px}
 .fs-compact-stepper{
-  display:grid;grid-template-columns:32px 1fr 32px;align-items:center;
-  width:132px;min-width:132px;max-width:132px;height:38px;
+  display:grid;grid-template-columns:42px 1fr 42px;align-items:stretch;
+  width:min(190px,100%);min-width:168px;max-width:200px;height:40px;
   border-radius:999px;border:1px solid var(--card-border);
   background:var(--glass-field);overflow:hidden;flex-shrink:0;
 }
 .fs-compact-stepper-btn{
   height:100%;border:0;background:transparent;color:var(--gold-l);
-  font-size:16px;font-weight:700;cursor:pointer;display:grid;place-items:center;
-  padding:0;min-height:38px;
+  font-size:18px;font-weight:700;cursor:pointer;display:grid;place-items:center;
+  padding:0;min-height:40px;flex:0 0 42px;
 }
 .fs-compact-stepper-btn:active{background:rgba(212,175,55,0.08)}
 .fs-compact-stepper-val{
@@ -7613,22 +7613,23 @@ body.health-compare-page-active .app{
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .fs-compact-stepper-input-wrap{
-  display:flex;align-items:center;justify-content:center;gap:0;
-  min-width:0;overflow:hidden;padding:0 1px;
+  display:flex;align-items:center;justify-content:center;gap:2px;
+  min-width:80px;flex:1 1 auto;overflow:hidden;padding:0 6px;
 }
 .fs-compact-stepper-input,
 .fs-compact-stepper-input:hover,
 .fs-compact-stepper-input:focus{
-  width:32px;min-width:28px;max-width:40px;flex:0 0 auto;
+  width:2.5ch;min-width:28px;max-width:56px;flex:0 1 auto;
   border:0!important;background:transparent!important;box-shadow:none!important;
   outline:none!important;border-radius:0!important;min-height:0!important;height:auto!important;
-  font-size:13px;font-weight:700;color:var(--txt);text-align:center;padding:0!important;
+  font-size:21px;font-weight:800;color:var(--txt);text-align:center;padding:0!important;
   font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield;
-  -webkit-appearance:none;
+  -webkit-appearance:none;line-height:1.1;
 }
 .fs-compact-stepper-input::-webkit-outer-spin-button,
 .fs-compact-stepper-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;appearance:none}
-.fs-compact-stepper-unit{font-size:13px;font-weight:700;color:var(--txt);flex-shrink:0;line-height:1;margin-left:1px}
+.fs-compact-stepper-unit{font-size:15px;font-weight:600;color:var(--txt);flex-shrink:0;line-height:1;margin-left:1px}
+.food-sync-allocation{contain:layout style}
 .food-sync-split-section{margin:4px 0 2px 26px}
 .food-sync-split-head{font-size:11px;color:var(--txt3);margin-bottom:2px}
 .food-sync-split-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:1px 0}
@@ -15462,36 +15463,250 @@ function applyFoodSyncPortionWeight(idx, grams){
   const item=_foodSyncState?.items?.[idx];
   if(!item) return;
   const n=Number(grams);
-  if(!Number.isFinite(n)||n<1){renderFoodSyncForm();return;}
+  if(!Number.isFinite(n)||n<1) return;
   item.consumedWeightG=Math.max(1,Math.min(9999,Math.round(n)));
-  renderFoodSyncForm();
+  patchFoodSyncStepper(idx,'weight',item.consumedWeightG);
+  patchFoodSyncWeightHint(idx);
+  updateFoodSyncSummary();
 }
 function applyFoodSyncCustomPct(idx, pct){
   const item=_foodSyncState?.items?.[idx];
   if(!item) return;
   const n=Number(pct);
-  if(!Number.isFinite(n)){renderFoodSyncForm();return;}
+  if(!Number.isFinite(n)) return;
   item.portionPct=Math.max(0,Math.min(200,Math.round(n)));
   item.customPctOpen=true;
-  renderFoodSyncForm();
+  patchFoodSyncStepper(idx,'custom-pct',item.portionPct);
+  updateFoodSyncSummary();
 }
 function applyFoodSyncSplitRatio(idx, who, pct){
   const item=_foodSyncState?.items?.[idx];
   if(!item||!who) return;
   const n=Number(pct);
-  if(!Number.isFinite(n)){renderFoodSyncForm();return;}
+  if(!Number.isFinite(n)) return;
   const key='split'+(who==='owner'?'Owner':'Partner');
   item[key]=Math.max(0,Math.min(100,Math.round(n)));
-  renderFoodSyncForm();
+  patchFoodSyncStepper(idx,'split-ratio-'+who,item[key]);
+  patchFoodSyncSplitFoot(idx);
+  updateFoodSyncSummary();
 }
 function applyFoodSyncSplitGrams(idx, who, grams){
   const item=_foodSyncState?.items?.[idx];
   if(!item||!who) return;
   const n=Number(grams);
-  if(!Number.isFinite(n)||n<0){renderFoodSyncForm();return;}
+  if(!Number.isFinite(n)||n<0) return;
   const key='split'+(who==='owner'?'OwnerGrams':'PartnerGrams');
   item[key]=Math.max(0,Math.min(9999,Math.round(n)));
-  renderFoodSyncForm();
+  patchFoodSyncStepper(idx,'split-grams-'+who,item[key]);
+  patchFoodSyncSplitFoot(idx);
+  updateFoodSyncSummary();
+}
+function patchFoodSyncStepper(idx,kind,value){
+  const inp=document.querySelector(`.food-sync-allocation[data-idx="${idx}"] .fs-compact-stepper-input[data-fs-input="${kind}"]`);
+  if(inp&&document.activeElement!==inp) inp.value=String(Math.round(value));
+}
+function patchFoodSyncWeightHint(idx){
+  const item=_foodSyncState?.items?.[idx];
+  const hint=document.querySelector(`.food-sync-allocation[data-idx="${idx}"] .food-sync-portion-hint`);
+  if(!item||!hint) return;
+  const swG=item.estimatedServingWeightG;
+  if(swG&&swG>0) hint.textContent=`≈ ${Math.round(item.consumedWeightG/(swG*item.quantity)*100)}%`;
+}
+function patchFoodSyncSplitFoot(idx){
+  const item=_foodSyncState?.items?.[idx];
+  const alloc=document.querySelector(`.food-sync-allocation[data-idx="${idx}"]`);
+  if(!item||!alloc) return;
+  if(item.splitMode==='grams'){
+    const totalG=Math.round(item.totalGrams);
+    const assignedG=Math.round(item.splitOwnerGrams)+Math.round(item.splitPartnerGrams);
+    const remainG=Math.round(item.totalGrams-item.splitOwnerGrams-item.splitPartnerGrams);
+    const feet=alloc.querySelectorAll('.food-sync-split-foot-val');
+    if(feet[0]) feet[0].textContent=`${assignedG}g / ${totalG}g`;
+    if(feet[1]) feet[1].textContent=`${remainG}g`;
+  }else{
+    const remainPct=100-item.splitOwner-item.splitPartner;
+    const el=alloc.querySelector('.food-sync-split-foot-val');
+    if(el) el.textContent=`${remainPct}%`;
+  }
+}
+function patchFoodSyncWhoChips(idx){
+  const item=_foodSyncState?.items?.[idx];
+  const itemEl=document.querySelector(`.food-sync-item[data-idx="${idx}"]`);
+  if(!item||!itemEl) return;
+  itemEl.querySelectorAll('.food-sync-who-btn').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.who===item.who);
+  });
+}
+function patchFoodSyncPortionPct(idx){
+  const item=_foodSyncState?.items?.[idx];
+  const alloc=document.querySelector(`.food-sync-allocation[data-idx="${idx}"]`);
+  if(!item||!alloc) return;
+  const customOpen=!!item.customPctOpen;
+  const isPreset=!customOpen&&[25,50,75,100].includes(item.portionPct);
+  alloc.querySelectorAll('.food-sync-portion .food-sync-portion-btn[data-pct]').forEach(btn=>{
+    btn.classList.toggle('active',isPreset&&Number(btn.dataset.pct)===item.portionPct);
+  });
+  const customBtn=alloc.querySelector('[data-custom-open]');
+  if(customBtn) customBtn.classList.toggle('active',customOpen||!isPreset);
+  const customRow=alloc.querySelector('.food-sync-custom-row');
+  if(customRow) customRow.hidden=!customOpen;
+  if(customOpen) patchFoodSyncStepper(idx,'custom-pct',item.portionPct);
+  const summary=alloc.querySelector('.food-sync-portion-summary');
+  if(summary){
+    const show=!customOpen&&isPreset&&item.portionPct===100;
+    summary.hidden=!show;
+    if(show){
+      const swG=item.estimatedServingWeightG;
+      const approxG=swG&&swG>0?Math.round(swG*item.quantity):null;
+      summary.textContent=`100%${approxG!=null?` · 约${approxG}g`:''}`;
+    }
+  }
+}
+function patchFoodSyncPortionMode(idx){
+  const item=_foodSyncState?.items?.[idx];
+  const alloc=document.querySelector(`.food-sync-allocation[data-idx="${idx}"]`);
+  if(!item||!alloc) return;
+  const swG=item.estimatedServingWeightG;
+  const per100g=item.nutritionPer100g;
+  const weightAvailable=!!(per100g||(swG&&swG>0&&(item.nutrition?.cal||0)>0));
+  const isWeight=item.portionMode==='weight'&&weightAvailable;
+  alloc.querySelectorAll('[data-portion-mode]').forEach(btn=>{
+    const mode=btn.dataset.portionMode;
+    btn.classList.toggle('active',mode==='weight'?isWeight:!isWeight);
+  });
+  const ratioPanel=alloc.querySelector('.food-sync-ratio-panel');
+  const weightPanel=alloc.querySelector('.food-sync-weight-panel');
+  if(ratioPanel) ratioPanel.hidden=isWeight;
+  if(weightPanel) weightPanel.hidden=!isWeight;
+  if(isWeight){
+    patchFoodSyncStepper(idx,'weight',item.consumedWeightG);
+    patchFoodSyncWeightHint(idx);
+  }else{
+    patchFoodSyncPortionPct(idx);
+  }
+}
+function patchFoodSyncSplitMode(idx){
+  const item=_foodSyncState?.items?.[idx];
+  const alloc=document.querySelector(`.food-sync-allocation[data-idx="${idx}"]`);
+  if(!item||!alloc) return;
+  const isGrams=item.splitMode==='grams';
+  alloc.querySelectorAll('[data-split-mode]').forEach(btn=>{
+    btn.classList.toggle('active',(btn.dataset.splitMode==='grams')===isGrams);
+  });
+  const ratioPanel=alloc.querySelector('.food-sync-split-ratio-panel');
+  const gramsPanel=alloc.querySelector('.food-sync-split-grams-panel');
+  if(ratioPanel) ratioPanel.hidden=isGrams;
+  if(gramsPanel) gramsPanel.hidden=!isGrams;
+  if(isGrams){
+    patchFoodSyncStepper(idx,'split-grams-owner',item.splitOwnerGrams);
+    patchFoodSyncStepper(idx,'split-grams-partner',item.splitPartnerGrams);
+  }else{
+    patchFoodSyncStepper(idx,'split-ratio-owner',item.splitOwner);
+    patchFoodSyncStepper(idx,'split-ratio-partner',item.splitPartner);
+  }
+  patchFoodSyncSplitFoot(idx);
+}
+function remountFoodSyncAllocation(idx){
+  const s=_foodSyncState;
+  const item=s?.items?.[idx];
+  const itemEl=document.querySelector(`.food-sync-item[data-idx="${idx}"]`);
+  if(!item||!itemEl||item.isFee||item.nutrition?.found===false) return;
+  const scrollEl=document.querySelector('.food-sync-modal-scroll');
+  const scrollTop=scrollEl?.scrollTop??0;
+  let alloc=itemEl.querySelector('.food-sync-allocation');
+  if(!alloc){
+    alloc=document.createElement('div');
+    alloc.className='food-sync-allocation';
+    alloc.dataset.idx=String(idx);
+    itemEl.querySelector('.food-sync-who')?.insertAdjacentElement('afterend',alloc);
+  }
+  alloc.innerHTML=buildFoodSyncAllocationHTML(item,idx,s);
+  if(scrollEl) scrollEl.scrollTop=scrollTop;
+}
+function buildFoodSyncAllocationHTML(item,i,s){
+  const nutri=item.nutrition;
+  const swG=item.estimatedServingWeightG;
+  const per100g=item.nutritionPer100g;
+  const weightAvailable=!!(per100g||(swG&&swG>0&&(nutri.cal||0)>0));
+  let html='';
+  if(item.who==='both'&&s.partnerAvailable){
+    const remainPct=100-item.splitOwner-item.splitPartner;
+    const totalG=Math.round(item.totalGrams);
+    const assignedG=Math.round(item.splitOwnerGrams)+Math.round(item.splitPartnerGrams);
+    const remainG=Math.round(item.totalGrams-item.splitOwnerGrams-item.splitPartnerGrams);
+    const isGrams=item.splitMode==='grams';
+    html+=`<div class="food-sync-split-wrap" data-idx="${i}">
+      <div class="food-sync-split-mode">
+        <div class="meal-seg">
+          <button class="meal-seg-btn food-sync-portion-btn ${!isGrams?'active':''}" type="button" data-idx="${i}" data-split-mode="ratio">按比例</button>
+          <button class="meal-seg-btn food-sync-portion-btn ${isGrams?'active':''}" type="button" data-idx="${i}" data-split-mode="grams">按克数</button>
+        </div>
+      </div>
+      <div class="food-sync-split-ratio-panel food-sync-split-section"${isGrams?' hidden':''}>
+        <div class="food-sync-split-head">分配比例</div>
+        <div class="food-sync-split-row">
+          <span class="food-sync-split-name">${escapeHTML(s.ownerName)}</span>
+          ${fsCompactStepper(i,item.splitOwner,'%','split-ratio-owner','data-split-ratio-adjust="owner" data-ratio-delta="-5"','data-split-ratio-adjust="owner" data-ratio-delta="5"')}
+        </div>
+        <div class="food-sync-split-row">
+          <span class="food-sync-split-name">${escapeHTML(s.partnerName)}</span>
+          ${fsCompactStepper(i,item.splitPartner,'%','split-ratio-partner','data-split-ratio-adjust="partner" data-ratio-delta="-5"','data-split-ratio-adjust="partner" data-ratio-delta="5"')}
+        </div>
+        <div class="food-sync-split-foot"><span>剩余</span><span class="food-sync-split-foot-val">${remainPct}%</span></div>
+      </div>
+      <div class="food-sync-split-grams-panel food-sync-split-section"${!isGrams?' hidden':''}>
+        <div class="food-sync-split-total-info"><span>整份约</span><b>${totalG}g</b></div>
+        <div class="food-sync-split-head">分配</div>
+        <div class="food-sync-split-row">
+          <span class="food-sync-split-name">${escapeHTML(s.ownerName)}</span>
+          ${fsCompactStepper(i,item.splitOwnerGrams,'g','split-grams-owner','data-split-grams-adjust="owner" data-weight-delta="-10"','data-split-grams-adjust="owner" data-weight-delta="10"')}
+        </div>
+        <div class="food-sync-split-row">
+          <span class="food-sync-split-name">${escapeHTML(s.partnerName)}</span>
+          ${fsCompactStepper(i,item.splitPartnerGrams,'g','split-grams-partner','data-split-grams-adjust="partner" data-weight-delta="-10"','data-split-grams-adjust="partner" data-weight-delta="10"')}
+        </div>
+        <div class="food-sync-split-foot"><span>已分配</span><span class="food-sync-split-foot-val">${assignedG}g / ${totalG}g</span></div>
+        <div class="food-sync-split-foot"><span>剩余</span><span class="food-sync-split-foot-val">${remainG}g</span></div>
+      </div>
+    </div>`;
+  }else{
+    const customOpen=!!item.customPctOpen;
+    const isPreset=!customOpen&&[25,50,75,100].includes(item.portionPct);
+    const isWeight=item.portionMode==='weight'&&weightAvailable;
+    const pctFromWeight=(!swG||swG<=0)?null:Math.round((item.consumedWeightG||0)/(swG*item.quantity)*100);
+    const approxG100=swG&&swG>0?Math.round(swG*item.quantity):null;
+    html+=`<div class="food-sync-portion-mode">
+      <div class="meal-seg">
+        <button class="meal-seg-btn food-sync-portion-btn ${!isWeight?'active':''}" type="button" data-idx="${i}" data-portion-mode="ratio">按比例</button>
+        <button class="meal-seg-btn food-sync-portion-btn ${isWeight?'active':''}" type="button" data-idx="${i}" data-portion-mode="weight" ${weightAvailable?'':'disabled style="opacity:.4;cursor:not-allowed"'}>按克数</button>
+      </div>
+    </div>
+    <div class="food-sync-ratio-panel"${isWeight?' hidden':''}>
+      <div class="food-sync-portion">
+        <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===25?'active':''}" type="button" data-idx="${i}" data-pct="25">25%</button>
+        <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===50?'active':''}" type="button" data-idx="${i}" data-pct="50">50%</button>
+        <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===75?'active':''}" type="button" data-idx="${i}" data-pct="75">75%</button>
+        <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===100?'active':''}" type="button" data-idx="${i}" data-pct="100">100%</button>
+        <button class="td-filter-btn food-sync-portion-btn ${customOpen||!isPreset?'active':''}" type="button" data-idx="${i}" data-custom-open="1">自定义</button>
+      </div>
+      <div class="food-sync-custom-row"${!customOpen?' hidden':''}>
+        <span class="food-sync-custom-label">自定义比例</span>
+        ${fsCompactStepper(i,item.portionPct,'%','custom-pct','data-custom-adjust="-5"','data-custom-adjust="5"')}
+      </div>
+      <div class="food-sync-portion-summary"${!(isPreset&&item.portionPct===100&&!customOpen)?' hidden':''}>100%${approxG100!=null?` · 约${approxG100}g`:''}</div>`;
+    if(!weightAvailable){
+      html+=`<div class="food-sync-item-weight-info">暂无可靠克重营养基准，请使用比例记录</div>`;
+    }
+    html+=`</div>
+    <div class="food-sync-weight-panel"${!isWeight?' hidden':''}>
+      <div class="food-sync-portion-row">
+        <span class="food-sync-portion-row-label">份量</span>
+        ${fsCompactStepper(i,item.consumedWeightG,'g','weight','data-weight-adjust="-10"','data-weight-adjust="10"')}
+      </div>
+      <div class="food-sync-portion-hint">${pctFromWeight!=null?`≈ ${pctFromWeight}%`:'整份重量：未可靠识别'}</div>
+    </div>`;
+  }
+  return html;
 }
 function renderFoodSyncForm(){
   if(!_foodSyncState) return;
@@ -15531,8 +15746,6 @@ function renderFoodSyncForm(){
       html+=`<div class="food-sync-item-fail">暂无法估算 · 可取消勾选跳过此菜</div>`;
     }else{
       const swG=item.estimatedServingWeightG;
-      const per100g=item.nutritionPer100g;
-      const weightAvailable=!!(per100g||(swG&&swG>0&&(nutri.cal||0)>0));
       const grams=swG&&swG>0?Math.round(swG*item.quantity):null;
       const kcal=Math.round((nutri.cal||0)*item.quantity);
       html+=`<div class="food-sync-item-kcal-line">${grams!=null?`约${grams}g · `:''}<b>${kcal} kcal</b><span class="food-sync-est-tag"> AI估算</span></div>
@@ -15544,85 +15757,8 @@ function renderFoodSyncForm(){
         html+=`<button class="qa-ex-chip food-sync-who-btn ${item.who==='partner'?'active':''}" type="button" data-idx="${i}" data-who="partner">${escapeHTML(s.partnerName)}</button>
         <button class="qa-ex-chip food-sync-who-btn ${item.who==='both'?'active':''}" type="button" data-idx="${i}" data-who="both">两个人</button>`;
       }
-      html+=`</div>`;
-      if(item.who==='both'&&s.partnerAvailable){
-        html+=`<div class="food-sync-split-wrap" data-idx="${i}">
-          <div class="food-sync-split-mode">
-            <div class="meal-seg">
-              <button class="meal-seg-btn food-sync-portion-btn ${item.splitMode!=='grams'?'active':''}" type="button" data-idx="${i}" data-split-mode="ratio">按比例</button>
-              <button class="meal-seg-btn food-sync-portion-btn ${item.splitMode==='grams'?'active':''}" type="button" data-idx="${i}" data-split-mode="grams">按克数</button>
-            </div>
-          </div>
-          <div class="food-sync-split-section">`;
-        if(item.splitMode==='grams'){
-          const totalG=Math.round(item.totalGrams);
-          const assignedG=Math.round(item.splitOwnerGrams)+Math.round(item.splitPartnerGrams);
-          const remainG=Math.round(item.totalGrams-item.splitOwnerGrams-item.splitPartnerGrams);
-          html+=`<div class="food-sync-split-total-info"><span>整份约</span><b>${totalG}g</b></div>
-            <div class="food-sync-split-head">分配</div>
-            <div class="food-sync-split-row">
-              <span class="food-sync-split-name">${escapeHTML(s.ownerName)}</span>
-              ${fsCompactStepper(i,item.splitOwnerGrams,'g','split-grams-owner','data-split-grams-adjust="owner" data-weight-delta="-10"','data-split-grams-adjust="owner" data-weight-delta="10"')}
-            </div>
-            <div class="food-sync-split-row">
-              <span class="food-sync-split-name">${escapeHTML(s.partnerName)}</span>
-              ${fsCompactStepper(i,item.splitPartnerGrams,'g','split-grams-partner','data-split-grams-adjust="partner" data-weight-delta="-10"','data-split-grams-adjust="partner" data-weight-delta="10"')}
-            </div>
-            <div class="food-sync-split-foot"><span>已分配</span><span class="food-sync-split-foot-val">${assignedG}g / ${totalG}g</span></div>
-            <div class="food-sync-split-foot"><span>剩余</span><span class="food-sync-split-foot-val">${remainG}g</span></div>`;
-        }else{
-          const remainPct=100-item.splitOwner-item.splitPartner;
-          html+=`<div class="food-sync-split-head">分配比例</div>
-            <div class="food-sync-split-row">
-              <span class="food-sync-split-name">${escapeHTML(s.ownerName)}</span>
-              ${fsCompactStepper(i,item.splitOwner,'%','split-ratio-owner','data-split-ratio-adjust="owner" data-ratio-delta="-5"','data-split-ratio-adjust="owner" data-ratio-delta="5"')}
-            </div>
-            <div class="food-sync-split-row">
-              <span class="food-sync-split-name">${escapeHTML(s.partnerName)}</span>
-              ${fsCompactStepper(i,item.splitPartner,'%','split-ratio-partner','data-split-ratio-adjust="partner" data-ratio-delta="-5"','data-split-ratio-adjust="partner" data-ratio-delta="5"')}
-            </div>
-            <div class="food-sync-split-foot"><span>剩余</span><span class="food-sync-split-foot-val">${remainPct}%</span></div>`;
-        }
-        html+=`</div></div>`;
-      }else{
-        html+=`<div class="food-sync-portion-mode">
-          <div class="meal-seg">
-            <button class="meal-seg-btn food-sync-portion-btn ${item.portionMode!=='weight'?'active':''}" type="button" data-idx="${i}" data-portion-mode="ratio">按比例</button>
-            <button class="meal-seg-btn food-sync-portion-btn ${item.portionMode==='weight'?'active':''}" type="button" data-idx="${i}" data-portion-mode="weight" ${weightAvailable?'':'disabled style="opacity:.4;cursor:not-allowed"'}>按克数</button>
-          </div>
-        </div>`;
-        if(item.portionMode==='weight'&&weightAvailable){
-          const pctFromWeight=(!swG||swG<=0)?null:Math.round((item.consumedWeightG||0)/(swG*item.quantity)*100);
-          html+=`<div class="food-sync-portion-row">
-            <span class="food-sync-portion-row-label">份量</span>
-            ${fsCompactStepper(i,item.consumedWeightG,'g','weight','data-weight-adjust="-10"','data-weight-adjust="10"')}
-          </div>`;
-          if(pctFromWeight!=null) html+=`<div class="food-sync-portion-hint">≈ ${pctFromWeight}%</div>`;
-          else html+=`<div class="food-sync-portion-hint">整份重量：未可靠识别</div>`;
-        }else{
-          const customOpen=!!item.customPctOpen;
-          const isPreset=!customOpen&&[25,50,75,100].includes(item.portionPct);
-          html+=`<div class="food-sync-portion">
-            <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===25?'active':''}" type="button" data-idx="${i}" data-pct="25">25%</button>
-            <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===50?'active':''}" type="button" data-idx="${i}" data-pct="50">50%</button>
-            <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===75?'active':''}" type="button" data-idx="${i}" data-pct="75">75%</button>
-            <button class="td-filter-btn food-sync-portion-btn ${isPreset&&item.portionPct===100?'active':''}" type="button" data-idx="${i}" data-pct="100">100%</button>
-            <button class="td-filter-btn food-sync-portion-btn ${customOpen||!isPreset?'active':''}" type="button" data-idx="${i}" data-custom-open="1">自定义</button>
-          </div>`;
-          if(customOpen){
-            html+=`<div class="food-sync-custom-row">
-              <span class="food-sync-custom-label">自定义比例</span>
-              ${fsCompactStepper(i,item.portionPct,'%','custom-pct','data-custom-adjust="-5"','data-custom-adjust="5"')}
-            </div>`;
-          }else if(isPreset&&item.portionPct===100){
-            const approxG=swG&&swG>0?Math.round(swG*item.quantity):null;
-            html+=`<div class="food-sync-portion-summary">100%${approxG!=null?` · 约${approxG}g`:''}</div>`;
-          }
-          if(!weightAvailable){
-            html+=`<div class="food-sync-item-weight-info">暂无可靠克重营养基准，请使用比例记录</div>`;
-          }
-        }
-      }
+      html+=`</div>
+      <div class="food-sync-allocation" data-idx="${i}">${buildFoodSyncAllocationHTML(item,i,s)}</div>`;
     }
     html+=`</div>`;
   });
@@ -15641,8 +15777,11 @@ function renderFoodSyncForm(){
 function bindFoodSyncFormEvents(){
   const form=document.getElementById('foodSyncForm');
   if(!form||!_foodSyncState) return;
-  form.querySelectorAll('.food-sync-item-check').forEach(cb=>{
-    cb.addEventListener('change',()=>{
+  if(!form._foodSyncDelegated){
+    form._foodSyncDelegated=true;
+    form.addEventListener('change',e=>{
+      const cb=e.target.closest('.food-sync-item-check');
+      if(!cb||!_foodSyncState) return;
       const idx=Number(cb.dataset.idx);
       if(_foodSyncState.items[idx]){
         _foodSyncState.items[idx].included=cb.checked;
@@ -15651,50 +15790,57 @@ function bindFoodSyncFormEvents(){
         updateFoodSyncSummary();
       }
     });
-  });
-  form.querySelectorAll('.food-sync-portion-btn[data-pct]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      const pct=Number(btn.dataset.pct);
-      if(_foodSyncState.items[idx]){
-        _foodSyncState.items[idx].portionPct=pct;
-        _foodSyncState.items[idx].customPctOpen=false;
-        renderFoodSyncForm();
-      }
+    form.addEventListener('focusout',e=>{
+      const inp=e.target.closest('.fs-compact-stepper-input');
+      if(inp) commitFoodSyncStepperInput(inp);
     });
-  });
-  form.querySelectorAll('[data-custom-open]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      if(_foodSyncState.items[idx]){
-        _foodSyncState.items[idx].customPctOpen=true;
-        renderFoodSyncForm();
-      }
+    form.addEventListener('keydown',e=>{
+      const inp=e.target.closest('.fs-compact-stepper-input');
+      if(inp&&e.key==='Enter'){e.preventDefault();inp.blur();}
     });
-  });
-  form.querySelectorAll('[data-custom-adjust]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      const delta=Number(btn.dataset.customAdjust);
+    form.addEventListener('click',e=>{
+    if(!_foodSyncState) return;
+    const pctBtn=e.target.closest('.food-sync-portion-btn[data-pct]');
+    if(pctBtn){
+      const idx=Number(pctBtn.dataset.idx);
       const item=_foodSyncState.items[idx];
-      if(!item) return;
-      applyFoodSyncCustomPct(idx,(Number(item.portionPct)||0)+delta);
-    });
-  });
-  form.querySelectorAll('.food-sync-portion-btn[data-portion-mode]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      if(btn.disabled) return;
-      const idx=Number(btn.dataset.idx);
-      const mode=btn.dataset.portionMode;
+      if(item){
+        item.portionPct=Number(pctBtn.dataset.pct);
+        item.customPctOpen=false;
+        patchFoodSyncPortionPct(idx);
+        updateFoodSyncSummary();
+      }
+      return;
+    }
+    const customOpenBtn=e.target.closest('[data-custom-open]');
+    if(customOpenBtn){
+      const idx=Number(customOpenBtn.dataset.idx);
+      const item=_foodSyncState.items[idx];
+      if(item){
+        item.customPctOpen=true;
+        patchFoodSyncPortionPct(idx);
+      }
+      return;
+    }
+    const customAdj=e.target.closest('[data-custom-adjust]');
+    if(customAdj){
+      const idx=Number(customAdj.dataset.idx);
+      const delta=Number(customAdj.dataset.customAdjust);
+      const item=_foodSyncState.items[idx];
+      if(item) applyFoodSyncCustomPct(idx,(Number(item.portionPct)||0)+delta);
+      return;
+    }
+    const modeBtn=e.target.closest('.food-sync-portion-btn[data-portion-mode]');
+    if(modeBtn){
+      if(modeBtn.disabled) return;
+      const idx=Number(modeBtn.dataset.idx);
+      const mode=modeBtn.dataset.portionMode;
       const item=_foodSyncState.items[idx];
       if(!item) return;
       if(mode==='weight'){
         const swG=item.estimatedServingWeightG;
-        if(swG&&swG>0){
-          item.consumedWeightG=Math.round(swG*item.quantity*(item.portionPct/100));
-        }else if(!item.consumedWeightG||item.consumedWeightG<=0){
-          item.consumedWeightG=100;
-        }
+        if(swG&&swG>0) item.consumedWeightG=Math.round(swG*item.quantity*(item.portionPct/100));
+        else if(!item.consumedWeightG||item.consumedWeightG<=0) item.consumedWeightG=100;
       }else{
         const swG2=item.estimatedServingWeightG;
         if(swG2&&swG2>0&&item.consumedWeightG>0){
@@ -15702,71 +15848,72 @@ function bindFoodSyncFormEvents(){
         }
       }
       item.portionMode=mode;
-      renderFoodSyncForm();
-    });
-  });
-  form.querySelectorAll('[data-weight-adjust]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      const delta=Number(btn.dataset.weightAdjust);
+      patchFoodSyncPortionMode(idx);
+      updateFoodSyncSummary();
+      return;
+    }
+    const weightAdj=e.target.closest('[data-weight-adjust]');
+    if(weightAdj){
+      const idx=Number(weightAdj.dataset.idx);
+      const delta=Number(weightAdj.dataset.weightAdjust);
       const item=_foodSyncState.items[idx];
-      if(!item) return;
-      applyFoodSyncPortionWeight(idx,(item.consumedWeightG||0)+delta);
-    });
-  });
-  form.querySelectorAll('[data-split-ratio-adjust]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      const who=btn.dataset.splitRatioAdjust;
-      const delta=Number(btn.dataset.ratioDelta);
+      if(item) applyFoodSyncPortionWeight(idx,(item.consumedWeightG||0)+delta);
+      return;
+    }
+    const ratioAdj=e.target.closest('[data-split-ratio-adjust]');
+    if(ratioAdj){
+      const idx=Number(ratioAdj.dataset.idx);
+      const who=ratioAdj.dataset.splitRatioAdjust;
+      const delta=Number(ratioAdj.dataset.ratioDelta);
       const item=_foodSyncState.items[idx];
-      if(!item||!who) return;
-      const key='split'+(who==='owner'?'Owner':'Partner');
-      applyFoodSyncSplitRatio(idx,who,(Number(item[key])||0)+delta);
-    });
-  });
-  form.querySelectorAll('[data-split-grams-adjust]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      const who=btn.dataset.splitGramsAdjust;
-      const delta=Number(btn.dataset.weightDelta);
-      const item=_foodSyncState.items[idx];
-      if(!item||!who) return;
-      const key='split'+(who==='owner'?'OwnerGrams':'PartnerGrams');
-      applyFoodSyncSplitGrams(idx,who,(Number(item[key])||0)+delta);
-    });
-  });
-  form.querySelectorAll('.fs-compact-stepper-input').forEach(inp=>{
-    if(inp._fsBound) return;
-    inp._fsBound=true;
-    inp.addEventListener('blur',()=>commitFoodSyncStepperInput(inp));
-    inp.addEventListener('change',()=>commitFoodSyncStepperInput(inp));
-    inp.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){e.preventDefault();inp.blur();}
-    });
-  });
-  form.querySelectorAll('.food-sync-who-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      const who=btn.dataset.who;
-      if(_foodSyncState.items[idx]){
-        _foodSyncState.items[idx].who=who;
-        renderFoodSyncForm();
+      if(item&&who){
+        const key='split'+(who==='owner'?'Owner':'Partner');
+        applyFoodSyncSplitRatio(idx,who,(Number(item[key])||0)+delta);
       }
-    });
-  });
-  form.querySelectorAll('.food-sync-portion-btn[data-split-mode]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx=Number(btn.dataset.idx);
-      const mode=btn.dataset.splitMode;
-      if(_foodSyncState.items[idx]){
-        _foodSyncState.items[idx].splitMode=mode;
-        renderFoodSyncForm();
+      return;
+    }
+    const gramsAdj=e.target.closest('[data-split-grams-adjust]');
+    if(gramsAdj){
+      const idx=Number(gramsAdj.dataset.idx);
+      const who=gramsAdj.dataset.splitGramsAdjust;
+      const delta=Number(gramsAdj.dataset.weightDelta);
+      const item=_foodSyncState.items[idx];
+      if(item&&who){
+        const key='split'+(who==='owner'?'OwnerGrams':'PartnerGrams');
+        applyFoodSyncSplitGrams(idx,who,(Number(item[key])||0)+delta);
       }
-    });
+      return;
+    }
+    const whoBtn=e.target.closest('.food-sync-who-btn');
+    if(whoBtn){
+      const idx=Number(whoBtn.dataset.idx);
+      const who=whoBtn.dataset.who;
+      const item=_foodSyncState.items[idx];
+      if(item&&item.who!==who){
+        item.who=who;
+        patchFoodSyncWhoChips(idx);
+        remountFoodSyncAllocation(idx);
+        updateFoodSyncSummary();
+      }
+      return;
+    }
+    const splitModeBtn=e.target.closest('.food-sync-portion-btn[data-split-mode]');
+    if(splitModeBtn){
+      const idx=Number(splitModeBtn.dataset.idx);
+      const mode=splitModeBtn.dataset.splitMode;
+      const item=_foodSyncState.items[idx];
+      if(item&&item.splitMode!==mode){
+        item.splitMode=mode;
+        patchFoodSyncSplitMode(idx);
+        updateFoodSyncSummary();
+      }
+      return;
+    }
   });
+  }
   const dtBtn=form.querySelector('#foodSyncDateTimeBtn');
-  if(dtBtn){
+  if(dtBtn&&!dtBtn._fsBound){
+    dtBtn._fsBound=true;
     const openDT=()=>{
       const textEl=form.querySelector('#foodSyncDateTimeText');
       openLedgerDateTimePicker(normalizeDateTime(_foodSyncState.dateTime).slice(0,16),(result)=>{
@@ -15787,7 +15934,8 @@ function bindFoodSyncFormEvents(){
     });
   }
   const mealSelect=form.querySelector('#foodSyncMeal');
-  if(mealSelect){
+  if(mealSelect&&!mealSelect._fsBound){
+    mealSelect._fsBound=true;
     mealSelect.addEventListener('change',()=>{
       _foodSyncState.meal=mealSelect.value;
       _foodSyncState.mealManuallySet=true;
