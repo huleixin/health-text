@@ -537,12 +537,14 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
 }
 .quick-add-overlay.active{opacity:1;pointer-events:auto}
+.quick-add-overlay.is-sheet-dragging{transition:none}
 .quick-add-panel{
   position:fixed;
   left:50%;bottom:0;
-  transform:translate(-50%,100%);
+  transform:translate3d(-50%,100%,0);
   width:min(440px,100vw);
   max-height:80vh;
+  overflow-x:hidden;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
   background:linear-gradient(145deg,rgba(30,28,24,0.96),rgba(22,20,18,0.96));
@@ -551,20 +553,30 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   border-radius:22px 22px 0 0;
   box-shadow:0 -8px 40px rgba(0,0,0,0.3);
   z-index:1301;
-  transition:transform .3s cubic-bezier(0.32,0.72,0,1);
-  padding:8px 18px calc(16px + env(safe-area-inset-bottom,0px));
+  transition:transform .32s cubic-bezier(0.32,0.72,0,1);
+  padding:0 18px calc(16px + env(safe-area-inset-bottom,0px));
   overscroll-behavior:contain;
+  will-change:transform;
+  touch-action:pan-y;
 }
-.quick-add-panel.active{transform:translate(-50%,0)}
+.quick-add-panel.active{transform:translate3d(-50%,0,0)}
+.quick-add-panel.is-sheet-dragging{transition:none!important}
+.quick-add-panel.is-sheet-snap{transition:transform .32s cubic-bezier(0.32,0.72,0,1)!important}
 [data-theme="light"] .quick-add-panel{
   background:linear-gradient(145deg,rgba(255,255,255,0.97),rgba(248,243,231,0.97));
 }
-.quick-add-handle{
+.quick-add-handle-hit{
+  display:flex;align-items:center;justify-content:center;
+  width:min(120px,36vw);min-width:80px;height:44px;
+  margin:0 auto;padding-top:6px;
+  cursor:grab;touch-action:none;flex-shrink:0;
+  -webkit-user-select:none;user-select:none;
+}
+.quick-add-handle-hit:active{cursor:grabbing}
+.quick-add-handle-bar{
   width:36px;height:4px;
   background:var(--card-border);
-  border-radius:2px;
-  margin:4px auto 10px;
-  flex-shrink:0;
+  border-radius:2px;pointer-events:none;
 }
 .quick-add-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -611,6 +623,42 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .qa-main-sub{font-size:12px;color:var(--txt2);margin-top:2px}
 .qa-main-arrow{color:var(--gold-l);flex-shrink:0}
 .qa-main-arrow .ui-icon{width:18px;height:18px;transform:rotate(0deg)}
+.quick-add-carousel-viewport{
+  overflow:hidden;
+  margin-bottom:6px;
+  touch-action:none;
+}
+.quick-add-carousel-track{
+  display:flex;
+  will-change:transform;
+}
+.quick-add-carousel-track.is-dragging{transition:none}
+.quick-add-carousel-track.is-snapping{
+  transition:transform .28s cubic-bezier(0.32,0.72,0,1);
+}
+.quick-add-carousel-page{
+  flex:0 0 100%;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  box-sizing:border-box;
+}
+.quick-add-pagination{
+  display:flex;align-items:center;justify-content:center;
+  gap:6px;min-height:14px;margin:2px 0 8px;
+}
+.quick-add-pagination[hidden]{display:none}
+.quick-add-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:rgba(212,175,55,0.22);
+  border:none;padding:0;cursor:pointer;
+  transition:background .2s,transform .2s,opacity .2s;
+}
+.quick-add-dot.active{
+  background:rgba(212,175,55,0.72);
+  transform:scale(1.15);
+}
 .quick-add-grid{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -852,7 +900,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
     border-radius:20px 20px 0 0;
     border-left:none;border-right:none;
   }
-  .quick-add-grid{gap:8px}
+  .quick-add-carousel-page{gap:8px}
   .qa-item{padding:12px 4px 10px}
 }
 
@@ -8006,7 +8054,9 @@ function abTestRestore(){
 <!-- Quick Add Panel -->
 <div class="quick-add-overlay" id="quickAddOverlay"></div>
 <div class="quick-add-panel" id="quickAddPanel" role="dialog" aria-label="快捷记录">
-  <div class="quick-add-handle" id="quickAddHandle"></div>
+  <div class="quick-add-handle-hit" id="quickAddHandle" aria-label="下拉关闭">
+    <span class="quick-add-handle-bar"></span>
+  </div>
   <div class="quick-add-header">
     <span class="quick-add-title">快捷记录</span>
     <button class="quick-add-close-btn" id="quickAddCloseTop" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
@@ -8019,37 +8069,10 @@ function abTestRestore(){
     </div>
     <div class="qa-main-arrow"><span class="ui-icon" data-icon="camera"></span></div>
   </div>
-  <div class="quick-add-grid">
-    <button class="qa-item" id="qaFood" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="utensils"></span></div>
-      <span class="qa-item-label">搜索食物</span>
-    </button>
-    <button class="qa-item" id="qaVoice" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="mic"></span></div>
-      <span class="qa-item-label">语音记录</span>
-    </button>
-    <button class="qa-item" id="qaWater" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="droplets"></span></div>
-      <span class="qa-item-label">记录饮水</span>
-    </button>
-    <button class="qa-item" id="qaWeight" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="scale"></span></div>
-      <span class="qa-item-label">记录体重</span>
-    </button>
-    <button class="qa-item" id="qaExercise" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="activity"></span></div>
-      <span class="qa-item-label">记录运动</span>
-    </button>
-    <button class="qa-item" id="qaSteps" type="button">
-      <div class="qa-item-icon"><span class="ui-icon" data-icon="footprints"></span></div>
-      <span class="qa-item-label">记录步数</span>
-    </button>
+  <div class="quick-add-carousel-viewport" id="quickAddCarouselViewport">
+    <div class="quick-add-carousel-track" id="quickAddCarouselTrack"></div>
   </div>
-  <button class="qa-more-btn" id="qaMore" type="button">
-    <span class="qa-more-icon"><span class="ui-icon" data-icon="plus"></span></span>
-    <span>更多记录</span>
-  </button>
-  <button class="quick-add-close" id="quickAddClose" type="button">关闭</button>
+  <div class="quick-add-pagination" id="quickAddPagination" hidden></div>
 </div>
 
 <!-- Quick Action Modal (lightweight, reused for water/weight/exercise/food/voice) -->
@@ -24003,156 +24026,361 @@ function setupQuickAddPanel(){
   const btn=document.getElementById('quickAddBtn');
   const panel=document.getElementById('quickAddPanel');
   const overlay=document.getElementById('quickAddOverlay');
-  const closeBtn=document.getElementById('quickAddClose');
   const closeTop=document.getElementById('quickAddCloseTop');
-  if(!btn||!panel||!overlay) return;
+  const handle=document.getElementById('quickAddHandle');
+  const carouselViewport=document.getElementById('quickAddCarouselViewport');
+  const carouselTrack=document.getElementById('quickAddCarouselTrack');
+  const paginationEl=document.getElementById('quickAddPagination');
+  if(!btn||!panel||!overlay||!carouselTrack||!carouselViewport) return;
 
-  // Render icons inside panel
+  const QUICK_ADD_PAGES=[
+    [
+      {type:'food',icon:'utensils',label:'搜索食物'},
+      {type:'voice',icon:'mic',label:'语音记录'},
+      {type:'water',icon:'droplets',label:'记录饮水'},
+      {type:'weight',icon:'scale',label:'记录体重'},
+      {type:'exercise',icon:'activity',label:'记录运动'},
+      {type:'steps',icon:'footprints',label:'记录步数'}
+    ],
+    [
+      {type:'sleep',icon:'bed',label:'睡眠记录'},
+      {type:'photo',icon:'camera',label:'身体照片'},
+      {type:'bp',icon:'heart',label:'血压记录'},
+      {type:'hr',icon:'activity',label:'心率记录'},
+      {type:'custom',icon:'edit',label:'自定义记录'}
+    ]
+  ];
+  const DRAG_THRESHOLD=8;
+  const SHEET_CLOSE_RATIO=0.22;
+  const SHEET_VEL_CLOSE=0.55;
+
+  carouselTrack.innerHTML=QUICK_ADD_PAGES.map(page=>`
+    <div class="quick-add-carousel-page">
+      ${page.map(item=>`
+        <button class="qa-item" type="button" data-record-type="${item.type}">
+          <div class="qa-item-icon"><span class="ui-icon" data-icon="${item.icon}"></span></div>
+          <span class="qa-item-label">${item.label}</span>
+        </button>
+      `).join('')}
+    </div>
+  `).join('');
   renderIcons(panel);
 
-  let savedScrollY=0;
+  const pageCount=QUICK_ADD_PAGES.length;
+  let carouselPage=0;
+  let carouselDragX=0;
+  let carouselPointerId=null;
+  let carouselStartX=0;
+  let carouselStartY=0;
+  let carouselLastX=0;
+  let carouselLastT=0;
+  let carouselVelX=0;
+  let carouselLocked=null;
+  let carouselMoved=false;
+  let blockCarouselClick=false;
+
+  let sheetPointerId=null;
+  let sheetStartY=0;
+  let sheetStartX=0;
+  let sheetLastY=0;
+  let sheetLastT=0;
+  let sheetVelY=0;
+  let sheetLocked=null;
+  let sheetDragging=false;
+
   let isOpen=false;
+
+  function getCarouselWidth(){
+    return carouselViewport.offsetWidth||carouselViewport.getBoundingClientRect().width||1;
+  }
+  function applyCarouselOffset(rawOffset){
+    if(carouselPage===0&&rawOffset>0) return rawOffset*0.32;
+    if(carouselPage===pageCount-1&&rawOffset<0) return rawOffset*0.32;
+    return rawOffset;
+  }
+  function setCarouselTransform(offsetPx,animate){
+    const w=getCarouselWidth();
+    const base=-carouselPage*w;
+    carouselTrack.classList.toggle('is-snapping',!!animate);
+    carouselTrack.classList.toggle('is-dragging',!animate);
+    carouselTrack.style.transform=`translate3d(${base+applyCarouselOffset(offsetPx)}px,0,0)`;
+  }
+  function renderPagination(){
+    if(!paginationEl) return;
+    if(pageCount<=1){
+      paginationEl.hidden=true;
+      paginationEl.innerHTML='';
+      return;
+    }
+    paginationEl.hidden=false;
+    paginationEl.innerHTML=QUICK_ADD_PAGES.map((_,i)=>`
+      <button type="button" class="quick-add-dot${i===carouselPage?' active':''}" data-page="${i}" aria-label="第 ${i+1} 页"></button>
+    `).join('');
+    paginationEl.querySelectorAll('.quick-add-dot').forEach(dot=>{
+      dot.addEventListener('click',()=>{
+        const p=Number(dot.dataset.page);
+        if(!Number.isFinite(p)||p===carouselPage) return;
+        carouselPage=Math.max(0,Math.min(pageCount-1,p));
+        setCarouselTransform(0,true);
+        renderPagination();
+      });
+    });
+  }
+  function snapCarouselPage(){
+    const w=getCarouselWidth();
+    const threshold=Math.max(48,w*0.18);
+    let next=carouselPage;
+    if(carouselDragX<-threshold||carouselVelX<-0.45) next=Math.min(pageCount-1,carouselPage+1);
+    else if(carouselDragX>threshold||carouselVelX>0.45) next=Math.max(0,carouselPage-1);
+    carouselPage=next;
+    carouselDragX=0;
+    setCarouselTransform(0,true);
+    renderPagination();
+  }
+  function resetCarousel(){
+    carouselPage=0;
+    carouselDragX=0;
+    carouselPointerId=null;
+    carouselLocked=null;
+    carouselMoved=false;
+    blockCarouselClick=false;
+    setCarouselTransform(0,false);
+    renderPagination();
+  }
+  function resetSheetStyles(){
+    panel.classList.remove('is-sheet-dragging','is-sheet-snap');
+    overlay.classList.remove('is-sheet-dragging');
+    panel.style.transform='';
+    overlay.style.opacity='';
+    sheetPointerId=null;
+    sheetLocked=null;
+    sheetDragging=false;
+    sheetVelY=0;
+  }
 
   function openPanel(recordType){
     if(recordType) return openRecordEntry(recordType,{source:'typed-quick-add'});
     if(isOpen) return;
     isOpen=true;
-    savedScrollY=window.scrollY||document.documentElement.scrollTop||0;
+    resetCarousel();
+    resetSheetStyles();
     panel.classList.add('active');
     overlay.classList.add('active');
     GlassScrollLock.lock('quick-add-panel');
+    requestAnimationFrame(()=>setCarouselTransform(0,false));
     logOverlayDebug('open','quick-record');
     logQuickRecordDebug('quick-add','quick-record',panel.classList.contains('active'));
   }
-  function closePanel(){
-    if(!isOpen) return;
+  function finishClosePanel(){
     isOpen=false;
-    panel.classList.remove('active');
+    panel.classList.remove('active','is-sheet-dragging','is-sheet-snap');
+    overlay.classList.remove('is-sheet-dragging');
+    panel.style.transform='';
     overlay.classList.remove('active');
+    overlay.style.opacity='';
+    resetCarousel();
     GlassScrollLock.unlock('quick-add-panel');
     logOverlayDebug('close','quick-record');
     logQuickRecordDebug('close','quick-record',!panel.classList.contains('active'));
   }
-  // Expose for external use
+  function closePanel(){
+    if(!isOpen) return;
+    finishClosePanel();
+  }
+  function animateSheetClose(fromY){
+    panel.classList.remove('is-sheet-dragging');
+    overlay.classList.remove('is-sheet-dragging');
+    panel.classList.add('is-sheet-snap');
+    panel.style.transform='translate3d(-50%,100%,0)';
+    overlay.style.opacity='0';
+    const onDone=()=>{
+      panel.removeEventListener('transitionend',onDone);
+      finishClosePanel();
+    };
+    panel.addEventListener('transitionend',onDone);
+    setTimeout(onDone,360);
+  }
+  function animateSheetSnapBack(){
+    panel.classList.remove('is-sheet-dragging');
+    overlay.classList.remove('is-sheet-dragging');
+    panel.classList.add('is-sheet-snap');
+    panel.style.transform='translate3d(-50%,0,0)';
+    overlay.style.opacity='';
+    const onDone=()=>{
+      panel.removeEventListener('transitionend',onDone);
+      panel.classList.remove('is-sheet-snap');
+      panel.style.transform='';
+      overlay.style.opacity='';
+    };
+    panel.addEventListener('transitionend',onDone);
+    setTimeout(onDone,360);
+  }
+
   window.closeQuickAddPanel=closePanel;
   window.openQuickAddPanel=openPanel;
 
-  // Open
   btn.addEventListener('click',e=>{
     e.preventDefault();
     btn.blur();
     openPanel();
   });
-
-  // Close: overlay, close button, top close
   overlay.addEventListener('click',closePanel);
-  closeBtn?.addEventListener('click',closePanel);
   closeTop?.addEventListener('click',closePanel);
-
-  // ESC to close
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&isOpen) closePanel();
   });
 
-  // Swipe down to close
-  let touchStartY=0,touchCurrentY=0,isSwiping=false,dragClaimed=false;
-  panel.addEventListener('touchstart',e=>{
-    // 下滑关闭只由把手/标题栏启动，内容区始终保留给原生纵向滚动。
-    const dragSurface=e.target.closest?.('#quickAddHandle,.quick-add-header');
-    if(dragSurface){
-      touchStartY=e.touches[0].clientY;
-      touchCurrentY=touchStartY;
-      isSwiping=true;
-      dragClaimed=false;
-    }else{
-      isSwiping=false;
+  carouselViewport.addEventListener('pointerdown',e=>{
+    if(!isOpen||e.button>0) return;
+    if(sheetPointerId!==null) return;
+    carouselPointerId=e.pointerId;
+    carouselStartX=e.clientX;
+    carouselStartY=e.clientY;
+    carouselLastX=e.clientX;
+    carouselLastT=performance.now();
+    carouselVelX=0;
+    carouselLocked=null;
+    carouselMoved=false;
+    carouselDragX=0;
+    try{carouselViewport.setPointerCapture(e.pointerId);}catch(_){}
+  });
+  carouselViewport.addEventListener('pointermove',e=>{
+    if(e.pointerId!==carouselPointerId||!isOpen) return;
+    const dx=e.clientX-carouselStartX;
+    const dy=e.clientY-carouselStartY;
+    if(!carouselLocked){
+      if(Math.abs(dx)<DRAG_THRESHOLD&&Math.abs(dy)<DRAG_THRESHOLD) return;
+      carouselLocked=Math.abs(dx)>Math.abs(dy)?'x':'y';
+      if(carouselLocked!=='x') return;
     }
-  },{passive:true});
-
-  panel.addEventListener('touchmove',e=>{
-    if(!isSwiping) return;
-    touchCurrentY=e.touches[0].clientY;
-    const diff=touchCurrentY-touchStartY;
-    if(diff>8){
-      dragClaimed=true;
+    if(carouselLocked!=='x') return;
+    carouselMoved=true;
+    carouselDragX=dx;
+    const now=performance.now();
+    carouselVelX=(e.clientX-carouselLastX)/Math.max(1,now-carouselLastT);
+    carouselLastX=e.clientX;
+    carouselLastT=now;
+    setCarouselTransform(carouselDragX,false);
+    e.preventDefault();
+  });
+  function endCarouselPointer(e){
+    if(e.pointerId!==carouselPointerId) return;
+    try{carouselViewport.releasePointerCapture(e.pointerId);}catch(_){}
+    if(carouselLocked==='x'&&carouselMoved){
+      snapCarouselPage();
+      blockCarouselClick=true;
+    }
+    carouselPointerId=null;
+    carouselLocked=null;
+    carouselMoved=false;
+    carouselVelX=0;
+  }
+  carouselViewport.addEventListener('pointerup',endCarouselPointer);
+  carouselViewport.addEventListener('pointercancel',endCarouselPointer);
+  carouselViewport.addEventListener('click',e=>{
+    if(blockCarouselClick){
       e.preventDefault();
-      panel.style.transition='none';
-      panel.style.transform=`translate(-50%,${diff}px)`;
-      overlay.style.opacity=String(Math.max(0.2,1-diff/400));
+      e.stopPropagation();
+      blockCarouselClick=false;
     }
-  },{passive:false});
+  },true);
 
-  panel.addEventListener('touchend',e=>{
-    if(!isSwiping) return;
-    isSwiping=false;
-    const diff=(touchCurrentY||0)-touchStartY;
-    panel.style.transition='';
-    panel.style.transform='';
-    overlay.style.opacity='';
-    if(dragClaimed&&diff>80){
-      closePanel();
+  handle?.addEventListener('pointerdown',e=>{
+    if(!isOpen||e.button>0) return;
+    if(carouselPointerId!==null) return;
+    sheetPointerId=e.pointerId;
+    sheetStartY=e.clientY;
+    sheetStartX=e.clientX;
+    sheetLastY=e.clientY;
+    sheetLastT=performance.now();
+    sheetVelY=0;
+    sheetLocked=null;
+    sheetDragging=false;
+    try{handle.setPointerCapture(e.pointerId);}catch(_){}
+  });
+  handle?.addEventListener('pointermove',e=>{
+    if(e.pointerId!==sheetPointerId||!isOpen) return;
+    const dx=e.clientX-sheetStartX;
+    const dy=e.clientY-sheetStartY;
+    if(!sheetLocked){
+      if(Math.abs(dx)<DRAG_THRESHOLD&&Math.abs(dy)<DRAG_THRESHOLD) return;
+      sheetLocked=Math.abs(dy)>Math.abs(dx)?'y':'x';
+      if(sheetLocked!=='y') return;
     }
-  },{passive:true});
+    if(sheetLocked!=='y') return;
+    sheetDragging=true;
+    panel.classList.add('is-sheet-dragging');
+    overlay.classList.add('is-sheet-dragging');
+    const now=performance.now();
+    sheetVelY=(e.clientY-sheetLastY)/Math.max(1,now-sheetLastT);
+    sheetLastY=e.clientY;
+    sheetLastT=now;
+    let dragY=dy;
+    if(dragY<0) dragY=dragY*0.15;
+    else dragY=Math.max(0,dragY);
+    panel.style.transform=`translate3d(-50%,${dragY}px,0)`;
+    const panelH=panel.offsetHeight||320;
+    overlay.style.opacity=String(Math.max(0.12,1-dragY/(panelH*0.85)));
+    e.preventDefault();
+  });
+  function endSheetPointer(e){
+    if(e.pointerId!==sheetPointerId) return;
+    try{handle.releasePointerCapture(e.pointerId);}catch(_){}
+    if(sheetLocked==='y'&&sheetDragging){
+      const dy=e.clientY-sheetStartY;
+      const panelH=panel.offsetHeight||320;
+      const effectiveY=dy<0?dy*0.15:Math.max(0,dy);
+      const shouldClose=effectiveY>panelH*SHEET_CLOSE_RATIO||sheetVelY>SHEET_VEL_CLOSE;
+      if(shouldClose) animateSheetClose(effectiveY);
+      else animateSheetSnapBack();
+    }else{
+      resetSheetStyles();
+    }
+    sheetPointerId=null;
+    sheetLocked=null;
+    sheetDragging=false;
+    sheetVelY=0;
+  }
+  handle?.addEventListener('pointerup',endSheetPointer);
+  handle?.addEventListener('pointercancel',endSheetPointer);
 
-  // ===== Action mappings (lightweight modals) =====
-  // Close button
+  window.addEventListener('resize',()=>{
+    if(!isOpen) return;
+    setCarouselTransform(0,false);
+  });
+
+  function openMappedTarget(recordType){
+    closePanel();
+    setTimeout(()=>{
+      openRecordEntry(recordType,{source:'quick-add'});
+    },100);
+  }
+  function openSecondaryRecord(type){
+    closePanel();
+    setTimeout(()=>{
+      if(type==='sleep') openRecordEntry('sleep',{source:'quick-add'});
+      else renderUnavailableRecordModal(type);
+    },100);
+  }
+
+  document.getElementById('qaPhoto')?.addEventListener('click',()=>openMappedTarget('photo'));
+  carouselTrack.querySelectorAll('.qa-item').forEach(item=>{
+    item.addEventListener('click',()=>{
+      const type=item.dataset.recordType;
+      if(!type) return;
+      if(['food','voice','water','weight','exercise','steps'].includes(type)) openMappedTarget(type);
+      else openSecondaryRecord(type);
+    });
+  });
+
   document.getElementById('quickActionClose')?.addEventListener('click',closeQuickActionModal);
-  // Click outside to close
   document.getElementById('quickActionModal')?.addEventListener('click',e=>{
     if(e.target.id==='quickActionModal') closeQuickActionModal();
   });
-  // ESC to close
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&document.getElementById('quickActionModal')?.classList.contains('show')){
       closeQuickActionModal();
     }
-  });
-
-  function openMappedTarget(button,recordType){
-    closePanel();
-    setTimeout(()=>{
-      openRecordEntry(recordType,{source:'quick-add',button});
-    },100);
-  }
-
-  // 1. Photo recognition - independent quick record view
-  document.getElementById('qaPhoto')?.addEventListener('click',()=>{
-    openMappedTarget('photo','photo');
-  });
-
-  // 2. Search food - open lightweight food search modal
-  document.getElementById('qaFood')?.addEventListener('click',()=>{
-    openMappedTarget('food','food');
-  });
-
-  // 3. Voice record - open lightweight voice modal
-  document.getElementById('qaVoice')?.addEventListener('click',()=>{
-    openMappedTarget('voice','voice');
-  });
-
-  // 4. Water - open lightweight water modal
-  document.getElementById('qaWater')?.addEventListener('click',()=>{
-    openMappedTarget('water','water');
-  });
-
-  // 5. Weight - open lightweight weight modal
-  document.getElementById('qaWeight')?.addEventListener('click',()=>{
-    openMappedTarget('weight','weight');
-  });
-
-  // 6. Exercise - open lightweight exercise modal
-  document.getElementById('qaExercise')?.addEventListener('click',()=>{
-    openMappedTarget('exercise','exercise');
-  });
-
-  // 7. Steps - open existing lightweight steps modal
-  document.getElementById('qaSteps')?.addEventListener('click',()=>{
-    openMappedTarget('steps','steps');
-  });
-
-  // More records - open secondary entries modal
-  document.getElementById('qaMore')?.addEventListener('click',()=>{
-    openMappedTarget('more','more');
   });
 }
 
