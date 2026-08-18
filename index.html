@@ -2504,6 +2504,39 @@ button.settings-list-row{cursor:pointer}
 .ai-detail-value{color:var(--txt)}
 .ai-analysis{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.06);line-height:1.45;color:var(--txt2)}
 .added-foods{display:flex;flex-direction:column;gap:8px}
+.food-draft-panel{margin-top:4px}
+.food-draft-title{font-size:13px;font-weight:700;color:var(--gold-l);margin:0 0 8px}
+.food-draft-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.food-draft-item{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+  padding:8px 10px;border-radius:10px;border:1px solid var(--card-border);
+  background:rgba(255,255,255,0.03);
+}
+[data-theme="light"] .food-draft-item{background:rgba(255,255,255,0.55)}
+.food-draft-item-main{flex:1;min-width:0}
+.food-draft-item-name{font-size:13px;font-weight:650;color:var(--txt);line-height:1.3}
+.food-draft-item-meta{font-size:11px;color:var(--txt3);margin-top:2px;line-height:1.35}
+.food-draft-item-macros{font-size:10px;color:var(--txt3);margin-top:2px}
+.food-draft-item-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.food-draft-action-btn{
+  border:0;background:transparent;color:var(--gold-l);font-size:11px;font-weight:600;
+  padding:2px 4px;cursor:pointer;white-space:nowrap;
+}
+.food-draft-inline-edit{margin:0 0 6px;padding:0 0 2px}
+.food-draft-totals{
+  padding:8px 10px;border-radius:10px;border:1px solid rgba(212,175,55,0.14);
+  background:rgba(212,175,55,0.06);margin-bottom:10px;
+}
+.food-draft-totals-kcal{font-size:18px;font-weight:800;color:var(--gold-l);line-height:1.2}
+.food-draft-totals-macros{font-size:11px;color:var(--txt3);margin-top:3px}
+.food-draft-footer{display:flex;gap:8px;margin-top:4px}
+.food-draft-footer .btn{flex:1}
+.food-draft-edit-actions{display:flex;gap:8px;margin-top:10px}
+.food-draft-edit-actions .btn{flex:1}
+.food-draft-search-banner{
+  font-size:11px;color:var(--gold-l);padding:6px 10px;margin-bottom:8px;
+  border-radius:8px;border:1px dashed rgba(212,175,55,0.25);cursor:pointer;text-align:center;
+}
 .food-portion-card{
   padding:9px;border-radius:10px;background:rgba(255,255,255,0.035);
   border:1px solid rgba(212,175,55,.13);text-align:left;
@@ -8643,7 +8676,8 @@ const MEAL_LABELS={breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加�
 const MEAL_KEYS=['breakfast','lunch','dinner','snack'];
 let currentMeal = 'snack'; // will be auto-set by getMealTypeByDateTime when opening food modals
 let mealSelectionTouched = false; // true after user manually clicks a meal button
-let addedFoods = [];
+let foodDraft = [];
+let foodDraftSession = null;
 let chartInstance = null;
 let chartPeriod = 7;
 let chartMetric = 'weight';
@@ -8651,7 +8685,6 @@ let settingsProfileId = null;
 let settingsViewMode = 'home';
 let rebindDeviceOwnerProfileId = '';
 let rebindDeviceOwnerStep = 'select';
-let aiAnalysisFoods = [];
 let editingWeightId = null;
 let editingFoodRecordId = null;
 let editingExerciseId = null;
@@ -18701,6 +18734,307 @@ function bindOneFoodPortionCard(card,foods,onDelete,refresh){
   });
   card.querySelector('[data-portion-action="delete"]').addEventListener('click',()=>onDelete(idx));
 }
+function getFoodDraftTotals(items=foodDraft){
+  const totals={cal:0,pro:0,carb:0,fat:0};
+  items.forEach(f=>{
+    const p=prepareFoodPortion(f);
+    const n=calculateFoodNutrition(p,p.amount);
+    totals.cal+=Number(n.calories)||0;
+    totals.pro+=Number(n.protein)||0;
+    totals.carb+=Number(n.carbs)||0;
+    totals.fat+=Number(n.fat)||0;
+  });
+  totals.cal=Math.round(totals.cal);
+  totals.pro=Math.round(totals.pro*10)/10;
+  totals.carb=Math.round(totals.carb*10)/10;
+  totals.fat=Math.round(totals.fat*10)/10;
+  return totals;
+}
+function foodDraftItemMetaText(f){
+  const p=prepareFoodPortion(f);
+  const n=calculateFoodNutrition(p,p.amount);
+  const unit=String(p.source_unit||p.unit||'').trim();
+  const qty=p.quantity||1;
+  let portionPart='';
+  if(unit&&!/^\d*\s*g$/i.test(unit)&&!unit.endsWith('g')){
+    const unitLabel=unit.replace(/^\d+\s*/,'');
+    const qtyText=Math.abs(qty-Math.round(qty))<0.05?String(Math.round(qty)):String(roundFoodValue(qty,1));
+    portionPart=`${qtyText}${unitLabel} · `;
+  }else if(qty>0&&Math.abs(qty-1)>0.01){
+    portionPart=`${roundFoodValue(qty,1)}份 · `;
+  }
+  const gramsLabel=portionPart?`约${Math.round(p.amount)}g`:`${Math.round(p.amount)}g`;
+  return `${portionPart}${gramsLabel} · ${Math.round(n.calories)} kcal`;
+}
+function foodDraftCompactRowHTML(f,i){
+  const p=prepareFoodPortion(f);
+  return `<div class="food-draft-item" data-draft-idx="${i}">
+    <div class="food-draft-item-main">
+      <div class="food-draft-item-name">${escapeHTML(p.name)}</div>
+      <div class="food-draft-item-meta">${foodDraftItemMetaText(p)}</div>
+    </div>
+    <div class="food-draft-item-actions">
+      <button type="button" class="food-draft-action-btn" data-draft-edit="${i}">编辑</button>
+      <button type="button" class="food-draft-action-btn" data-draft-del="${i}">删除</button>
+    </div>
+  </div>`;
+}
+function renderFoodDraftReviewHTML(){
+  const totals=getFoodDraftTotals();
+  const totalLabel=foodDraft.length>1?`共 ${totals.cal} kcal`:`本次合计 ${totals.cal} kcal`;
+  const macroTotals=foodDraft.length>1?`<div class="food-draft-totals-macros">P ${totals.pro}g · C ${totals.carb}g · F ${totals.fat}g</div>`:'';
+  let html=`<div class="food-draft-panel">
+    <div class="food-draft-title">本次待添加</div>
+    <div class="food-draft-list">`;
+  foodDraft.forEach((f,i)=>{
+    html+=foodDraftCompactRowHTML(f,i);
+    if(foodDraftSession?.editingIndex===i){
+      html+=`<div class="food-draft-inline-edit" data-draft-inline="${i}">${foodPortionCardHTML(f,i)}</div>`;
+    }
+  });
+  html+=`</div>
+    <div class="ai-add-more" data-draft-add-more type="button">+ 添加更多食物</div>
+    <div class="food-draft-totals">
+      <div class="food-draft-totals-kcal">${totalLabel}</div>
+      ${macroTotals}
+    </div>
+    <div class="food-draft-footer">
+      <button type="button" class="btn btn-ghost" data-draft-cancel>取消</button>
+      <button type="button" class="btn btn-gold" data-draft-confirm>确认添加</button>
+    </div>
+  </div>`;
+  return html;
+}
+function bindFoodDraftReview(root,options={}){
+  if(!root) return;
+  root.querySelectorAll('[data-draft-edit]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=Number(btn.dataset.draftEdit);
+      if(!Number.isFinite(idx)) return;
+      foodDraftSession=foodDraftSession||{mode:options.mode||'search',phase:'review'};
+      foodDraftSession.editingIndex=foodDraftSession.editingIndex===idx?null:idx;
+      options.onRefresh?.();
+    });
+  });
+  root.querySelectorAll('[data-draft-del]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=Number(btn.dataset.draftDel);
+      if(!Number.isFinite(idx)) return;
+      foodDraft.splice(idx,1);
+      if(foodDraftSession?.editingIndex===idx) foodDraftSession.editingIndex=null;
+      else if(foodDraftSession?.editingIndex>idx) foodDraftSession.editingIndex--;
+      if(foodDraft.length===0&&foodDraftSession?.mode==='search'){
+        foodDraftSession.phase='search';
+      }
+      options.onRefresh?.();
+    });
+  });
+  foodDraft.forEach((f,i)=>{
+    if(foodDraftSession?.editingIndex!==i) return;
+    const slot=root.querySelector(`[data-draft-inline="${i}"]`);
+    if(!slot) return;
+    bindFoodPortionControls(slot,foodDraft,idx=>{
+      foodDraft.splice(idx,1);
+      if(foodDraftSession) foodDraftSession.editingIndex=null;
+      options.onRefresh?.();
+    });
+  });
+  root.querySelector('[data-draft-add-more]')?.addEventListener('click',()=>options.onAddMore?.());
+  root.querySelector('[data-draft-cancel]')?.addEventListener('click',()=>options.onCancel?.());
+  root.querySelector('[data-draft-confirm]')?.addEventListener('click',()=>options.onConfirm?.());
+}
+function handleSearchFoodPick(picked,context){
+  const food=prepareFoodPortion({...picked,source:picked.source||'search',quantity:1});
+  if(typeof context.onFoodPicked==='function'){
+    context.onFoodPicked(food);
+    if(context.input) context.input.value='';
+    hideSearchResults(context.wrap);
+    return true;
+  }
+  if(typeof context.onFoodSelect==='function'){
+    context.onFoodSelect(food);
+    if(context.input) context.input.value='';
+    hideSearchResults(context.wrap);
+    return true;
+  }
+  return false;
+}
+function renderFoodDraftEditView(container,pendingFood,options={}){
+  if(!container||!pendingFood) return;
+  const foods=[pendingFood];
+  container.innerHTML=`${foodPortionCardHTML(pendingFood,0)}
+    <div class="food-draft-edit-actions">
+      ${options.showBack?'<button type="button" class="btn btn-ghost" data-draft-edit-back>返回</button>':''}
+      <button type="button" class="btn btn-gold" data-draft-edit-join>${escapeHTML(options.joinLabel||'加入本次记录')}</button>
+    </div>`;
+  bindFoodPortionControls(container,foods,()=>{});
+  container.querySelector('[data-draft-edit-join]')?.addEventListener('click',()=>options.onJoin?.(prepareFoodPortion(pendingFood)));
+  container.querySelector('[data-draft-edit-back]')?.addEventListener('click',()=>options.onBack?.());
+}
+function renderFoodDraftShell(){
+  const content=document.getElementById('quickActionContent');
+  const s=foodDraftSession;
+  if(!content||!s||s.mode!=='search') return;
+  if(s.phase==='review'){
+    content.innerHTML=`<div class="qa-modal-section">${mealSelectorHTML()}${renderFoodDraftReviewHTML()}</div>`;
+    bindMealSelector(content);
+    bindFoodDraftReview(content,{
+      mode:'search',
+      onRefresh:renderFoodDraftShell,
+      onAddMore:()=>{s.phase='search';s.pendingFood=null;renderFoodDraftShell();},
+      onCancel:()=>{foodDraft=[];foodDraftSession=null;closeQuickActionModal();},
+      onConfirm:()=>confirmFoodDraft({mode:'search',dateTime:()=>currentViewDateTime(),onConfirmed:closeQuickActionModal})
+    });
+    return;
+  }
+  if(s.phase==='edit'&&s.pendingFood){
+    content.innerHTML=`<div class="qa-modal-section">
+      ${mealSelectorHTML()}
+      <div id="foodDraftEditHost"></div>
+    </div>`;
+    bindMealSelector(content);
+    renderFoodDraftEditView(document.getElementById('foodDraftEditHost'),s.pendingFood,{
+      showBack:true,
+      onBack:()=>{s.phase=foodDraft.length?'review':'search';s.pendingFood=null;renderFoodDraftShell();},
+      onJoin:food=>{
+        foodDraft.push(food);
+        s.pendingFood=null;
+        s.phase='review';
+        s.editingIndex=null;
+        renderFoodDraftShell();
+        showToast(`已加入 ${food.name}`,'success');
+      }
+    });
+    return;
+  }
+  content.innerHTML=`<div class="qa-modal-section">
+    <div class="qa-search-wrap">
+      <input type="text" class="qa-modal-input" id="qaFoodSearchInput" placeholder="搜索食物名称..." autocomplete="off">
+    </div>
+    ${mealSelectorHTML()}
+    ${foodDraft.length?`<div class="food-draft-search-banner" data-draft-go-review>查看本次待添加（${foodDraft.length}）</div>`:''}
+    <div class="qa-search-results search-results" id="qaSearchResults" style="display:none"></div>
+  </div>`;
+  bindMealSelector(content);
+  const searchInput=document.getElementById('qaFoodSearchInput');
+  const resultsEl=document.getElementById('qaSearchResults');
+  const context={
+    input:searchInput,
+    wrap:resultsEl,
+    onFoodPicked:food=>{
+      s.pendingFood=food;
+      s.phase='edit';
+      renderFoodDraftShell();
+    }
+  };
+  searchInput.addEventListener('input',e=>renderSearchResults(e.target.value,context));
+  searchInput.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.stopPropagation();searchInput.value='';renderSearchResults('',context);}
+  });
+  content.querySelector('[data-draft-go-review]')?.addEventListener('click',()=>{s.phase='review';renderFoodDraftShell();});
+  requestAnimationFrame(()=>searchInput.focus());
+}
+function openFoodDraftSearchOverlay(opts={}){
+  cancelPendingFoodSearch();
+  const modal=document.getElementById('quickActionModal');
+  if(!modal) return;
+  modal.dataset.quickAction='food-draft-search';
+  modal.classList.add('modal-overlay--stack-top');
+  document.body.appendChild(modal);
+  let overlayPhase='search';
+  let pendingFood=null;
+  const renderOverlay=()=>{
+    if(overlayPhase==='search'){
+      document.getElementById('quickActionTitle').textContent='搜索添加食物';
+      document.getElementById('quickActionContent').innerHTML=`
+        <div class="qa-modal-section ai-food-search-section">
+          <div class="qa-search-wrap">
+            <input type="text" class="qa-modal-input" id="qaFoodSearchInput" placeholder="搜索食物名称..." autocomplete="off">
+          </div>
+          <div class="qa-search-results search-results" id="qaSearchResults" style="display:none"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="qaFoodSearchCancel" style="width:100%;margin-top:10px">取消</button>
+        </div>`;
+      const searchInput=document.getElementById('qaFoodSearchInput');
+      const resultsEl=document.getElementById('qaSearchResults');
+      const context={
+        input:searchInput,
+        wrap:resultsEl,
+        onFoodPicked:food=>{pendingFood=food;overlayPhase='edit';renderOverlay();}
+      };
+      searchInput.addEventListener('input',e=>renderSearchResults(e.target.value,context));
+      searchInput.addEventListener('keydown',e=>{
+        if(e.key==='Escape'){e.stopPropagation();closeQuickActionModal();}
+      });
+      document.getElementById('qaFoodSearchCancel').addEventListener('click',closeQuickActionModal);
+      requestAnimationFrame(()=>searchInput.focus());
+    }else{
+      document.getElementById('quickActionTitle').textContent='调整份量';
+      document.getElementById('quickActionContent').innerHTML=`<div class="qa-modal-section"><div id="foodDraftOverlayEdit"></div></div>`;
+      renderFoodDraftEditView(document.getElementById('foodDraftOverlayEdit'),pendingFood,{
+        showBack:true,
+        onBack:()=>{overlayPhase='search';renderOverlay();},
+        onJoin:food=>{
+          foodDraft.push(food);
+          closeQuickActionModal();
+          opts.onJoined?.();
+          showToast(`已添加 ${food.name}`,'success');
+        }
+      });
+    }
+  };
+  openQuickActionModal();
+  renderIcons(modal);
+  renderOverlay();
+}
+function confirmFoodDraft(options={}){
+  if(!requireCurrentDeviceOwnerForHealthWrite()) return;
+  if(foodDraft.length===0){
+    showToast('请先添加食物','error');
+    return;
+  }
+  const mode=options.mode||foodDraftSession?.mode||'search';
+  const p=mode==='ai'
+    ?(getProfile(options.targetProfileId)||getHealthWriteProfile())
+    :(editingFoodRecordId?getActiveProfile():getHealthWriteProfile());
+  if(mode==='ai'){
+    if(!requireEditableHealthProfile(p)) return;
+  }else if(editingFoodRecordId&&!requireEditableHealthProfile(p)) return;
+  p.foodRecords=p.foodRecords||[];
+  const requestedDateTime=typeof options.dateTime==='function'?options.dateTime():options.dateTime;
+  const dateTime=normalizeDateTime(requestedDateTime||(mode==='ai'?getTimePickerValue('foodTime'):getTimePickerValue('foodTime')));
+  const payload=withProfileId(p,{
+    date:dateFromDateTimeValue(dateTime),
+    dateTime,
+    meal:currentMeal,
+    foods:foodDraft.map(serializeFoodPortion)
+  });
+  const wasEditing=!!editingFoodRecordId;
+  if(editingFoodRecordId){
+    const record=(p.foodRecords||[]).find(r=>r.id===editingFoodRecordId);
+    if(record) Object.assign(record,payload);
+    else p.foodRecords.push(withProfileId(p,{id:editingFoodRecordId,...payload}));
+  }else{
+    p.foodRecords.push(withProfileId(p,{id:'r'+Date.now()+Math.random().toString(36).substr(2,5),...payload}));
+  }
+  saveData();
+  invalidateHealthCoachDayCache(p,dateFromDateTimeValue(dateTime));
+  const count=foodDraft.length;
+  foodDraft=[];
+  foodDraftSession=null;
+  editingFoodRecordId=null;
+  resetTimePicker('foodTime');
+  renderDashboard();
+  const mealNames={breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
+  if(mode==='ai'){
+    aiAnalysisTargetProfileId='';
+    closeModal('aiModal');
+    clearPhotoZone();
+    showToast(`已添加 ${count} 项食物到${mealNames[currentMeal]}`,'success');
+  }else{
+    showToast(wasEditing?`已更新${mealNames[currentMeal]}记录`:`已添加到${mealNames[currentMeal]}`,'success');
+    options.onConfirmed?.();
+  }
+}
 function getFoodQuantity(food,amount,unitText){
   if(amount===null||amount===undefined||amount==='') return '';
   const n=Number(amount);
@@ -20912,21 +21246,17 @@ function renderChart(){
 function renderAddedFoods(targetWrap=document.getElementById('addedFoods'),options={}){
   const wrap=targetWrap;
   if(!wrap) return;
-  if(addedFoods.length===0){
-    wrap.innerHTML='';
-    return;
-  }
-  addedFoods=addedFoods.map(prepareFoodPortion);
-  wrap.innerHTML=addedFoods.map((f,i)=>foodPortionCardHTML(f,i)).join('')+
-  `<button class="btn btn-gold btn-sm" data-confirm-add-foods style="width:100%;margin-top:4px">${editingFoodRecordId?'保存饮食修改':'确认添加到今日记录'}</button>`;
-  bindFoodPortionControls(wrap,addedFoods,idx=>{
-    addedFoods.splice(idx,1);
-    renderAddedFoods(wrap,options);
+  if(foodDraft.length===0){wrap.innerHTML='';return;}
+  wrap.innerHTML=renderFoodDraftReviewHTML();
+  bindFoodDraftReview(wrap,{
+    mode:'search',
+    onRefresh:()=>renderAddedFoods(wrap,options),
+    onAddMore:()=>{
+      if(foodDraftSession){foodDraftSession.phase='search';renderFoodDraftShell();}
+    },
+    onCancel:()=>{foodDraft=[];foodDraftSession=null;wrap.innerHTML='';},
+    onConfirm:()=>confirmFoodDraft({...options,mode:'search',renderTarget:wrap})
   });
-  const confirmBtn=wrap.querySelector('[data-confirm-add-foods]');
-  if(confirmBtn){
-    confirmBtn.addEventListener('click',()=>confirmAddFoods({...options,renderTarget:wrap}));
-  }
 }
 
 // ==================== FOOD SEARCH ====================
@@ -21021,9 +21351,15 @@ function renderQuickFoods(){
       const source=chip.dataset.source;
       const idx=+chip.dataset.idx;
       const food=source==='fav'?favorites[idx]:recent[idx];
-      addedFoods.push(prepareFoodPortion({...food,quantity:1}));
-      renderAddedFoods();
-      showToast(`已添加 ${food.name}，可调整数量后确认`,'info');
+      if(foodDraftSession?.mode==='search'){
+        foodDraftSession.pendingFood=prepareFoodPortion({...food,source:'search',quantity:1});
+        foodDraftSession.phase='edit';
+        renderFoodDraftShell();
+      }else{
+        foodDraft.push(prepareFoodPortion({...food,source:'search',quantity:1}));
+        renderAddedFoods();
+      }
+      showToast(`已加入 ${food.name}`,'success');
     });
   });
 
@@ -21269,14 +21605,17 @@ function renderAISearchResult(food,query,fromCache=false,options={}){
     }
     item.addEventListener('click',e=>{
       if(e.target.closest?.('[data-ai-detail-toggle]')||e.target.closest?.('[data-ai-food-details]')) return;
-      const picked=prepareFoodPortion({...safeFood,quantity:1});
-      if(typeof context.onFoodSelect==='function'){
-        context.onFoodSelect(picked);
+      const picked=prepareFoodPortion({...safeFood,source:safeFood.source||'search',quantity:1});
+      if(handleSearchFoodPick(picked,context)) return;
+      if(foodDraftSession?.mode==='search'){
+        foodDraftSession.pendingFood=picked;
+        foodDraftSession.phase='edit';
+        renderFoodDraftShell();
         input.value='';
         hideSearchResults(wrap);
         return;
       }
-      addedFoods.push(picked);
+      foodDraft.push(picked);
       input.value='';
       hideSearchResults(wrap);
       renderAddedFoods(addedWrap,context);
@@ -21382,14 +21721,17 @@ function renderSearchResults(query,options={}){
         return;
       }
       const food=FOOD_DB[+item.dataset.idx];
-      const picked=prepareFoodPortion({...food,quantity:1});
-      if(typeof context.onFoodSelect==='function'){
-        context.onFoodSelect(picked);
+      const picked=prepareFoodPortion({...food,source:'search',quantity:1});
+      if(handleSearchFoodPick(picked,context)) return;
+      if(foodDraftSession?.mode==='search'){
+        foodDraftSession.pendingFood=picked;
+        foodDraftSession.phase='edit';
+        renderFoodDraftShell();
         input.value='';
         hideSearchResults(wrap);
         return;
       }
-      addedFoods.push(picked);
+      foodDraft.push(picked);
       input.value='';
       hideSearchResults(wrap);
       renderAddedFoods(addedWrap,context);
@@ -21531,6 +21873,8 @@ async function callFoodVisionAI(photoURL,promptText,aiCfg,stage){
 }
 async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId||getHealthWriteProfile()?.id||''){
   aiAnalysisTargetProfileId=targetProfileId;
+  foodDraft=[];
+  foodDraftSession=null;
   const modal=document.getElementById('aiModal');
   const content=document.getElementById('aiModalContent');
   modal.classList.add('show');
@@ -21556,7 +21900,7 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
       const foods=parseAIJsonArray(text);
       logFoodAI('parse',{stage:'complete',ms:Math.round(performance.now()-parseStart),count:foods.length});
       if(!foods.length) throw new Error('无法解析AI返回结果');
-      aiAnalysisFoods=foods.map(f=>normalizePhotoFoodItem(f,'complete'));
+      foodDraft=foods.map(f=>normalizePhotoFoodItem(f,'complete'));
       logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
       renderAIResults(photoURL,targetProfileId,{detailReady:true});
       return;
@@ -21602,7 +21946,7 @@ function runDemoAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId,to
       const extras=FOOD_DB.filter(f=>['饮品','水果'].includes(f.cat));
       picked.push(extras[Math.floor(Math.random()*extras.length)]);
     }
-    aiAnalysisFoods=picked.map(f=>normalizePhotoFoodItem({
+    foodDraft=picked.map(f=>normalizePhotoFoodItem({
       food:f.name,
       category:f.cat,
       estimatedWeight:getFoodBaseAmount(f),
@@ -21616,131 +21960,52 @@ function runDemoAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId,to
       advice:'请根据实际餐盘份量微调重量后再添加'
     },'detail'));
     logFoodAI('AI',{stage:'demo',ms:700,ok:true});
-    logFoodAI('parse',{stage:'demo',ms:1,count:aiAnalysisFoods.length});
+    logFoodAI('parse',{stage:'demo',ms:1,count:foodDraft.length});
     logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
     renderAIResults(photoURL,targetProfileId,{detailReady:true});
   },700);
 }
 
-function appendAIAnalysisFood(food,{photoURL,targetProfileId,detailReady,onDeleteFood}={}){
-  const prepared=prepareFoodPortion(food);
-  aiAnalysisFoods.push(prepared);
-  const idx=aiAnalysisFoods.length-1;
-  const resultsEl=document.getElementById('aiResults');
-  if(!resultsEl){
-    renderAIResults(photoURL,targetProfileId,{detailReady});
-    return;
-  }
-  resultsEl.insertAdjacentHTML('beforeend',foodPortionCardHTML(prepared,idx));
-  const card=resultsEl.querySelector(`.food-portion-card[data-portion-index="${idx}"]`);
-  if(card) bindOneFoodPortionCard(card,aiAnalysisFoods,onDeleteFood||(()=>{}));
-}
-function openAIFoodSearchPicker(meta={}){
-  cancelPendingFoodSearch();
-  const modal=document.getElementById('quickActionModal');
-  if(!modal) return;
-  modal.dataset.quickAction='ai-food-search';
-  modal.classList.add('modal-overlay--stack-top');
-  document.body.appendChild(modal);
-  document.getElementById('quickActionTitle').textContent='搜索添加食物';
-  document.getElementById('quickActionContent').innerHTML=`
-    <div class="qa-modal-section ai-food-search-section">
-      <div class="qa-search-wrap">
-        <input type="text" class="qa-modal-input" id="qaFoodSearchInput" placeholder="搜索食物名称..." autocomplete="off">
-      </div>
-      <div class="qa-search-results search-results" id="qaSearchResults" style="display:none"></div>
-      <button type="button" class="btn btn-ghost btn-sm" id="qaFoodSearchCancel" style="width:100%;margin-top:10px">取消</button>
-    </div>`;
-  openQuickActionModal();
-  renderIcons(document.getElementById('quickActionContent'));
-  const searchInput=document.getElementById('qaFoodSearchInput');
-  const resultsEl=document.getElementById('qaSearchResults');
-  const context={
-    input:searchInput,
-    wrap:resultsEl,
-    onFoodSelect:food=>{
-      appendAIAnalysisFood(food,meta);
-      closeQuickActionModal();
-      showToast(`已添加 ${food.name}`,'success');
-    }
-  };
-  searchInput.addEventListener('input',e=>renderSearchResults(e.target.value,context));
-  searchInput.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){
-      e.stopPropagation();
-      closeQuickActionModal();
-    }
-  });
-  document.getElementById('qaFoodSearchCancel').addEventListener('click',closeQuickActionModal);
-  requestAnimationFrame(()=>searchInput.focus());
-}
 function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{detailReady=true}={}){
   aiAnalysisTargetProfileId=targetProfileId;
-  // Auto-init meal based on current time (only on first render, not re-renders)
-  if(!document.getElementById('aiResults')||!document.querySelector('#aiModalContent .meal-seg')){
+  foodDraft=foodDraft.map(prepareFoodPortion);
+  const prevEdit=foodDraftSession?.editingIndex??null;
+  foodDraftSession={mode:'ai',phase:'review',editingIndex:prevEdit,pendingFood:null,photoURL,targetProfileId,detailReady};
+  if(!document.getElementById('aiFoodDraftHost')||!document.querySelector('#aiModalContent .meal-seg')){
     mealSelectionTouched=false;
     currentMeal=getMealTypeByDateTime(toLocalDateTimeValue());
   }
   const content=document.getElementById('aiModalContent');
   const statusText=detailReady?'重量和营养已补全，可查看详情或修正重量':'已快速识别食物，正在后台估算重量和营养...';
-  let html=`
+  content.innerHTML=`
     <img src="${photoURL}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-bottom:10px">
     <div style="font-size:12px;color:var(--gold);margin-bottom:4px">AI识别结果（可查看详情并修正重量）</div>
     <div data-ai-detail-status style="font-size:10px;color:var(--txt3);margin-bottom:8px">${statusText}</div>
     ${mealSelectorHTML()}
-    <div class="ai-results" id="aiResults">`;
-
-  aiAnalysisFoods=aiAnalysisFoods.map(prepareFoodPortion);
-  aiAnalysisFoods.forEach((f,i)=>{html+=foodPortionCardHTML(f,i)});
-
-  html+=`</div>
-    <div class="ai-add-more" id="aiAddMore">+ 搜索添加食物</div>
+    <div id="aiFoodDraftHost"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-ghost" id="aiRescanBtn" style="flex:1">重新识别</button>
-      <button class="btn btn-gold" id="aiConfirmBtn" style="flex:1">确认添加</button>
     </div>`;
-
-  content.innerHTML=html;
-
-  // Bind events
   bindMealSelector(content);
-  const onDeleteFood=idx=>{aiAnalysisFoods.splice(idx,1);renderAIResults(photoURL,targetProfileId,{detailReady})};
-  bindFoodPortionControls(content,aiAnalysisFoods,onDeleteFood);
-  document.getElementById('aiAddMore').addEventListener('click',()=>{
-    openAIFoodSearchPicker({photoURL,targetProfileId,detailReady,onDeleteFood});
+  const host=document.getElementById('aiFoodDraftHost');
+  host.innerHTML=renderFoodDraftReviewHTML();
+  const refreshAI=()=>renderAIResults(photoURL,targetProfileId,{detailReady});
+  bindFoodDraftReview(host,{
+    mode:'ai',
+    onRefresh:refreshAI,
+    onAddMore:()=>openFoodDraftSearchOverlay({onJoined:refreshAI}),
+    onCancel:()=>{
+      foodDraft=[];
+      foodDraftSession=null;
+      closeModal('aiModal');
+      clearPhotoZone();
+    },
+    onConfirm:()=>confirmFoodDraft({mode:'ai',targetProfileId})
   });
   document.getElementById('aiRescanBtn').addEventListener('click',()=>{
+    foodDraft=[];
+    foodDraftSession=null;
     startAIAnalysis(photoURL,targetProfileId);
-  });
-  document.getElementById('aiConfirmBtn').addEventListener('click',()=>{
-    if(!requireCurrentDeviceOwnerForHealthWrite()) return;
-    if(aiAnalysisFoods.length===0){
-      showToast('请至少添加一种食物','error');
-      return;
-    }
-    // Add to today's food records — use the same time picker as manual add
-    const p=getProfile(targetProfileId)||getHealthWriteProfile();
-    if(!requireEditableHealthProfile(p)) return;
-    const dateTime=normalizeDateTime(getTimePickerValue('foodTime'));
-    const record=withProfileId(p,{
-      id:'r'+Date.now()+Math.random().toString(36).substr(2,5),
-      date:dateFromDateTimeValue(dateTime),
-      dateTime,
-      meal:currentMeal,
-      foods:aiAnalysisFoods.map(serializeFoodPortion)
-    });
-    p.foodRecords=p.foodRecords||[];
-    p.foodRecords.push(record);
-    saveData();
-    invalidateHealthCoachDayCache(p, dateFromDateTimeValue(dateTime));
-    const count=aiAnalysisFoods.length;
-    aiAnalysisFoods=[];
-    aiAnalysisTargetProfileId='';
-    closeModal('aiModal');
-    clearPhotoZone();
-    renderDashboard();
-    const mealNames={breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
-    showToast(`已添加 ${count} 项食物到${mealNames[currentMeal]}`,'success');
   });
 }
 
@@ -21803,49 +22068,7 @@ function recordWeight(){
 }
 
 function confirmAddFoods(options={}){
-  if(!requireCurrentDeviceOwnerForHealthWrite()) return;
-  if(addedFoods.length===0){
-    showToast('请先添加食物','error');
-    return;
-  }
-  const p=editingFoodRecordId?getActiveProfile():getHealthWriteProfile();
-  if(editingFoodRecordId&&!requireEditableHealthProfile(p)) return;
-  p.foodRecords=p.foodRecords||[];
-  const requestedDateTime=typeof options.dateTime==='function'?options.dateTime():options.dateTime;
-  const dateTime=normalizeDateTime(requestedDateTime||getTimePickerValue('foodTime'));
-  const payload=withProfileId(p,{
-    date:dateFromDateTimeValue(dateTime),
-    dateTime,
-    meal:currentMeal,
-    foods:addedFoods.map(serializeFoodPortion)
-  });
-  const wasEditing=!!editingFoodRecordId;
-  if(editingFoodRecordId){
-    const record=(p.foodRecords||[]).find(r=>r.id===editingFoodRecordId);
-    if(record){
-      Object.assign(record,payload);
-    }else{
-      p.foodRecords.push(withProfileId(p,{id:editingFoodRecordId,...payload}));
-    }
-  }else{
-    p.foodRecords.push(withProfileId(p,{
-      id:'r'+Date.now()+Math.random().toString(36).substr(2,5),
-      ...payload
-    }));
-  }
-  saveData();
-  invalidateHealthCoachDayCache(p, dateFromDateTimeValue(dateTime));
-  addedFoods=[];
-  editingFoodRecordId=null;
-  renderAddedFoods();
-  if(options.renderTarget&&options.renderTarget!==document.getElementById('addedFoods')){
-    renderAddedFoods(options.renderTarget,options);
-  }
-  resetTimePicker('foodTime');
-  renderDashboard();
-  const mealNames={breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
-  showToast(wasEditing?`已更新${mealNames[currentMeal]}记录`:`已添加到${mealNames[currentMeal]}`,'success');
-  options.onConfirmed?.();
+  confirmFoodDraft({...options,mode:'search'});
 }
 
 function clearPhotoZone(targetZone=document.getElementById('photoZone')){
@@ -22663,8 +22886,8 @@ async function clearAllData(){
     state=applyLocalDeviceOwner(fresh);
     currentMeal=getMealTypeByDateTime(toLocalDateTimeValue());
     mealSelectionTouched=false;
-    addedFoods=[];
-    aiAnalysisFoods=[];
+    foodDraft=[];
+    foodDraftSession=null;
     chartMetric='weight';
     chartPeriod=7;
     settingsProfileId=null;
@@ -23953,10 +24176,10 @@ function closeQuickActionModal(){
   window.GlassUI?.closeAll?.();
   if(action==='food-search'){
     cancelPendingFoodSearch();
-    addedFoods=[];
-    mealSelectionTouched=false;
+    foodDraft=[];
+    foodDraftSession=null;
     renderAddedFoods();
-  }else if(action==='ai-food-search'){
+  }else if(action==='ai-food-search'||action==='food-draft-search'){
     cancelPendingFoodSearch();
   }
   if(action==='exercise') cancelPendingExerciseSearch();
@@ -24335,45 +24558,15 @@ function autoInitMeal(dateTime){
 // --- Food Search Modal ---
 function renderFoodSearchModal(){
   cancelPendingFoodSearch();
-  addedFoods=[];
+  foodDraft=[];
+  foodDraftSession={mode:'search',phase:'search',editingIndex:null,pendingFood:null};
   mealSelectionTouched=false;
   currentMeal=getMealTypeByDateTime(toLocalDateTimeValue());
   const modal=document.getElementById('quickActionModal');
   modal.dataset.quickAction='food-search';
   document.getElementById('quickActionTitle').textContent='搜索食物';
-  document.getElementById('quickActionContent').innerHTML=`
-    <div class="qa-modal-section">
-      <div class="qa-search-wrap">
-        <input type="text" class="qa-modal-input" id="qaFoodSearchInput" placeholder="搜索食物名称..." autocomplete="off">
-      </div>
-      ${mealSelectorHTML()}
-      <div class="qa-search-results search-results" id="qaSearchResults" style="display:none"></div>
-      <div class="added-foods" id="qaAddedFoods"></div>
-    </div>
-  `;
   openQuickActionModal();
-  bindMealSelector();
-
-  const searchInput=document.getElementById('qaFoodSearchInput');
-  const resultsEl=document.getElementById('qaSearchResults');
-  const addedWrap=document.getElementById('qaAddedFoods');
-  const context={
-    input:searchInput,
-    wrap:resultsEl,
-    addedWrap,
-    dateTime:()=>currentViewDateTime(),
-    onConfirmed:closeQuickActionModal
-  };
-  renderAddedFoods(addedWrap,context);
-  searchInput.addEventListener('input',e=>renderSearchResults(e.target.value,context));
-  searchInput.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){
-      e.stopPropagation();
-      searchInput.value='';
-      renderSearchResults('',context);
-    }
-  });
-  searchInput.focus();
+  renderFoodDraftShell();
 }
 
 // --- Voice/AI Modal ---
