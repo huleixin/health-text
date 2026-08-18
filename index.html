@@ -774,6 +774,11 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   overscroll-behavior:contain;
   touch-action:pan-y;
 }
+@media(max-width:640px){
+  #quickActionModal.modal-overlay--stack-top .qa-search-results{
+    max-height:min(240px,calc(100dvh - 260px - env(safe-area-inset-bottom,0px)));
+  }
+}
 .qa-search-item{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 12px;border-radius:10px;
@@ -2974,6 +2979,7 @@ button.settings-list-row{cursor:pointer}
   display:none;align-items:center;justify-content:center;padding:20px;
 }
 .modal-overlay.show{display:flex}
+.modal-overlay.modal-overlay--stack-top{z-index:3200}
 .modal{
   background:var(--bg2);border:1px solid var(--card-border-h);
   border-radius:16px;padding:20px;width:100%;max-width:440px;
@@ -21632,10 +21638,13 @@ function appendAIAnalysisFood(food,{photoURL,targetProfileId,detailReady,onDelet
 function openAIFoodSearchPicker(meta={}){
   cancelPendingFoodSearch();
   const modal=document.getElementById('quickActionModal');
+  if(!modal) return;
   modal.dataset.quickAction='ai-food-search';
+  modal.classList.add('modal-overlay--stack-top');
+  document.body.appendChild(modal);
   document.getElementById('quickActionTitle').textContent='搜索添加食物';
   document.getElementById('quickActionContent').innerHTML=`
-    <div class="qa-modal-section">
+    <div class="qa-modal-section ai-food-search-section">
       <div class="qa-search-wrap">
         <input type="text" class="qa-modal-input" id="qaFoodSearchInput" placeholder="搜索食物名称..." autocomplete="off">
       </div>
@@ -21663,7 +21672,7 @@ function openAIFoodSearchPicker(meta={}){
     }
   });
   document.getElementById('qaFoodSearchCancel').addEventListener('click',closeQuickActionModal);
-  searchInput.focus();
+  requestAnimationFrame(()=>searchInput.focus());
 }
 function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{detailReady=true}={}){
   aiAnalysisTargetProfileId=targetProfileId;
@@ -23947,9 +23956,12 @@ function closeQuickActionModal(){
     addedFoods=[];
     mealSelectionTouched=false;
     renderAddedFoods();
+  }else if(action==='ai-food-search'){
+    cancelPendingFoodSearch();
   }
   if(action==='exercise') cancelPendingExerciseSearch();
   modal.classList.remove('show');
+  modal.classList.remove('modal-overlay--stack-top');
   GlassScrollLock.unlock('modal:quickActionModal');
   delete modal.dataset.quickAction;
   logOverlayDebug('close',action);
