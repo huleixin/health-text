@@ -7196,6 +7196,9 @@ body.child-page-active .app{
   .glass-stepper-input{
     font-size:16px!important;
   }
+  .fs-compact-stepper-input{
+    font-size:21px!important;
+  }
   /* Override settings modal !important declarations */
   #settingsModal #settingsForm .form-input:not(.glass-stepper-input):not(.glass-native-date),
   #settingsModal #settingsForm .form-select,
@@ -7597,15 +7600,21 @@ body.health-compare-page-active .app{
 .food-sync-who-label{font-size:11px;color:var(--txt3);margin-right:2px;flex-shrink:0}
 .food-sync-who .qa-ex-chip{margin:0;padding:5px 10px;font-size:11px}
 .fs-compact-stepper{
-  display:grid;grid-template-columns:42px 1fr 42px;align-items:stretch;
-  width:min(190px,100%);min-width:168px;max-width:200px;height:40px;
+  display:grid;grid-template-columns:44px 1fr 44px;align-items:stretch;
+  width:min(200px,100%);min-width:180px;max-width:210px;height:42px;
   border-radius:999px;border:1px solid var(--card-border);
   background:var(--glass-field);overflow:hidden;flex-shrink:0;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.fs-compact-stepper:focus-within{
+  border-color:rgba(212,175,55,0.55);
+  box-shadow:0 0 0 2px rgba(212,175,55,0.10);
 }
 .fs-compact-stepper-btn{
   height:100%;border:0;background:transparent;color:var(--gold-l);
   font-size:18px;font-weight:700;cursor:pointer;display:grid;place-items:center;
-  padding:0;min-height:40px;flex:0 0 42px;
+  padding:0;min-height:42px;flex:0 0 44px;
+  -webkit-tap-highlight-color:transparent;
 }
 .fs-compact-stepper-btn:active{background:rgba(212,175,55,0.08)}
 .fs-compact-stepper-val{
@@ -7614,21 +7623,56 @@ body.health-compare-page-active .app{
 }
 .fs-compact-stepper-input-wrap{
   display:flex;align-items:center;justify-content:center;gap:2px;
-  min-width:80px;flex:1 1 auto;overflow:hidden;padding:0 6px;
+  min-width:96px;flex:1 1 auto;min-height:42px;overflow:visible;
+  padding:0 8px;margin:0;cursor:text;-webkit-tap-highlight-color:transparent;
 }
 .fs-compact-stepper-input,
 .fs-compact-stepper-input:hover,
-.fs-compact-stepper-input:focus{
-  width:2.5ch;min-width:28px;max-width:56px;flex:0 1 auto;
+.fs-compact-stepper-input:focus,
+.fs-compact-stepper-input:focus-visible,
+.fs-compact-stepper-input:active{
+  width:100%;min-width:52px;max-width:72px;flex:1 1 52px;
   border:0!important;background:transparent!important;box-shadow:none!important;
   outline:none!important;border-radius:0!important;min-height:0!important;height:auto!important;
   font-size:21px;font-weight:800;color:var(--txt);text-align:center;padding:0!important;
   font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield;
-  -webkit-appearance:none;line-height:1.1;
+  -webkit-appearance:none;line-height:1.15;caret-color:var(--gold-l);
+  -webkit-tap-highlight-color:transparent;
 }
+.fs-compact-stepper:focus-within .fs-compact-stepper-input{color:var(--gold-l)}
 .fs-compact-stepper-input::-webkit-outer-spin-button,
 .fs-compact-stepper-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;appearance:none}
-.fs-compact-stepper-unit{font-size:15px;font-weight:600;color:var(--txt);flex-shrink:0;line-height:1;margin-left:1px}
+.fs-compact-stepper-unit{font-size:15px;font-weight:600;color:var(--txt);flex-shrink:0;line-height:1;margin-left:1px;pointer-events:none;user-select:none}
+.fs-compact-stepper:focus-within .fs-compact-stepper-unit{color:var(--gold-l)}
+@media(max-width:600px){
+  .fs-compact-stepper{
+    width:min(230px,100%);min-width:210px;max-width:230px;height:44px;
+    grid-template-columns:44px 1fr 44px;
+  }
+  .fs-compact-stepper-btn{min-height:44px}
+  .fs-compact-stepper-input-wrap{min-width:104px;min-height:44px;padding:0 10px}
+  .fs-compact-stepper-input,
+  .fs-compact-stepper-input:hover,
+  .fs-compact-stepper-input:focus,
+  .fs-compact-stepper-input:focus-visible,
+  .fs-compact-stepper-input:active{
+    min-width:58px;max-width:78px;flex:1 1 58px;font-size:21px!important;
+  }
+  .fs-compact-stepper-unit{font-size:16px;font-weight:600}
+}
+:root:not([data-theme="light"]) .fs-compact-stepper .fs-compact-stepper-input,
+:root:not([data-theme="light"]) .fs-compact-stepper .fs-compact-stepper-input:hover,
+:root:not([data-theme="light"]) .fs-compact-stepper .fs-compact-stepper-input:focus,
+:root:not([data-theme="light"]) .fs-compact-stepper .fs-compact-stepper-input:focus-visible,
+:root:not([data-theme="light"]) .fs-compact-stepper .fs-compact-stepper-input:active,
+[data-theme="light"] .fs-compact-stepper .fs-compact-stepper-input,
+[data-theme="light"] .fs-compact-stepper .fs-compact-stepper-input:hover,
+[data-theme="light"] .fs-compact-stepper .fs-compact-stepper-input:focus,
+[data-theme="light"] .fs-compact-stepper .fs-compact-stepper-input:focus-visible,
+[data-theme="light"] .fs-compact-stepper .fs-compact-stepper-input:active{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  outline:none!important;border-radius:0!important;
+}
 .food-sync-allocation{contain:layout style}
 .food-sync-split-section{margin:4px 0 2px 26px}
 .food-sync-split-head{font-size:11px;color:var(--txt3);margin-bottom:2px}
@@ -15421,10 +15465,10 @@ function fsCompactStepper(idx, numVal, unit, inputKind, minusAttr, plusAttr){
   const safeVal=Number.isFinite(Number(numVal))?Math.round(Number(numVal)):0;
   return `<div class="fs-compact-stepper">
     <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${minusAttr}>−</button>
-    <div class="fs-compact-stepper-input-wrap">
+    <label class="fs-compact-stepper-input-wrap">
       <input type="text" class="fs-compact-stepper-input" data-glass-enhanced="stepper" data-idx="${idx}" data-fs-input="${inputKind}" inputmode="numeric" autocomplete="off" value="${safeVal}" aria-label="数值">
       <span class="fs-compact-stepper-unit">${unit}</span>
-    </div>
+    </label>
     <button type="button" class="fs-compact-stepper-btn" data-idx="${idx}" ${plusAttr}>+</button>
   </div>`;
 }
