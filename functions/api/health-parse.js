@@ -1,16 +1,33 @@
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+/**
+ * POST /api/health-parse
+ *
+ * Natural-language health event extraction.
+ * Primary: Doubao Seed 2.1 Turbo; fallback: Qwen 3.8-Max.
+ * Prompt and response schema are unchanged for frontend compatibility.
+ *
+ * Request body: { text, baseDate?, currentDateTime? }
+ * Response:     { events: [...] } | { events: [], error: string }
+ */
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      ...CORS_HEADERS,
-      'Content-Type': 'application/json; charset=utf-8',
-    },
+import {
+  CORS_HEADERS,
+  jsonResponse,
+  callDashScope,
+  getDashScopeModel,
+} from './_shared/dashscope.js';
+import {
+  callDoubao,
+  getDoubaoApiKey,
+  getDoubaoTurboModel,
+} from './_shared/doubao.js';
+
+const VALID_EVENT_TYPES = ['weight', 'food', 'exercise', 'steps', 'sleep', 'water', 'expense'];
+
+function logHealthParse(meta) {
+  console.log('[health-parse]', {
+    provider: meta.provider,
+    fallback: !!meta.fallback,
+    ms: meta.ms,
   });
 }
 
@@ -53,6 +70,35 @@ function normalizeQuality(value) {
   return 'normal';
 }
 
+function eventHasMinimalContent(event) {
+  const type = String(event?.type || '').toLowerCase();
+  if (type === 'weight') return event.weight != null && event.weight !== '';
+  if (type === 'food') {
+    const namedFoods = Array.isArray(event.foods)
+      ? event.foods.some((food) => String(food?.name || '').trim())
+      : false;
+    return namedFoods || !!String(event.name || '').trim();
+  }
+  if (type === 'exercise') return !!String(event.name || '').trim();
+  if (type === 'steps') return event.steps != null && event.steps !== '';
+  if (type === 'sleep') return event.duration != null && event.duration !== '';
+  if (type === 'water') return true;
+  if (type === 'expense') {
+    return (event.amount != null && event.amount !== '') || !!String(event.merchant || '').trim();
+  }
+  return false;
+}
+
+function isValidHealthParsePayload(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+  if (!Array.isArray(parsed.events) || parsed.events.length === 0) return false;
+  return parsed.events.every((event) => {
+    const type = String(event?.type || '').toLowerCase();
+    if (!VALID_EVENT_TYPES.includes(type)) return false;
+    return eventHasMinimalContent(event);
+  });
+}
+
 function normalizeEvents(events, fallbackDateTime) {
   if (!Array.isArray(events)) return [];
   return events.map((event) => {
@@ -68,15 +114,23 @@ function normalizeEvents(events, fallbackDateTime) {
       };
     }
     if (type === 'food') {
+      let foods = Array.isArray(event.foods) ? event.foods.map((food) => ({
+        name: String(food.name || '').trim(),
+        amount: food.amount === null || food.amount === undefined ? null : Number(food.amount),
+        unitText: String(food.unitText || '').trim(),
+      })).filter((food) => food.name) : [];
+      if (!foods.length && String(event.name || '').trim()) {
+        foods = [{
+          name: String(event.name).trim(),
+          amount: event.amount === null || event.amount === undefined ? null : Number(event.amount),
+          unitText: String(event.unitText || event.unit || '').trim(),
+        }];
+      }
       return {
         type,
         dateTime,
         meal: normalizeMeal(event.meal),
-        foods: Array.isArray(event.foods) ? event.foods.map((food) => ({
-          name: String(food.name || '').trim(),
-          amount: food.amount === null || food.amount === undefined ? null : Number(food.amount),
-          unitText: String(food.unitText || '').trim(),
-        })).filter((food) => food.name) : [],
+        foods,
         timeDefaulted: !!event.timeDefaulted,
       };
     }
@@ -134,30 +188,8 @@ function normalizeEvents(events, fallbackDateTime) {
   }).filter(Boolean);
 }
 
-export async function onRequestOptions() {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
-}
-
-export async function onRequestPost(context) {
-  try {
-    const { request } = context;
-    const body = await request.json().catch(() => ({}));
-    const text = String(body.text || '').trim();
-    const baseDate = String(body.baseDate || '').trim();
-    const currentDateTime = String(body.currentDateTime || '').slice(0, 16);
-    const fallbackDateTime = currentDateTime || `${baseDate || '2026-01-01'}T12:00`;
-
-    if (text.length < 2) {
-      return jsonResponse({ events: [], error: '请输入要解析的健康记录内容' }, 400);
-    }
-
-    const apiKey = context.env.DASHSCOPE_API_KEY || context.env.QWEN_API_KEY || context.env.BAILIAN_API_KEY;
-    if (!apiKey) {
-      return jsonResponse({ events: [], error: 'AI服务未配置' }, 500);
-    }
-
-    const model = context.env.DASHSCOPE_MODEL || context.env.QWEN_MODEL || 'qwen3.8-max';
-    const prompt = `你是健康记录应用的自然语言结构化助手。你的任务只是把用户文本拆成健康事件数组，不要计算BMI、不要计算运动卡路里、不要估算食物营养、不要判断人物。
+function buildHealthParsePrompt(text, baseDate, currentDateTime) {
+  return `你是健康记录应用的自然语言结构化助手。你的任务只是把用户文本拆成健康事件数组，不要计算BMI、不要计算运动卡路里、不要估算食物营养、不要判断人物。
 
 用户文本：
 ${text}
@@ -202,28 +234,74 @@ currentDateTime=${currentDateTime}
 餐次判断：
 明确说早餐/早饭/早上吃 -> breakfast；午餐/中午吃 -> lunch；晚餐/晚饭/晚上吃饭 -> dinner；夜宵/加餐/零食或非正餐 -> snack。
 如果只给时间：05:00-10:30 breakfast，10:31-14:00 lunch，17:00-21:00 dinner，其余 snack。`;
+}
 
-    const aiResponse = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        enable_thinking: false,
-      }),
-    });
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
 
-    const aiData = await aiResponse.json().catch(() => ({}));
-    if (!aiResponse.ok) {
-      return jsonResponse({ events: [], error: aiData?.error?.message || aiData?.message || 'AI解析失败' }, 502);
+export async function onRequestPost(context) {
+  try {
+    const { request } = context;
+    const body = await request.json().catch(() => ({}));
+    const text = String(body.text || '').trim();
+    const baseDate = String(body.baseDate || '').trim();
+    const currentDateTime = String(body.currentDateTime || '').slice(0, 16);
+    const fallbackDateTime = currentDateTime || `${baseDate || '2026-01-01'}T12:00`;
+
+    if (text.length < 2) {
+      return jsonResponse({ events: [], error: '请输入要解析的健康记录内容' }, 400);
     }
 
-    const content = aiData?.choices?.[0]?.message?.content;
-    const parsed = typeof content === 'string' ? parseAIJson(content) : content;
+    const prompt = buildHealthParsePrompt(text, baseDate, currentDateTime);
+    const startedAt = Date.now();
+    const requestBody = {
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+    };
+    let usedFallback = false;
+
+    if (getDoubaoApiKey(context)) {
+      const doubaoResult = await callDoubao(context, {
+        model: getDoubaoTurboModel(context),
+        ...requestBody,
+        thinking: { type: 'disabled' },
+      });
+
+      if (doubaoResult.ok) {
+        const parsed = parseAIJson(doubaoResult.text);
+        if (isValidHealthParsePayload(parsed)) {
+          logHealthParse({
+            provider: 'doubao',
+            fallback: false,
+            ms: Date.now() - startedAt,
+          });
+          return jsonResponse({ events: normalizeEvents(parsed.events, fallbackDateTime) });
+        }
+      }
+      usedFallback = true;
+    }
+
+    const qwenResult = await callDashScope(context, {
+      model: getDashScopeModel(context),
+      ...requestBody,
+      enable_thinking: false,
+    });
+
+    logHealthParse({
+      provider: 'qwen',
+      fallback: usedFallback,
+      ms: Date.now() - startedAt,
+    });
+
+    if (!qwenResult.ok) {
+      return jsonResponse(
+        { events: [], error: qwenResult.error || 'AI解析失败' },
+        qwenResult.status || 502
+      );
+    }
+
+    const parsed = parseAIJson(qwenResult.text);
     const events = normalizeEvents(parsed?.events, fallbackDateTime);
     return jsonResponse({ events });
   } catch (err) {

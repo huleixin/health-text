@@ -5,6 +5,11 @@ import {
   callDashScope,
   getDashScopeModel,
 } from './_shared/dashscope.js';
+import {
+  callDoubao,
+  getDoubaoApiKey,
+  getDoubaoTurboModel,
+} from './_shared/doubao.js';
 
 const FOOD_AI_VERSION = 'food-ai-estimate-v4';
 
@@ -220,6 +225,105 @@ function parseAIJson(text) {
   }
 }
 
+function resolveFoodSearchFromAIContent(content, query) {
+  const parsed = typeof content === 'string' ? parseAIJson(content) : content;
+  if (parsed === null) return { kind: 'invalid' };
+  if (parsed?.found === false) return { kind: 'not_found' };
+
+  const food = applyComplexFoodGuard(normalizeFood(parsed), query);
+  if (!food) return { kind: 'invalid' };
+  return { kind: 'found', food };
+}
+
+function logFoodSearch(meta) {
+  console.log('[food-search]', {
+    provider: meta.provider,
+    fallback: !!meta.fallback,
+    ms: meta.ms,
+  });
+}
+
+async function callFoodSearchAI(context, prompt, query) {
+  const startedAt = Date.now();
+  const requestBody = {
+    max_tokens: 700,
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+  };
+
+  let usedFallback = false;
+
+  if (getDoubaoApiKey(context)) {
+    const doubaoResult = await callDoubao(context, {
+      model: getDoubaoTurboModel(context),
+      ...requestBody,
+      thinking: { type: 'disabled' },
+    });
+
+    if (doubaoResult.ok) {
+      const resolved = resolveFoodSearchFromAIContent(doubaoResult.text, query);
+      if (resolved.kind === 'found') {
+        logFoodSearch({
+          provider: 'doubao',
+          fallback: false,
+          ms: Date.now() - startedAt,
+        });
+        return { ok: true, found: true, food: resolved.food, provider: 'doubao' };
+      }
+      if (resolved.kind === 'not_found') {
+        logFoodSearch({
+          provider: 'doubao',
+          fallback: false,
+          ms: Date.now() - startedAt,
+        });
+        return { ok: true, found: false, provider: 'doubao' };
+      }
+    }
+    usedFallback = true;
+  }
+
+  const model = getDashScopeModel(context);
+  const result = await callDashScope(context, {
+    model,
+    ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
+    ...requestBody,
+  });
+
+  if (!result.ok) {
+    logFoodSearch({
+      provider: 'qwen',
+      fallback: usedFallback,
+      ms: Date.now() - startedAt,
+    });
+    return { ok: false, error: result.error, status: result.status };
+  }
+
+  const resolved = resolveFoodSearchFromAIContent(result.text, query);
+  if (resolved.kind === 'not_found') {
+    logFoodSearch({
+      provider: 'qwen',
+      fallback: usedFallback,
+      ms: Date.now() - startedAt,
+    });
+    return { ok: true, found: false, provider: 'qwen' };
+  }
+  if (resolved.kind === 'found') {
+    logFoodSearch({
+      provider: 'qwen',
+      fallback: usedFallback,
+      ms: Date.now() - startedAt,
+    });
+    return { ok: true, found: true, food: resolved.food, provider: 'qwen' };
+  }
+
+  logFoodSearch({
+    provider: 'qwen',
+    fallback: usedFallback,
+    ms: Date.now() - startedAt,
+  });
+  return { ok: true, found: false, provider: 'qwen' };
+}
+
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -233,7 +337,6 @@ export async function onRequestPost(context) {
       return jsonResponse({ found: false, error: '请输入更具体的食物名称' }, 400);
     }
 
-    const model = getDashScopeModel(context);
     const prompt = `你是健康饮食记录应用中的食物营养估算助手。
 
 用户正在搜索食物：${query}
@@ -314,30 +417,17 @@ cal、carb、carbs、pro、protein、fat、fib、fiber 必须是大于等于 0 �
 只有真正无法判断为食物时，才返回：
 {"found":false}`;
 
-    const result = await callDashScope(context, {
-      model,
-      ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
-      max_tokens: 700,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-    });
+    const result = await callFoodSearchAI(context, prompt, query);
 
     if (!result.ok) {
       return jsonResponse({ found: false, error: result.error }, result.status);
     }
 
-    const content = result.text;
-    const parsed = typeof content === 'string' ? parseAIJson(content) : content;
-    if (parsed?.found === false) {
+    if (!result.found) {
       return jsonResponse({ found: false });
     }
 
-    const food = applyComplexFoodGuard(normalizeFood(parsed), query);
-    if (!food) {
-      return jsonResponse({ found: false });
-    }
-
-    return jsonResponse({ found: true, food });
+    return jsonResponse({ found: true, food: result.food });
   } catch (err) {
     return jsonResponse({ found: false, error: err?.message || 'AI搜索暂时不可用' }, 500);
   }

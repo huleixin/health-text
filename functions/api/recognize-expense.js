@@ -2,8 +2,8 @@
  * POST /api/recognize-expense
  *
  * Unified AI recognition for payment screenshots and order screenshots.
- * Uses Qwen-VL multimodal to analyze the image, determine its type,
- * and extract structured expense data + optional order items.
+ * Primary: Doubao Seed 2.1 Turbo; fallback: Qwen3.8-Max.
+ * Uses multimodal analysis to determine image type and extract structured data.
  *
  * Request body: { image: string }
  *   - image: base64 data URL of the screenshot (e.g. "data:image/jpeg;base64,...")
@@ -19,6 +19,30 @@ import {
   callDashScope,
   getDashScopeModel,
 } from './_shared/dashscope.js';
+import {
+  callDoubao,
+  getDoubaoApiKey,
+  getDoubaoTurboModel,
+} from './_shared/doubao.js';
+
+const ALLOWED_IMAGE_TYPES = new Set([
+  'payment',
+  'food_order',
+  'food_photo',
+  'hotel_order',
+  'transport_order',
+  'shopping_order',
+  'other_order',
+  'unknown',
+]);
+
+const ORDER_IMAGE_TYPES = new Set([
+  'food_order',
+  'hotel_order',
+  'transport_order',
+  'shopping_order',
+  'other_order',
+]);
 
 const EXPENSE_RECOGNITION_PROMPT = `你是一个智能图片识别助手。请分析图片并返回严格的JSON。
 
@@ -111,6 +135,198 @@ food=餐饮, drinks=奶茶咖啡, snacks=零食甜品, hotel=酒店住宿, trans
 - 如果图片无法识别（如风景照、自拍等），返回 {"ok":false,"imageType":"unknown","orders":[],"expense":null,"orderItems":[],"confidence":{},"warnings":["无法识别账单信息"]}
 - 只返回JSON，不要包含markdown代码块标记或任何其他文字`;
 
+function logRecognizeExpense(meta) {
+  console.log('[recognize-expense]', {
+    provider: meta.provider,
+    fallback: !!meta.fallback,
+    ms: meta.ms,
+  });
+}
+
+function parseRecognizeExpenseJson(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const match = String(text).match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
+function isValidAmount(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0;
+}
+
+function resolveOrderItems(parsed) {
+  if (Array.isArray(parsed.orderItems)) return parsed.orderItems;
+  const orders = Array.isArray(parsed.orders) ? parsed.orders : [];
+  if (orders[0] && Array.isArray(orders[0].orderItems)) {
+    return orders[0].orderItems;
+  }
+  return null;
+}
+
+function validateOrderItems(items) {
+  for (const item of items) {
+    if (!item || typeof item !== 'object') return false;
+    const name = String(item.name || '').trim();
+    if (!name) return false;
+  }
+  return true;
+}
+
+function validatePaymentAmounts(parsed) {
+  const expense = parsed.expense;
+  if (expense !== null && expense !== undefined) {
+    if (typeof expense !== 'object') return false;
+    if (expense.amount !== null && expense.amount !== undefined) {
+      if (!isValidAmount(expense.amount)) return false;
+    }
+  }
+
+  const orders = Array.isArray(parsed.orders) ? parsed.orders : [];
+  for (const order of orders) {
+    if (!order || typeof order !== 'object') return false;
+    if (order.amount !== null && order.amount !== undefined) {
+      if (!isValidAmount(order.amount)) return false;
+    }
+  }
+
+  return true;
+}
+
+function validateRecognizeExpenseResponse(parsed) {
+  if (!parsed || typeof parsed !== 'object') return false;
+
+  const imageType = String(parsed.imageType || '').trim();
+  if (!ALLOWED_IMAGE_TYPES.has(imageType)) return false;
+
+  if (imageType === 'unknown') return true;
+
+  if (imageType === 'payment') {
+    return validatePaymentAmounts(parsed);
+  }
+
+  if (imageType === 'food_order') {
+    const orderItems = resolveOrderItems(parsed);
+    if (!Array.isArray(orderItems)) return false;
+    return validateOrderItems(orderItems);
+  }
+
+  if (ORDER_IMAGE_TYPES.has(imageType)) {
+    const orderItems = resolveOrderItems(parsed);
+    if (orderItems === null) return true;
+    return validateOrderItems(orderItems);
+  }
+
+  return true;
+}
+
+function normalizeRecognizeExpenseParsed(parsed) {
+  const orders = Array.isArray(parsed.orders) ? parsed.orders : [];
+  if (orders.length > 0) {
+    const o0 = orders[0];
+    if (!parsed.expense && o0) {
+      parsed.expense = {
+        amount: o0.amount,
+        merchant: o0.merchant,
+        occurredAt: o0.occurredAt,
+        categoryKey: o0.categoryKey,
+      };
+    }
+    if (!Array.isArray(parsed.orderItems) && Array.isArray(o0?.orderItems)) {
+      parsed.orderItems = o0.orderItems;
+    }
+    if (!parsed.confidence && o0?.confidence) {
+      parsed.confidence = o0.confidence;
+    }
+  }
+  return parsed;
+}
+
+function buildRecognizeExpenseMessages(image) {
+  return [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: EXPENSE_RECOGNITION_PROMPT },
+        { type: 'image_url', image_url: { url: image } },
+      ],
+    },
+  ];
+}
+
+function formatRecognizeExpenseText(parsed, rawText) {
+  if (parsed) {
+    return JSON.stringify(normalizeRecognizeExpenseParsed(parsed));
+  }
+  return rawText;
+}
+
+async function callRecognizeExpenseAI(context, image) {
+  const startedAt = Date.now();
+  const requestBody = {
+    max_tokens: 3000,
+    response_format: { type: 'json_object' },
+    messages: buildRecognizeExpenseMessages(image),
+  };
+  let usedFallback = false;
+
+  if (getDoubaoApiKey(context)) {
+    const doubaoResult = await callDoubao(context, {
+      model: getDoubaoTurboModel(context),
+      ...requestBody,
+      thinking: { type: 'disabled' },
+    });
+
+    if (doubaoResult.ok) {
+      const parsed = parseRecognizeExpenseJson(doubaoResult.text);
+      if (parsed && validateRecognizeExpenseResponse(parsed)) {
+        logRecognizeExpense({
+          provider: 'doubao',
+          fallback: false,
+          ms: Date.now() - startedAt,
+        });
+        return {
+          ok: true,
+          text: formatRecognizeExpenseText(parsed, doubaoResult.text),
+        };
+      }
+    }
+
+    usedFallback = true;
+  }
+
+  const model = getDashScopeModel(context);
+  const qwenResult = await callDashScope(context, {
+    model,
+    ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
+    ...requestBody,
+  });
+
+  logRecognizeExpense({
+    provider: 'qwen',
+    fallback: usedFallback,
+    ms: Date.now() - startedAt,
+  });
+
+  if (!qwenResult.ok) {
+    return { ok: false, error: qwenResult.error, status: qwenResult.status };
+  }
+
+  const parsed = parseRecognizeExpenseJson(qwenResult.text);
+  return {
+    ok: true,
+    text: formatRecognizeExpenseText(parsed, qwenResult.text),
+  };
+}
+
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -124,51 +340,10 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: '缺少image参数' }, 400);
     }
 
-    const model = getDashScopeModel(context);
-    const result = await callDashScope(context, {
-      model,
-      ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
-      max_tokens: 4000,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: EXPENSE_RECOGNITION_PROMPT },
-            { type: 'image_url', image_url: { url: image } },
-          ],
-        },
-      ],
-    });
+    const result = await callRecognizeExpenseAI(context, image);
 
     if (!result.ok) {
       return jsonResponse({ error: result.error }, result.status);
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(result.text);
-    } catch (e) {
-      const match = String(result.text).match(/\{[\s\S]*\}/);
-      if (match) {
-        try { parsed = JSON.parse(match[0]); } catch (e2) { parsed = null; }
-      }
-    }
-    if (parsed) {
-      const orders = Array.isArray(parsed.orders) ? parsed.orders : [];
-      if (orders.length > 0) {
-        const o0 = orders[0];
-        if (!parsed.expense && o0) {
-          parsed.expense = { amount: o0.amount, merchant: o0.merchant, occurredAt: o0.occurredAt, categoryKey: o0.categoryKey };
-        }
-        if (!Array.isArray(parsed.orderItems) && Array.isArray(o0?.orderItems)) {
-          parsed.orderItems = o0.orderItems;
-        }
-        if (!parsed.confidence && o0?.confidence) {
-          parsed.confidence = o0.confidence;
-        }
-      }
-      return jsonResponse({ text: JSON.stringify(parsed) });
     }
 
     return jsonResponse({ text: result.text });

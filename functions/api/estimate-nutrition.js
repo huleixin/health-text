@@ -2,7 +2,7 @@
  * POST /api/estimate-nutrition
  *
  * Batch nutrition estimation for food order items.
- * Uses Qwen3.8-Max to estimate nutrition for multiple food items in one call.
+ * Primary: Doubao Seed 2.1 Turbo; fallback: Qwen3.8-Max.
  * Does NOT re-upload images — only accepts food names/specs/quantities.
  *
  * Request body: { items: [{name: string, spec?: string, quantity?: number}] }
@@ -16,6 +16,11 @@ import {
   callDashScope,
   getDashScopeModel,
 } from './_shared/dashscope.js';
+import {
+  callDoubao,
+  getDoubaoApiKey,
+  getDoubaoTurboModel,
+} from './_shared/doubao.js';
 
 const NUTRITION_PROMPT = `你是一个食物营养估算助手。请为以下食物逐一估算每份的营养数据，返回严格JSON。
 
@@ -51,6 +56,153 @@ const NUTRITION_PROMPT = `你是一个食物营养估算助手。请为以下食
 - results数组长度必须与输入食物列表一致，顺序对应
 - 只返回JSON`;
 
+function logEstimateNutrition(meta) {
+  console.log('[estimate-nutrition]', {
+    provider: meta.provider,
+    fallback: !!meta.fallback,
+    ms: meta.ms,
+  });
+}
+
+function parseNutritionJson(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const match = String(text).match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]);
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
+function isValidNutritionNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0;
+}
+
+function validateNutritionAIResponse(parsed, itemCount) {
+  if (!parsed || !Array.isArray(parsed.results)) return false;
+  if (parsed.results.length !== itemCount) return false;
+
+  for (const r of parsed.results) {
+    if (!r || typeof r !== 'object') return false;
+    if (r.found === false) continue;
+
+    const name = String(r.name || '').trim();
+    if (!name) return false;
+
+    const cal = r.cal ?? r.calories;
+    if (!isValidNutritionNumber(cal)) return false;
+    if (!isValidNutritionNumber(r.protein)) return false;
+    if (!isValidNutritionNumber(r.carbs)) return false;
+    if (!isValidNutritionNumber(r.fat)) return false;
+  }
+
+  return true;
+}
+
+function sanitizeNutritionResults(parsed, items) {
+  return parsed.results.map((r, i) => {
+    const found = r.found !== false;
+    const cal = Math.max(0, Math.round(Number(r.cal) || 0));
+    const protein = Math.max(0, Math.round(Number(r.protein) || 0));
+    const carbs = Math.max(0, Math.round(Number(r.carbs) || 0));
+    const fat = Math.max(0, Math.round(Number(r.fat) || 0));
+    const fiber = Math.max(0, Math.round(Number(r.fiber) || 0));
+    const portionAmount = Math.max(0, Math.round(Number(r.portionAmount) || 0));
+    const servingWeightG = found && portionAmount > 0 ? portionAmount : null;
+    let per100g = null;
+    if (servingWeightG && servingWeightG > 0) {
+      per100g = {
+        calories: Math.round(cal / servingWeightG * 100),
+        protein: Math.round(protein / servingWeightG * 100 * 10) / 10,
+        carbs: Math.round(carbs / servingWeightG * 100 * 10) / 10,
+        fat: Math.round(fat / servingWeightG * 100 * 10) / 10,
+      };
+    }
+    return {
+      name: String(r.name || items[i]?.name || '').slice(0, 40),
+      found,
+      cal, protein, carbs, fat, fiber,
+      portionAmount,
+      portionUnit: 'g',
+      estimatedServingWeightG: servingWeightG,
+      nutritionPer100g: per100g,
+      confidence: ['high', 'medium', 'low'].includes(r.confidence) ? r.confidence : 'low',
+      estimateReason: String(r.estimateReason || '').slice(0, 80),
+    };
+  });
+}
+
+async function callEstimateNutritionAI(context, prompt, itemCount) {
+  const startedAt = Date.now();
+  const requestBody = {
+    max_tokens: 2000,
+    response_format: { type: 'json_object' },
+    messages: [{ role: 'user', content: prompt }],
+  };
+
+  let usedFallback = false;
+
+  if (getDoubaoApiKey(context)) {
+    const doubaoResult = await callDoubao(context, {
+      model: getDoubaoTurboModel(context),
+      ...requestBody,
+      thinking: { type: 'disabled' },
+    });
+
+    if (doubaoResult.ok) {
+      const parsed = parseNutritionJson(doubaoResult.text);
+      if (validateNutritionAIResponse(parsed, itemCount)) {
+        logEstimateNutrition({
+          provider: 'doubao',
+          fallback: false,
+          ms: Date.now() - startedAt,
+        });
+        return { ok: true, parsed };
+      }
+    }
+    usedFallback = true;
+  }
+
+  const model = getDashScopeModel(context);
+  const qwenResult = await callDashScope(context, {
+    model,
+    ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
+    ...requestBody,
+  });
+
+  if (!qwenResult.ok) {
+    logEstimateNutrition({
+      provider: 'qwen',
+      fallback: usedFallback,
+      ms: Date.now() - startedAt,
+    });
+    return { ok: false, error: qwenResult.error, status: qwenResult.status };
+  }
+
+  const parsed = parseNutritionJson(qwenResult.text);
+  if (!validateNutritionAIResponse(parsed, itemCount)) {
+    logEstimateNutrition({
+      provider: 'qwen',
+      fallback: usedFallback,
+      ms: Date.now() - startedAt,
+    });
+    return { ok: false, error: 'AI返回格式异常', status: 500 };
+  }
+
+  logEstimateNutrition({
+    provider: 'qwen',
+    fallback: usedFallback,
+    ms: Date.now() - startedAt,
+  });
+  return { ok: true, parsed };
+}
+
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
@@ -74,69 +226,13 @@ export async function onRequestPost(context) {
 
     const prompt = NUTRITION_PROMPT.replace('{ITEMS}', itemsText);
 
-    const model = getDashScopeModel(context);
-    const result = await callDashScope(context, {
-      model,
-      ...FOOD_QWEN_LOW_LATENCY_OPTIONS,
-      max_tokens: 2000,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    });
+    const result = await callEstimateNutritionAI(context, prompt, items.length);
 
     if (!result.ok) {
       return jsonResponse({ error: result.error }, result.status);
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(result.text);
-    } catch (e) {
-      const match = String(result.text).match(/\{[\s\S]*\}/);
-      if (match) {
-        try { parsed = JSON.parse(match[0]); } catch (e2) { parsed = null; }
-      }
-    }
-
-    if (!parsed || !Array.isArray(parsed.results)) {
-      return jsonResponse({ error: 'AI返回格式异常' }, 500);
-    }
-
-    const sanitized = parsed.results.map((r, i) => {
-      const found = r.found !== false;
-      const cal = Math.max(0, Math.round(Number(r.cal) || 0));
-      const protein = Math.max(0, Math.round(Number(r.protein) || 0));
-      const carbs = Math.max(0, Math.round(Number(r.carbs) || 0));
-      const fat = Math.max(0, Math.round(Number(r.fat) || 0));
-      const fiber = Math.max(0, Math.round(Number(r.fiber) || 0));
-      const portionAmount = Math.max(0, Math.round(Number(r.portionAmount) || 0));
-      const servingWeightG = found && portionAmount > 0 ? portionAmount : null;
-      let per100g = null;
-      if (servingWeightG && servingWeightG > 0) {
-        per100g = {
-          calories: Math.round(cal / servingWeightG * 100),
-          protein: Math.round(protein / servingWeightG * 100 * 10) / 10,
-          carbs: Math.round(carbs / servingWeightG * 100 * 10) / 10,
-          fat: Math.round(fat / servingWeightG * 100 * 10) / 10,
-        };
-      }
-      return {
-        name: String(r.name || items[i]?.name || '').slice(0, 40),
-        found,
-        cal, protein, carbs, fat, fiber,
-        portionAmount,
-        portionUnit: 'g',
-        estimatedServingWeightG: servingWeightG,
-        nutritionPer100g: per100g,
-        confidence: ['high', 'medium', 'low'].includes(r.confidence) ? r.confidence : 'low',
-        estimateReason: String(r.estimateReason || '').slice(0, 80),
-      };
-    });
-
+    const sanitized = sanitizeNutritionResults(result.parsed, items);
     return jsonResponse({ results: sanitized });
   } catch (err) {
     return jsonResponse(
