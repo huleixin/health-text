@@ -1,4 +1,4 @@
-const CACHE_NAME = 'health-assistant-v5';
+const CACHE_NAME = 'health-assistant-v6';
 
 const STATIC_ASSETS = [
   '/',
@@ -7,7 +7,12 @@ const STATIC_ASSETS = [
   '/assets/logo-32.png',
   '/assets/logo-180.png',
   '/assets/logo-192.png',
-  '/assets/logo-512.png'
+  '/assets/logo-512.png',
+  '/css/app.css',
+  '/js/recipe.js',
+  '/js/ai.js',
+  '/js/couple.js',
+  '/js/sync.js'
 ];
 
 const OPTIONAL_STATIC_ASSETS = [

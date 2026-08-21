@@ -1,523 +1,4 @@
-<!DOCTYPE html>
-<html lang="zh-CN"><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="theme-color" content="#08080c">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="健康助手">
-<link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/assets/logo-180.png">
-<link rel="manifest" href="/manifest.json">
-<title>健康管家</title>
-<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style id="bootSplashCritical">
-/* Critical boot splash — show before main CSS/JS parse finishes */
-html:not([data-boot-ready]) body.boot-loading{overflow:hidden}
-#appBootSplash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#08080c;color:#f5f1e8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;transition:opacity .22s ease,visibility .22s ease}
-html[data-theme="light"] #appBootSplash{background:#f4efe4;color:#1a1714}
-#appBootSplash .boot-splash-mark{width:10px;height:10px;border-radius:50%;background:#d4af37;box-shadow:0 0 0 6px rgba(212,175,55,.16);animation:bootPulse 1.1s ease-in-out infinite}
-#appBootSplash .boot-splash-title{font-size:18px;font-weight:700;letter-spacing:.04em}
-#appBootSplash .boot-splash-sub{font-size:12px;opacity:.62}
-@keyframes bootPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.7}}
-html[data-boot-ready] #appBootSplash{opacity:0;visibility:hidden;pointer-events:none}
-/* Hide ALL app chrome until home first paint — prevents health skeleton flash on iOS */
-html:not([data-boot-ready]) .app{
-  visibility:hidden!important;
-  pointer-events:none!important;
-}
-</style>
-<script>
-(function(){
-  try{
-    const saved=localStorage.getItem('theme');
-    const theme=saved==='light'||saved==='dark'
-      ? saved
-      : (window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
-    document.documentElement.setAttribute('data-theme',theme);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='light'?'#f4efe4':'#08080c');
-  }catch(e){
-    document.documentElement.setAttribute('data-theme','dark');
-  }
-})();
-</script>
-<script>
-/* ===== iOS Pinch-Zoom Prevention ===== */
-/* Only active on iOS/WebKit to prevent accidental pinch zoom.
-   Does NOT block single-touch scrolling, modal scrolling, or drag sorting. */
-(function(){
-  var ua=navigator.userAgent;
-  var isIOS=/iPhone|iPad|iPod/.test(ua);
-  var isMacTouch=/Macintosh/.test(ua)&&'ontouchend'in document;
-  if(!isIOS&&!isMacTouch) return;
 
-  function preventGesture(e){ e.preventDefault(); }
-  document.addEventListener('gesturestart',preventGesture,{passive:false});
-  document.addEventListener('gesturechange',preventGesture,{passive:false});
-  document.addEventListener('gestureend',preventGesture,{passive:false});
-
-  /* Fallback: block multi-touch touchmove only (2+ fingers).
-     Single-touch touchmove is NEVER blocked, preserving all scrolling. */
-  document.addEventListener('touchmove',function(e){
-    if(e.touches&&e.touches.length>1){
-      e.preventDefault();
-    }
-  },{passive:false});
-})();
-</script>
-<link rel="stylesheet" href="./css/app.css">
-<script defer src="./js/recipe.js"></script>
-<script defer src="./js/ai.js"></script>
-<script defer src="./js/couple.js"></script>
-<script defer src="./js/sync.js"></script>
-</head>
-<body class="boot-loading">
-<div id="appBootSplash" role="status" aria-live="polite" aria-label="应用加载中">
-  <div class="boot-splash-mark"></div>
-  <div class="boot-splash-title">健康管家</div>
-  <div class="boot-splash-sub">正在准备首页…</div>
-</div>
-<script>
-// Android WebView detection — add android-app class to <html> for targeted CSS
-(function(){
-  var isAndroid = !!(window.AndroidBridge && typeof window.AndroidBridge === 'object');
-  if(!isAndroid){
-    isAndroid = /Android/i.test(navigator.userAgent) && /wv/i.test(navigator.userAgent);
-  }
-  if(isAndroid){
-    document.documentElement.classList.add('android-app');
-  }
-})();
-
-</script>
-<div class="app">
-  <!-- Header -->
-  <div class="header">
-    <div class="header-top-row">
-      <div class="logo">
-        <span class="dot"></span>
-        <h1>健康管家</h1>
-      </div>
-      <div class="header-actions">
-        <div class="sync-badge offline" id="syncBadge" title="云同步状态" style="display:none">
-          <span class="sync-dot"></span>
-          <span id="syncBadgeText">未配置</span>
-        </div>
-        <button class="icon-btn" id="themeToggleBtn" title="切换到白天模式" aria-label="切换主题"><span class="ui-icon" data-icon="sun"></span></button>
-      </div>
-    </div>
-    <div class="profile-tabs" id="profileTabs"></div>
-  </div>
-
-  <!-- Date Navigator -->
-  <section class="date-nav" id="dateNavigator">
-    <div class="date-title-row">
-    <button class="date-title-btn" id="dateTitleBtn" type="button">
-      <span id="dateTitleText"></span><span class="date-arrow">▼</span>
-    </button>
-      <button type="button" class="date-today-btn" id="dateTodayBtn" hidden>今天</button>
-    </div>
-    <input class="date-picker-hidden" id="datePickerInput" type="date">
-    <div class="week-rail-viewport" id="weekRailViewport">
-      <div class="week-rail-track" id="weekRailTrack"></div>
-    </div>
-  </section>
-
-  <!-- Today Health Overview -->
-  <section class="today-health-card" id="todayHealthCard">
-    <div id="todayHealthContent"></div>
-  </section>
-
-  <!-- Dashboard -->
-  <div class="dashboard">
-    <!-- Weight & BMI -->
-    <div class="card c-weight" id="weightCard">
-      <div class="card-title">体重记录 <span class="accent" id="weightDate"></span></div>
-      <div class="bmi-display" id="bmiDisplay"></div>
-      <div class="weight-stats" id="weightStats"></div>
-      <div class="bodyfat-standard" id="bodyFatStandard"></div>
-      <div class="weight-goal" id="weightGoal"></div>
-      <div class="weight-history" id="weightHistory"></div>
-    </div>
-
-    <!-- Trend Chart -->
-    <div class="card c-chart" id="chartCard">
-      <div class="health-trend-head">
-        <div class="card-title"><span class="title-label"><span class="ui-icon" data-icon="chart"></span> 健康趋势</span></div>
-      </div>
-      <div class="chart-controls">
-        <div class="td-filter-row" id="periodSeg">
-          <button class="td-filter-btn active" data-period="7">7天</button>
-          <button class="td-filter-btn" data-period="30">30天</button>
-        </div>
-        <div class="td-metric-row" id="metricSeg">
-          <button class="td-metric-btn active" data-metric="weight">体重</button>
-          <button class="td-metric-btn" data-metric="bmi">BMI</button>
-          <button class="td-metric-btn" data-metric="bodyFat">体脂</button>
-        </div>
-        <div class="chart-stats" id="chartStats"></div>
-      </div>
-      <div class="chart-canvas-wrap" id="chartCanvasWrap">
-        <canvas id="trendChart"></canvas>
-      </div>
-    </div>
-
-    <!-- AI Weekly Health Report -->
-    <div class="card c-chart weekly-report-card" id="weeklyReportCard">
-      <div id="weeklyReportContent"></div>
-    </div>
-
-    <!-- Smart Recipe (shell inserted by setupAppPageShell) -->
-
-  </div>
-</div>
-
-<nav class="bottom-tab-nav" id="bottomTabNav" aria-label="底部导航">
-  <button class="bottom-tab active" type="button" data-app-page="home"><span class="tab-icon"><span class="ui-icon" data-icon="home"></span></span><span>首页</span></button>
-  <button class="bottom-tab" type="button" data-app-page="health"><span class="tab-icon"><span class="ui-icon" data-icon="heart"></span></span><span>健康</span></button>
-  <button class="bottom-tab bottom-tab-fab" type="button" id="quickAddBtn" aria-label="快捷记录"><span class="tab-icon"><span class="ui-icon" data-icon="plus"></span></span></button>
-  <button class="bottom-tab" type="button" id="modeTabBtn" data-app-page="couple" style="display:none"><span class="tab-icon"><span class="ui-icon" data-icon="users"></span></span><span class="mode-tab-label">我们</span></button>
-  <button class="bottom-tab" type="button" data-app-page="settings"><span class="tab-icon"><span class="ui-icon" data-icon="settings"></span></span><span>设置</span></button>
-</nav>
-
-<!-- Quick Add Panel -->
-<div class="quick-add-overlay" id="quickAddOverlay"></div>
-<div class="quick-add-panel" id="quickAddPanel" role="dialog" aria-label="快捷记录">
-  <div class="quick-add-handle-hit" id="quickAddHandle" aria-label="下拉关闭">
-    <span class="quick-add-handle-bar"></span>
-  </div>
-  <div class="quick-add-header">
-    <span class="quick-add-title">快捷记录</span>
-    <button class="quick-add-close-btn" id="quickAddCloseTop" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-  </div>
-  <div class="quick-add-main-card" id="qaPhoto">
-    <div class="qa-main-icon"><span class="ui-icon" data-icon="sparkles"></span></div>
-    <div class="qa-main-text">
-      <div class="qa-main-title">AI智能识别</div>
-      <div class="qa-main-sub">识别食物、订单与付款信息</div>
-    </div>
-    <div class="qa-main-arrow"><span class="ui-icon" data-icon="camera"></span></div>
-  </div>
-  <div class="quick-add-carousel-viewport" id="quickAddCarouselViewport">
-    <div class="quick-add-carousel-track" id="quickAddCarouselTrack"></div>
-  </div>
-  <div class="quick-add-pagination" id="quickAddPagination" hidden></div>
-</div>
-
-<!-- Quick Action Modal (lightweight, reused for water/weight/exercise/food/voice) -->
-<div class="modal-overlay" id="quickActionModal">
-  <div class="modal quick-action-modal scrollable-modal">
-    <button class="modal-close" id="quickActionClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="quickActionTitle">快捷记录</h2>
-    <div class="modal-scroll-region" id="quickActionContent"></div>
-  </div>
-</div>
-
-<!-- Weekly report summary detail (shared by Weakness and AI Advice cards) -->
-<div class="modal-overlay" id="weeklySummaryDetailModal" role="dialog" aria-modal="true" aria-labelledby="weeklySummaryDetailTitle">
-  <div class="modal weekly-summary-detail-modal scrollable-modal">
-    <button class="modal-close" id="weeklySummaryDetailClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="weeklySummaryDetailTitle">摘要详情</h2>
-    <div class="weekly-summary-detail-content modal-scroll-region" id="weeklySummaryDetailContent"></div>
-  </div>
-</div>
-
-<!-- Calorie deficit explanation -->
-<div class="modal-overlay" id="calorieDeficitModal" role="dialog" aria-modal="true" aria-labelledby="calorieDeficitTitle">
-  <div class="modal calorie-gap-modal scrollable-modal">
-    <button class="modal-close" id="calorieDeficitClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="calorieDeficitTitle">目标热量缺口</h2>
-    <div class="modal-scroll-region" id="calorieDeficitContent"></div>
-  </div>
-</div>
-
-<!-- Health record management detail sheet -->
-<div class="modal-overlay record-detail-overlay" id="recordDetailModal" role="dialog" aria-modal="true" aria-labelledby="recordDetailTitle">
-  <div class="modal record-detail-modal">
-    <div class="record-detail-head">
-      <div>
-        <div class="record-detail-title" id="recordDetailTitle">记录管理</div>
-        <div class="record-detail-sub" id="recordDetailSub"></div>
-      </div>
-      <button class="modal-close" id="recordDetailClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    </div>
-    <div class="record-detail-content modal-scroll-region" id="recordDetailContent"></div>
-  </div>
-</div>
-
-<!-- Smart Recipe Preferences Modal -->
-<div class="modal-overlay" id="smartRecipePrefsModal" role="dialog" aria-modal="true" aria-labelledby="smartRecipePrefsTitle">
-  <div class="modal scrollable-modal">
-    <button class="modal-close" id="smartRecipePrefsClose" type="button" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="smartRecipePrefsTitle">饮食偏好</h2>
-    <div class="modal-scroll-region" id="smartRecipePrefsContent"></div>
-    <div style="padding-top:12px;display:flex;gap:8px">
-      <button type="button" class="btn btn-ghost" id="smartRecipePrefsCancel" style="flex:1;min-height:44px">取消</button>
-      <button type="button" class="btn btn-gold" id="smartRecipePrefsSave" style="flex:1;min-height:44px">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- Settings Modal -->
-<div class="modal-overlay" id="settingsModal">
-  <div class="modal">
-    <button class="modal-close" id="settingsClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="settingsModalTitle">设置</h2>
-    <div class="settings-modal-subtitle" id="settingsModalSubtitle"></div>
-    <div id="settingsProfileChooser" style="margin-bottom:12px">
-      <label style="font-size:12px;color:var(--txt2);margin-bottom:6px;display:block">我的资料</label>
-      <div class="profile-select-row" id="settingsProfileSelect" style="margin-bottom:0"></div>
-    </div>
-    <div id="settingsForm"></div>
-    <div class="sync-section" id="settingsSyncSection">
-      <div class="sync-section-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg>
-        个人云同步
-      </div>
-      <input class="form-input" id="setSyncCode" placeholder="输入同步码（多台设备用相同码同步）" style="margin-bottom:6px;font-size:11px" maxlength="20">
-      <div class="sync-code-help">用于连接你的云同步空间</div>
-      <button class="btn btn-gold btn-sm" id="saveSyncCodeBtn" type="button" style="width:100%;font-size:11px">保存同步码</button>
-      <div class="sync-config-status" id="syncConfigStatus">
-        <span>同步状态</span><strong id="syncConfigStatusText">当前状态：未连接</strong>
-      </div>
-      <div class="sync-btn-row">
-        <button class="btn btn-ghost btn-sm" id="testSyncBtn" style="flex:1;font-size:11px">测试连接</button>
-        <button class="btn btn-gold btn-sm" id="syncNowBtn" style="flex:1;font-size:11px">立即同步</button>
-      </div>
-      <div class="sync-test-result" id="syncTestResult"></div>
-      <div class="sync-help">
-        输入相同的同步码，多台设备即可自动同步个人健康数据。<br>
-        数据在增加或修改时会自动上传云端，打开App时自动拉取最新数据。
-      </div>
-    </div>
-    <div class="settings-edit-footer" id="settingsEditFooter">
-      <button class="btn btn-ghost" id="cancelSettingsEditBtn" type="button">取消</button>
-      <button class="btn btn-gold" id="saveSettingsBtn" type="button">保存设置</button>
-    </div>
-    <button class="btn btn-ghost" id="rebindDeviceOwnerBtn" style="width:100%;margin-top:8px">重新绑定当前设备身份</button>
-    <div id="settingsDataActions" style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-ghost" id="exportDataBtn" style="flex:1">导出数据</button>
-      <button class="btn btn-ghost" id="importDataBtn" style="flex:1">导入数据</button>
-    </div>
-    <input type="file" id="importFileInput" accept=".json" style="display:none">
-  </div>
-</div>
-
-<!-- Device Owner Modal -->
-<div class="modal-overlay" id="deviceOwnerModal">
-  <div class="modal">
-    <h2 id="deviceOwnerModalTitle">创建我的健康档案</h2>
-    <p id="deviceOwnerModalDesc" style="font-size:12px;color:var(--txt2);line-height:1.7;margin:0 0 14px">请先填写这台设备使用者的基础资料。设备主人身份只保存在当前设备本地；健康档案资料会随同步码同步。</p>
-    <div class="form-group" id="deviceOwnerProfileChoiceGroup">
-      <label>这台设备绑定到</label>
-      <div class="profile-select-row" id="deviceOwnerProfileChoices" style="margin-bottom:0"></div>
-    </div>
-    <div id="deviceOwnerProfileForm">
-      <div class="form-group">
-        <label>昵称</label>
-        <input class="form-input" id="ownerNameInput" placeholder="例：小林">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>性别</label>
-          <select class="form-select" id="ownerGenderInput">
-            <option value="">请选择性别</option>
-            <option value="male">男</option>
-            <option value="female">女</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>身高 (cm)</label>
-          <input class="form-input" type="number" id="ownerHeightInput" min="50" max="250" placeholder="例：175">
-        </div>
-      </div>
-      <div class="form-group">
-        <label>出生日期</label>
-        <input class="form-input" type="date" id="ownerBirthDateInput">
-      </div>
-      <div class="form-group">
-        <label>当前体重 (kg)</label>
-        <input class="form-input" type="number" id="ownerWeightInput" min="20" max="300" step="0.1" placeholder="例：65.5">
-      </div>
-    </div>
-    <button class="btn btn-gold" id="saveDeviceOwnerBtn" style="width:100%;margin-top:8px">保存并开始使用</button>
-  </div>
-</div>
-
-<!-- Usage Mode Settings Modal -->
-<div class="modal-overlay" id="modeSettingsModal" role="dialog" aria-modal="true" aria-labelledby="modeSettingsTitle">
-  <div class="modal">
-    <button class="modal-close" id="modeSettingsClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="modeSettingsTitle">选择使用模式</h2>
-    <p style="font-size:12px;color:var(--txt2);line-height:1.7;margin:0 0 10px">你之后仍可以在设置中修改。</p>
-    <div id="modeSettingsContent"></div>
-  </div>
-</div>
-
-<!-- Onboarding Modal: Join / Create Space -->
-<div class="modal-overlay" id="onboardingModal">
-  <div class="modal">
-    <!-- Step: Join space (sync code input) -->
-    <div id="onboardingStepJoin">
-      <h2>健康管家</h2>
-      <p style="font-size:12px;color:var(--txt2);line-height:1.7;margin:0 0 14px">同步你的健康数据</p>
-      <div class="form-group">
-        <label>同步码</label>
-        <input class="form-input" id="onboardingSyncCodeInput" placeholder="输入同步码" autocomplete="off" maxlength="20" style="text-transform:uppercase">
-        <div style="font-size:11px;color:var(--txt3);line-height:1.5;margin-top:5px">如果没有同步码，可以留空，我们会自动生成。</div>
-      </div>
-      <div class="form-group">
-        <label>选择使用方式</label>
-        <div class="mode-choice-grid" id="onboardingModeChoices">
-          <button class="mode-choice-card active" type="button" data-mode="single"><strong>个人使用</strong><span>记录自己的健康数据，查看长期变化。</span></button>
-          <button class="mode-choice-card" type="button" data-mode="couple"><strong>与TA同行</strong><span>与另一位用户一起记录，查看共同健康与双人对比。</span></button>
-        </div>
-      </div>
-      <button class="btn btn-gold" id="onboardingContinueBtn" style="width:100%;margin-top:2px">继续</button>
-    </div>
-
-    <!-- Step: Show generated code -->
-    <div id="onboardingStepShowCode" style="display:none">
-      <h2>你的双人同步码</h2>
-      <div style="text-align:center;margin:16px 0">
-        <div id="onboardingGeneratedCode" style="font-size:32px;font-weight:700;letter-spacing:4px;color:var(--gold);padding:16px;border-radius:14px;background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2)"></div>
-      </div>
-      <p style="font-size:12px;color:var(--txt2);line-height:1.7;margin:0 0 14px">请保存这个同步码。另一台设备首次打开时输入它，即可加入同一个双人健康空间。</p>
-      <button class="btn btn-ghost" id="onboardingCopyCodeBtn" style="width:100%;margin-bottom:8px">复制同步码</button>
-      <button class="btn btn-gold" id="onboardingContinueCreateBtn" style="width:100%">继续创建我的档案</button>
-    </div>
-
-    <!-- Step: Syncing -->
-    <div id="onboardingStepSyncing" style="display:none;text-align:center;padding:30px 0">
-      <div style="font-size:14px;color:var(--txt2)">正在连接双人健康空间...</div>
-    </div>
-
-    <!-- Step: Select device owner -->
-    <div id="onboardingStepSelectOwner" style="display:none">
-      <h2 id="onboardingSelectOwnerTitle">请选择这台设备的使用者</h2>
-      <p style="font-size:12px;color:var(--txt2);line-height:1.7;margin:0 0 14px" id="onboardingSelectOwnerDesc">已找到双人健康空间，请选择这台设备绑定的档案。以后本设备新增的健康记录会默认记录到该档案。</p>
-      <div id="onboardingOwnerChoices"></div>
-      <button class="btn btn-gold" id="onboardingConfirmOwnerBtn" style="width:100%;margin-top:8px;display:none">确认绑定</button>
-    </div>
-
-    <!-- Step: Create / complete profile -->
-    <div id="onboardingStepCreateProfile" style="display:none">
-      <h2 id="onboardingCreateProfileTitle">创建我的健康档案</h2>
-      <p style="font-size:12px;color:var(--txt2);line-height:1.7;margin:0 0 14px">请填写你的基础资料，以后可以在设置中修改。</p>
-      <div class="form-group">
-        <label>昵称</label>
-        <input class="form-input" id="onboardingNameInput" placeholder="例：小林">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>性别</label>
-          <select class="form-select" id="onboardingGenderInput">
-            <option value="">请选择性别</option>
-            <option value="male">男</option>
-            <option value="female">女</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>身高 (cm)</label>
-          <input class="form-input" type="number" id="onboardingHeightInput" min="50" max="250" placeholder="例：175">
-        </div>
-      </div>
-      <div class="form-group">
-        <label>出生日期</label>
-        <input class="form-input" type="date" id="onboardingBirthDateInput">
-      </div>
-      <div class="form-group">
-        <label>当前体重 (kg)</label>
-        <input class="form-input" type="number" id="onboardingWeightInput" min="20" max="300" step="0.1" placeholder="例：65.5">
-      </div>
-      <button class="btn btn-gold" id="onboardingSaveProfileBtn" style="width:100%;margin-top:8px">保存并开始使用</button>
-      <button class="btn btn-ghost" id="onboardingBackBtn" style="width:100%;margin-top:8px">返回</button>
-    </div>
-
-    <!-- Error message -->
-    <div id="onboardingError" style="display:none;margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.2);font-size:12px;color:#ff6868"></div>
-  </div>
-</div>
-
-<!-- Rebind Device Owner Modal -->
-<div class="modal-overlay" id="rebindDeviceOwnerModal">
-  <div class="modal">
-    <button class="modal-close" id="rebindDeviceOwnerClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2>重新绑定当前设备身份</h2>
-    <p style="font-size:12px;color:var(--txt2);line-height:1.7;margin:0 0 14px">请选择当前设备使用者。此操作只修改本设备的身份绑定，不会修改云端数据、家庭共享码、档案资料或任何健康记录。</p>
-    <div id="rebindDeviceOwnerContent"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn btn-ghost" id="cancelRebindDeviceOwnerBtn" style="flex:1">取消</button>
-      <button class="btn btn-gold" id="confirmRebindDeviceOwnerBtn" style="flex:1">确认绑定</button>
-    </div>
-  </div>
-</div>
-
-<!-- AI Analysis Modal -->
-<div class="modal-overlay" id="aiModal">
-  <div class="modal scrollable-modal">
-    <button class="modal-close" id="aiClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2>AI 食物识别</h2>
-    <div class="ai-modal-content modal-scroll-region" id="aiModalContent"></div>
-  </div>
-</div>
-
-<!-- Couple Time Modal -->
-<div class="modal-overlay" id="coupleTimeModal">
-  <div class="modal">
-    <button class="modal-close" id="coupleTimeClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="coupleTimeModalTitle">设置我们的时光</h2>
-    <div id="coupleTimeForm"></div>
-  </div>
-</div>
-
-<!-- Couple Ledger Expense Editor -->
-<div class="modal-overlay" id="coupleLedgerModal">
-  <div class="modal scrollable-modal">
-    <button class="modal-close" id="coupleLedgerClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="coupleLedgerModalTitle">记一笔</h2>
-    <div id="coupleLedgerForm" class="ledger-form-shell"></div>
-  </div>
-</div>
-
-<!-- Food Sync Modal (Phase 6) -->
-<div class="modal-overlay" id="foodSyncModal">
-  <div class="modal scrollable-modal">
-    <button class="modal-close" id="foodSyncClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="foodSyncTitle">餐饮订单饮食确认</h2>
-    <div id="foodSyncForm" class="food-sync-form-shell"></div>
-  </div>
-</div>
-
-<!-- Couple Ledger Period Manager -->
-<div class="modal-overlay" id="coupleLedgerPeriodModal">
-  <div class="modal">
-    <button class="modal-close" id="coupleLedgerPeriodClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2 id="coupleLedgerPeriodTitle">见面/旅行</h2>
-    <div id="coupleLedgerPeriodForm"></div>
-  </div>
-</div>
-
-<!-- Couple Ledger All Categories -->
-<div class="modal-overlay" id="coupleLedgerAllCatsModal">
-  <div class="modal">
-    <button class="modal-close" id="coupleLedgerAllCatsClose" aria-label="关闭"><span class="ui-icon" data-icon="x"></span></button>
-    <h2>分类支出</h2>
-    <div id="coupleLedgerAllCatsSub" class="modal-subtitle"></div>
-    <div id="coupleLedgerAllCatsBody" class="ledger-allcats-body"></div>
-  </div>
-</div>
-
-<!-- Ledger DateTime Picker -->
-<div class="ledger-dt-overlay" id="ledgerDateTimeOverlay">
-  <div class="ledger-dt-panel" id="ledgerDateTimePanel"></div>
-</div>
-
-<!-- Toast -->
-<div class="toast-container" id="toastContainer"></div>
-
-<script>
 // App-like: suppress context menu (long-press copy/select/share) on non-editable UI.
 // Input/textarea/contenteditable are excluded so paste/select still works. (req 17)
 // Voice "press and hold" uses pointerdown/pointerup — not affected by contextmenu prevention.
@@ -528,10 +9,7 @@ document.addEventListener('contextmenu',function(e){
   e.preventDefault();
 },true);
 // ==================== FOOD DATABASE ====================
-let _FOOD_DB_CACHE=null;
-function getFoodDB(){
-  if(!_FOOD_DB_CACHE){
-    _FOOD_DB_CACHE=[
+const FOOD_DB = [
   // 主食
   {name:"米饭",cat:"主食",unit:"碗(150g)",cal:174,carb:38.9,pro:3.9,fat:0.5,fib:0.6},
   {name:"面条(煮)",cat:"主食",unit:"碗(200g)",cal:220,carb:48.6,pro:7.0,fat:1.2,fib:0.8},
@@ -607,9 +85,6 @@ function getFoodDB(){
   {name:"排骨汤",cat:"菜肴",unit:"碗(300ml)",cal:150,carb:5.0,pro:8.0,fat:11.0,fib:0.5},
   {name:"紫菜蛋花汤",cat:"菜肴",unit:"碗(300ml)",cal:75,carb:4.0,pro:5.0,fat:4.0,fib:0.8},
 ];
-  }
-  return _FOOD_DB_CACHE;
-}
 
 // ==================== DATA LAYER ====================
 const STORAGE_KEY = 'healthTrackerData_v2';
@@ -624,7 +99,7 @@ const AI_FOOD_CACHE_PREFIX = 'healthTrackerAIFoodCache_';
 const AI_FOOD_CACHE_KEY = `healthTrackerAIFoodCache_${FOOD_AI_VERSION}`;
 const AI_FOOD_CACHE_CLEANUP_KEY = `healthTrackerAIFoodCacheCleanup_${FOOD_AI_VERSION}`;
 const COMPLEX_AI_FOOD_KEYWORDS = ['螺蛳粉','麻辣烫','冒菜','火锅','炒饭','蛋炒饭','炒面','炒粉','炒河粉','炸鸡','鸡排','鸡柳','汉堡','奶茶','杨枝甘露','生椰拿铁','盖浇饭','外卖套餐','饭套餐','手抓饼','鸡蛋灌饼','煎饼果子','烤冷面','酸辣粉','烧烤','炸串','烤串'];
-// 食物别名映射：将常见同义词/口语名称映射到getFoodDB()标准名称或统一通用名
+// 食物别名映射：将常见同义词/口语名称映射到FOOD_DB标准名称或统一通用名
 // 目的：让"西红柿/马铃薯/梨子"等变体也能命中本地库或标准化后走AI fallback
 const FOOD_ALIASES = {
   '梨子':'梨','雪梨':'梨','鸭梨':'梨','丰水梨':'梨','贡梨':'梨',
@@ -635,20 +110,15 @@ const FOOD_ALIASES = {
   '奇异果':'猕猴桃','车厘子':'樱桃','圣女果':'小番茄',
 };
 const AI_EXERCISE_CACHE_KEY = 'healthTrackerAIExerciseCache_v1';
-/* Boot perf: schema migrate version (local-only) + optional avatar side keys. */
-const DATA_MIGRATION_VERSION = 3;
-const DATA_MIGRATION_VERSION_KEY = 'healthTrackerDataMigrationVersion_v1';
-const AVATAR_SIDE_STORAGE_PREFIX = 'healthTrackerAvatar_v1_';
-const AVATAR_INLINE_MAX_CHARS = 512;
-const _avatarSideCache = Object.create(null);
-const _aiLocalCacheMemo = Object.create(null);
+const AI_HEALTH_COACH_CACHE_KEY = 'healthTrackerAIHealthCoachV2Cache_v1';
+const AI_DAILY_TASKS_CACHE_KEY = 'healthTrackerAIDailyTasksCache_v1';
+const AI_WEEKLY_REPORT_CACHE_KEY = 'healthTrackerAIWeeklyReport_v1';
+const AI_HEALTH_PROFILE_CACHE_KEY = 'healthTrackerAIHealthProfile_v1';
+const AI_SMART_RECIPE_CACHE_KEY = 'healthTrackerSmartRecipeAI_v1';
 const LOCAL_PROFILE_IDS = ['profile_A','profile_B'];
 const LEGACY_PROFILE_ID_MAP = {person_A:'profile_A',person_B:'profile_B'};
 // 统一功能图标系统：使用轻量内联 SVG，避免 Emoji / Unicode 在不同系统字体下显示不一致。
-let _ICON_PATHS_CACHE=null;
-function getIconPaths(){
-  if(!_ICON_PATHS_CACHE){
-    _ICON_PATHS_CACHE={
+const ICON_PATHS={
   home:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
   plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
   heart:'<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
@@ -704,61 +174,17 @@ function getIconPaths(){
   'trash-2':'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
   info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
 };
-  }
-  return _ICON_PATHS_CACHE;
-}
 function icon(name,cls=''){
-  const paths=getIconPaths();
-  const path=paths[name]||paths.plus;
+  const path=ICON_PATHS[name]||ICON_PATHS.plus;
   const className=`ui-icon${cls?` ${cls}`:''}`;
   return `<span class="${className}" aria-hidden="true"><svg viewBox="0 0 24 24">${path}</svg></span>`;
 }
 function renderIcons(root=document){
-  const paths=getIconPaths();
-  if(!root||typeof root.querySelectorAll!=='function'){
-    if(root?.matches?.('.ui-icon[data-icon]')){
-      const name=root.dataset.icon;
-      const svg=paths[name]?`<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`:'';
-      if(svg&&root.innerHTML!==svg) root.innerHTML=svg;
-    }
-    return;
-  }
   root.querySelectorAll('.ui-icon[data-icon]').forEach(el=>{
     const name=el.dataset.icon;
-    const svg=paths[name]?`<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`:'';
+    const svg=ICON_PATHS[name]?`<svg viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[name]}</svg>`:'';
     if(svg&&el.innerHTML!==svg) el.innerHTML=svg;
   });
-}
-/* Auto-hydrate data-icon placeholders after DOM inserts.
-   Boot still only scans header/nav; this covers static modals + dynamic modules
-   without restoring a boot-blocking full-document scan. */
-let _iconHydrationObserver=null;
-function hydrateIconsIn(root){
-  try{renderIcons(root||document)}catch(_){}
-}
-function startAutoIconHydration(){
-  // Catch-up pass for static HTML left empty by boot-scoped renderIcons(header/nav).
-  hydrateIconsIn(document);
-  if(_iconHydrationObserver||typeof MutationObserver==='undefined'||!document.body) return;
-  let raf=0;
-  const queue=new Set();
-  const flush=()=>{
-    raf=0;
-    queue.forEach(node=>{
-      if(!node||node.nodeType!==1) return;
-      if(node.matches?.('.ui-icon[data-icon]')) hydrateIconsIn(node.parentElement||node);
-      else hydrateIconsIn(node);
-    });
-    queue.clear();
-  };
-  _iconHydrationObserver=new MutationObserver(mutations=>{
-    for(const m of mutations){
-      if(m.type==='attributes'&&m.target?.nodeType===1) queue.add(m.target);
-      m.addedNodes?.forEach(n=>{if(n.nodeType===1) queue.add(n)});
-    }
-    if(queue.size&&!raf) raf=requestAnimationFrame(flush);
-  });
-  _iconHydrationObserver.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-icon']});
 }
 const HEALTH_GOAL_TYPES = {
   fat_loss:{title:'减脂塑形',legacy:'lose',desc:'降低体脂、控制体重',strategy:['控制热量','保持蛋白质','增加有氧','保持力量训练']},
@@ -820,8 +246,8 @@ function setAppMode(mode,{sync=true,notify=true,updatedAt}={}){
     state.activeProfileId=previousActiveProfileId;
     return false;
   }
-  if(typeof invalidateSyncDataCache==='function') invalidateSyncDataCache();
-  if(sync && typeof debouncedSync==='function') debouncedSync();
+  invalidateSyncDataCache();
+  if(sync) debouncedSync();
   reconcileAppModeUI();
   if(notify) showToast(mode==='single'?'已切换为个人模式':'已切换为双人模式','success');
   return true;
@@ -903,19 +329,112 @@ function resolveLedgerCategory(c){
   const migrated=LEDGER_CATEGORY_MIGRATION[s]||s;
   return LEDGER_CATEGORIES.includes(migrated)?migrated:'other';
 }
-/* Boot migration flags — must exist before state=loadData() runs. */
-let _deferredDataMigratePending=false;
-let _pendingAppModeWriteback=false;
-function _bootNow(){return typeof performance!=='undefined'?performance.now():Date.now()}
-{
-  const _tLoad=_bootNow();
-  state = loadData();
-  console.log('[BOOT] loadData '+Math.round(_bootNow()-_tLoad)+' ms');
-}
+state = loadData();
 const MEAL_LABELS={breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
 const MEAL_KEYS=['breakfast','lunch','dinner','snack'];
 let currentMeal = 'snack'; // will be auto-set by getMealTypeByDateTime when opening food modals
 
+/* Smart Recipe — schema version & preference defaults (P1, no AI) */
+const SMART_RECIPE_SCHEMA_VERSION = 1;
+const SMART_RECIPE_DEFAULT_PREFERENCES={
+  allergies:[],
+  dislikes:[],
+  dietStyle:'any',
+  cookingEffort:'easy',
+  maxCookTime:15,
+  kitchenAppliances:[],
+  mealPattern:'3_meals_snack'
+};
+const SMART_RECIPE_ALLERGY_PRESETS=['花生','坚果','牛奶','鸡蛋','鱼','虾蟹','贝类','大豆','小麦'];
+const SMART_RECIPE_DIET_STYLES=[
+  {id:'any',label:'不限'},
+  {id:'chinese_home',label:'家常中餐'},
+  {id:'light',label:'清淡'},
+  {id:'high_protein',label:'高蛋白'},
+  {id:'vegetarian',label:'素食'}
+];
+const SMART_RECIPE_EFFORT_OPTIONS=[
+  {id:'easy',label:'越省事越好',maxCookTime:15},
+  {id:'15min',label:'15分钟以内',maxCookTime:15},
+  {id:'30min',label:'30分钟以内',maxCookTime:30},
+  {id:'any',label:'不限制',maxCookTime:999}
+];
+const SMART_RECIPE_APPLIANCE_OPTIONS=['无厨房','炒锅','电饭煲','空气炸锅','微波炉','烤箱','蒸锅'];
+const SMART_RECIPE_MEAL_PATTERN_OPTIONS=[
+  {id:'3_meals',label:'三餐'},
+  {id:'3_meals_snack',label:'三餐 + 加餐'}
+];
+const SMART_RECIPE_GAP_THRESHOLDS={protein:5,carbs:10,fat:3};
+const SUPPLEMENT_FOODS=[
+  {id:'high_protein_yogurt',name:'高蛋白酸奶',servingLabel:'1杯',servingAmount:200,unit:'g',calories:130,protein:18,carbs:10,fat:2,fiber:0,prepMinutes:0,noCook:true,convenience:5,tags:['high_protein','low_fat','snack','no_cook'],allergens:['牛奶'],keywords:['酸奶','乳制品'],portionOptions:[{label:'半杯',factor:0.5}]},
+  {id:'plain_yogurt',name:'无糖酸奶',servingLabel:'1杯',servingAmount:180,unit:'g',calories:95,protein:9,carbs:8,fat:3,fiber:0,prepMinutes:0,noCook:true,convenience:5,tags:['snack','no_cook','light'],allergens:['牛奶'],keywords:['酸奶','乳制品'],portionOptions:[{label:'半杯',factor:0.5}]},
+  {id:'skim_milk',name:'低脂奶',servingLabel:'1杯',servingAmount:250,unit:'ml',calories:105,protein:8,carbs:11,fat:3,fiber:0,prepMinutes:0,noCook:true,convenience:5,tags:['drink','no_cook','light'],allergens:['牛奶'],keywords:['牛奶','乳制品'],portionOptions:[{label:'150ml',factor:0.6}]},
+  {id:'egg',name:'鸡蛋',servingLabel:'1个',servingAmount:50,unit:'g',calories:78,protein:6.3,carbs:0.6,fat:5.3,fiber:0,prepMinutes:8,noCook:false,convenience:3,tags:['high_protein','breakfast','simple_cook'],allergens:['鸡蛋'],keywords:['鸡蛋'],portionOptions:[]},
+  {id:'egg_white',name:'蛋清',servingLabel:'2个蛋清',servingAmount:66,unit:'g',calories:34,protein:7.2,carbs:0.4,fat:0.1,fiber:0,prepMinutes:8,noCook:false,convenience:3,tags:['high_protein','low_fat','simple_cook'],allergens:['鸡蛋'],keywords:['蛋清'],portionOptions:[]},
+  {id:'ready_chicken',name:'即食鸡胸肉',servingLabel:'1袋',servingAmount:100,unit:'g',calories:120,protein:23,carbs:2,fat:2,fiber:0,prepMinutes:0,noCook:true,convenience:5,tags:['high_protein','low_fat','no_cook'],allergens:[],keywords:['鸡胸肉','即食'],portionOptions:[{label:'半袋',factor:0.5}]},
+  {id:'shrimp',name:'虾仁',servingLabel:'1份',servingAmount:100,unit:'g',calories:90,protein:18,carbs:1,fat:1,fiber:0,prepMinutes:8,noCook:false,convenience:3,tags:['high_protein','low_fat','simple_cook'],allergens:['虾蟹'],keywords:['虾仁','海鲜'],portionOptions:[{label:'半份',factor:0.5}]},
+  {id:'silken_tofu',name:'嫩豆腐',servingLabel:'半盒',servingAmount:200,unit:'g',calories:90,protein:9,carbs:3,fat:5,fiber:1,prepMinutes:2,noCook:true,convenience:4,tags:['vegetarian','light','no_cook'],allergens:['大豆'],keywords:['豆腐','豆制品'],portionOptions:[{label:'1/4盒',factor:0.5}]},
+  {id:'edamame',name:'毛豆',servingLabel:'1小碗',servingAmount:100,unit:'g',calories:131,protein:13,carbs:10,fat:5,fiber:5,prepMinutes:5,noCook:false,convenience:3,tags:['vegetarian','high_protein','simple_cook'],allergens:['大豆'],keywords:['毛豆','豆制品'],portionOptions:[{label:'半碗',factor:0.5}]},
+  {id:'banana',name:'香蕉',servingLabel:'1根',servingAmount:120,unit:'g',calories:107,protein:1.3,carbs:27.6,fat:0.4,fiber:3.1,prepMinutes:0,noCook:true,convenience:5,tags:['carb','fruit','no_cook'],allergens:[],keywords:['香蕉','水果'],portionOptions:[{label:'半根',factor:0.5}]},
+  {id:'corn',name:'玉米',servingLabel:'半根',servingAmount:100,unit:'g',calories:112,protein:3.6,carbs:24.6,fat:0.6,fiber:2,prepMinutes:5,noCook:false,convenience:3,tags:['carb','simple_cook'],allergens:[],keywords:['玉米'],portionOptions:[]},
+  {id:'sweet_potato',name:'红薯',servingLabel:'半个',servingAmount:100,unit:'g',calories:99,protein:1.8,carbs:23,fat:0.2,fiber:1.5,prepMinutes:10,noCook:false,convenience:3,tags:['carb','simple_cook','light'],allergens:[],keywords:['红薯'],portionOptions:[]},
+  {id:'oats',name:'燕麦',servingLabel:'半份',servingAmount:20,unit:'g',calories:74,protein:2.6,carbs:12.6,fat:1.4,fiber:1.4,prepMinutes:3,noCook:false,convenience:3,tags:['carb','fiber','simple_cook'],allergens:['小麦'],keywords:['燕麦'],portionOptions:[]},
+  {id:'whole_wheat_bread',name:'全麦面包',servingLabel:'2片',servingAmount:60,unit:'g',calories:150,protein:6,carbs:26,fat:2,fiber:4,prepMinutes:0,noCook:true,convenience:5,tags:['carb','fiber','no_cook'],allergens:['小麦'],keywords:['面包','全麦'],portionOptions:[{label:'1片',factor:0.5}]},
+  {id:'nuts',name:'原味坚果',servingLabel:'15g',servingAmount:15,unit:'g',calories:91,protein:3,carbs:3.6,fat:7.6,fiber:1.3,prepMinutes:0,noCook:true,convenience:5,tags:['fat','no_cook','snack'],allergens:['坚果'],keywords:['坚果'],portionOptions:[{label:'10g',factor:(10/15)}]},
+  {id:'peanut_butter',name:'花生酱',servingLabel:'10g',servingAmount:10,unit:'g',calories:59,protein:2.6,carbs:2,fat:5, fiber:0.8,prepMinutes:0,noCook:true,convenience:4,tags:['fat','snack','no_cook'],allergens:['花生'],keywords:['花生酱','花生'],portionOptions:[]},
+  {id:'apple',name:'苹果',servingLabel:'1个',servingAmount:200,unit:'g',calories:104,protein:0.5,carbs:27.6,fat:0.3,fiber:4.8,prepMinutes:0,noCook:true,convenience:5,tags:['fruit','carb','no_cook'],allergens:[],keywords:['苹果','水果'],portionOptions:[{label:'半个',factor:0.5}]},
+  {id:'orange',name:'橙子',servingLabel:'1个',servingAmount:200,unit:'g',calories:94,protein:1.8,carbs:21.2,fat:0.4,fiber:4.4,prepMinutes:0,noCook:true,convenience:5,tags:['fruit','carb','no_cook'],allergens:[],keywords:['橙子','水果'],portionOptions:[{label:'半个',factor:0.5}]}
+];
+const SMART_RECIPE_LIBRARY=[
+  {id:'sr_oat_milk',title:'燕麦牛奶杯',mealType:'breakfast',calories:285,protein:12,carbs:42,fat:8,fiber:5,cookTime:5,difficulty:'简单',noCook:true,allergens:['牛奶','小麦'],appliances:[],tags:['breakfast','easy','light'],ingredients:[{name:'燕麦',amount:40,unit:'g'},{name:'牛奶',amount:200,unit:'ml'},{name:'香蕉',amount:0.5,unit:'根'}],reason:'5分钟就能做好，适合匆忙的早餐'},
+  {id:'sr_egg_toast',title:'水煮蛋配全麦吐司',mealType:'breakfast',calories:320,protein:18,carbs:28,fat:12,fiber:4,cookTime:10,difficulty:'简单',noCook:false,allergens:['鸡蛋','小麦'],appliances:[],tags:['breakfast','high_protein','easy'],ingredients:[{name:'鸡蛋',amount:2,unit:'个'},{name:'全麦吐司',amount:2,unit:'片'},{name:'黄瓜',amount:50,unit:'g'}],reason:'蛋白质充足，准备也不复杂'},
+  {id:'sr_banana_yogurt',title:'香蕉酸奶碗',mealType:'breakfast',calories:255,protein:14,carbs:38,fat:5,fiber:4,cookTime:0,difficulty:'简单',noCook:true,allergens:['牛奶'],appliances:[],tags:['breakfast','no_cook','light','easy'],ingredients:[{name:'无糖酸奶',amount:180,unit:'g'},{name:'香蕉',amount:1,unit:'根'}],reason:'开袋即吃，适合不想开火的早上'},
+  {id:'sr_tomato_omelette',title:'番茄菠菜蛋饼',mealType:'breakfast',calories:290,protein:20,carbs:8,fat:18,fiber:3,cookTime:12,difficulty:'简单',noCook:false,allergens:['鸡蛋'],appliances:['炒锅'],tags:['breakfast','high_protein','chinese_home','easy'],ingredients:[{name:'鸡蛋',amount:2,unit:'个'},{name:'番茄',amount:1,unit:'个'},{name:'菠菜',amount:50,unit:'g'}],reason:'家常做法，蛋白质够、味道也清淡'},
+  {id:'sr_sweet_potato_egg',title:'蒸红薯配水煮蛋',mealType:'breakfast',calories:310,protein:15,carbs:42,fat:8,fiber:5,cookTime:15,difficulty:'简单',noCook:false,allergens:['鸡蛋'],appliances:['蒸锅','电饭煲'],tags:['breakfast','chinese_home','light','easy'],ingredients:[{name:'红薯',amount:150,unit:'g'},{name:'鸡蛋',amount:2,unit:'个'}],reason:'碳水来得稳，蛋白质也能补上'},
+  {id:'sr_apple_oat',title:'苹果燕麦碗',mealType:'breakfast',calories:250,protein:8,carbs:44,fat:6,fiber:6,cookTime:5,difficulty:'简单',noCook:true,allergens:['小麦'],appliances:[],tags:['breakfast','vegetarian','light','easy','no_cook'],ingredients:[{name:'燕麦',amount:35,unit:'g'},{name:'苹果',amount:0.5,unit:'个'},{name:'原味坚果',amount:8,unit:'g'}],reason:'不用开火，纤维也够'},
+  {id:'sr_veggie_congee',title:'蔬菜豆腐粥',mealType:'breakfast',calories:240,protein:11,carbs:36,fat:5,fiber:3,cookTime:20,difficulty:'简单',noCook:false,allergens:['大豆'],appliances:['电饭煲'],tags:['breakfast','vegetarian','light','chinese_home'],ingredients:[{name:'米饭',amount:80,unit:'g'},{name:'嫩豆腐',amount:100,unit:'g'},{name:'青菜',amount:80,unit:'g'}],reason:'清淡好消化，适合想吃热食的早上'},
+  {id:'sr_cucumber_egg',title:'黄瓜炒蛋配馒头',mealType:'breakfast',calories:330,protein:16,carbs:38,fat:12,fiber:3,cookTime:10,difficulty:'简单',noCook:false,allergens:['鸡蛋','小麦'],appliances:['炒锅'],tags:['breakfast','chinese_home','easy'],ingredients:[{name:'鸡蛋',amount:2,unit:'个'},{name:'黄瓜',amount:100,unit:'g'},{name:'馒头',amount:1,unit:'个'}],reason:'家常早餐，十来分钟能出锅'},
+  {id:'sr_chicken_salad',title:'鸡胸蔬菜沙拉',mealType:'lunch',calories:380,protein:35,carbs:18,fat:16,fiber:5,cookTime:10,difficulty:'简单',noCook:false,allergens:[],appliances:[],tags:['lunch','high_protein','light','easy'],ingredients:[{name:'即食鸡胸肉',amount:120,unit:'g'},{name:'生菜',amount:80,unit:'g'},{name:'番茄',amount:1,unit:'个'},{name:'黄瓜',amount:80,unit:'g'}],reason:'蛋白质高、准备快，适合减脂午餐'},
+  {id:'sr_tomato_egg_rice',title:'番茄炒蛋盖饭',mealType:'lunch',calories:460,protein:20,carbs:62,fat:14,fiber:3,cookTime:15,difficulty:'简单',noCook:false,allergens:['鸡蛋'],appliances:['炒锅'],tags:['lunch','chinese_home','easy'],ingredients:[{name:'鸡蛋',amount:2,unit:'个'},{name:'番茄',amount:2,unit:'个'},{name:'米饭',amount:150,unit:'g'}],reason:'最省事的家常一餐，热量也明确'},
+  {id:'sr_shrimp_broccoli',title:'清炒虾仁西兰花',mealType:'lunch',calories:320,protein:28,carbs:12,fat:12,fiber:4,cookTime:12,difficulty:'简单',noCook:false,allergens:['虾蟹'],appliances:['炒锅'],tags:['lunch','high_protein','light','chinese_home','easy'],ingredients:[{name:'虾仁',amount:120,unit:'g'},{name:'西兰花',amount:150,unit:'g'},{name:'蒜',amount:2,unit:'瓣'}],reason:'低脂高蛋白，适合还想补蛋白质的午餐'},
+  {id:'sr_tofu_veggie_rice',title:'家常豆腐青菜饭',mealType:'lunch',calories:420,protein:18,carbs:58,fat:12,fiber:6,cookTime:18,difficulty:'简单',noCook:false,allergens:['大豆'],appliances:['炒锅'],tags:['lunch','vegetarian','chinese_home','light'],ingredients:[{name:'豆腐',amount:150,unit:'g'},{name:'青菜',amount:120,unit:'g'},{name:'米饭',amount:150,unit:'g'}],reason:'素食也能吃饱，做法不复杂'},
+  {id:'sr_steamed_fish',title:'清蒸鲈鱼配时蔬',mealType:'lunch',calories:350,protein:32,carbs:10,fat:16,fiber:3,cookTime:20,difficulty:'中等',noCook:false,allergens:['鱼'],appliances:['蒸锅'],tags:['lunch','high_protein','light','chinese_home'],ingredients:[{name:'鲈鱼',amount:150,unit:'g'},{name:'青菜',amount:120,unit:'g'},{name:'姜',amount:6,unit:'g'}],reason:'清淡高蛋白，适合想吃正经正餐的时候'},
+  {id:'sr_chicken_potato',title:'烤鸡胸配红薯',mealType:'lunch',calories:430,protein:36,carbs:42,fat:10,fiber:5,cookTime:25,difficulty:'简单',noCook:false,allergens:[],appliances:['烤箱','空气炸锅'],tags:['lunch','high_protein','light'],ingredients:[{name:'鸡胸肉',amount:130,unit:'g'},{name:'红薯',amount:150,unit:'g'},{name:'西兰花',amount:80,unit:'g'}],reason:'蛋白和碳水都补得到，适合训练日午餐'},
+  {id:'sr_veggie_fried_rice',title:'杂蔬蛋炒饭',mealType:'lunch',calories:440,protein:16,carbs:64,fat:12,fiber:4,cookTime:15,difficulty:'简单',noCook:false,allergens:['鸡蛋'],appliances:['炒锅'],tags:['lunch','chinese_home','easy'],ingredients:[{name:'米饭',amount:180,unit:'g'},{name:'鸡蛋',amount:1,unit:'个'},{name:'胡萝卜',amount:40,unit:'g'},{name:'青豆',amount:30,unit:'g'}],reason:'剩饭也能做成一餐，15分钟内能好'},
+  {id:'sr_steam_chicken_veg',title:'清蒸鸡胸时蔬',mealType:'dinner',calories:360,protein:38,carbs:12,fat:12,fiber:4,cookTime:20,difficulty:'简单',noCook:false,allergens:[],appliances:['蒸锅'],tags:['dinner','high_protein','light','chinese_home'],ingredients:[{name:'鸡胸肉',amount:140,unit:'g'},{name:'西兰花',amount:120,unit:'g'},{name:'胡萝卜',amount:40,unit:'g'}],reason:'晚餐清淡高蛋白，不容易吃撑'},
+  {id:'sr_tomato_beef',title:'番茄瘦牛肉煲',mealType:'dinner',calories:440,protein:32,carbs:22,fat:20,fiber:4,cookTime:30,difficulty:'中等',noCook:false,allergens:[],appliances:['炒锅'],tags:['dinner','high_protein','chinese_home'],ingredients:[{name:'瘦牛肉',amount:120,unit:'g'},{name:'番茄',amount:2,unit:'个'},{name:'洋葱',amount:0.5,unit:'个'}],reason:'家常热食，蛋白质和饱腹感都不错'},
+  {id:'sr_mushroom_tofu',title:'香菇豆腐煲',mealType:'dinner',calories:300,protein:18,carbs:22,fat:14,fiber:5,cookTime:20,difficulty:'简单',noCook:false,allergens:['大豆'],appliances:['炒锅'],tags:['dinner','vegetarian','chinese_home','light'],ingredients:[{name:'豆腐',amount:180,unit:'g'},{name:'香菇',amount:80,unit:'g'},{name:'青菜',amount:80,unit:'g'}],reason:'素食晚餐，热量更克制'},
+  {id:'sr_shrimp_noodle',title:'虾仁蔬菜汤面',mealType:'dinner',calories:390,protein:24,carbs:48,fat:8,fiber:4,cookTime:15,difficulty:'简单',noCook:false,allergens:['虾蟹','小麦'],appliances:['炒锅'],tags:['dinner','chinese_home','easy','light'],ingredients:[{name:'面条',amount:80,unit:'g'},{name:'虾仁',amount:80,unit:'g'},{name:'青菜',amount:100,unit:'g'}],reason:'一碗就能吃完，适合想吃热汤面的晚上'},
+  {id:'sr_grilled_fish',title:'香煎鱼配沙拉',mealType:'dinner',calories:360,protein:30,carbs:14,fat:18,fiber:4,cookTime:15,difficulty:'简单',noCook:false,allergens:['鱼'],appliances:['炒锅'],tags:['dinner','high_protein','light','easy'],ingredients:[{name:'鱼柳',amount:140,unit:'g'},{name:'生菜',amount:80,unit:'g'},{name:'番茄',amount:1,unit:'个'}],reason:'15分钟能做好，蛋白质也够晚餐用'},
+  {id:'sr_cabbage_pork',title:'白菜瘦肉卷',mealType:'dinner',calories:340,protein:26,carbs:16,fat:16,fiber:4,cookTime:25,difficulty:'中等',noCook:false,allergens:[],appliances:['蒸锅','炒锅'],tags:['dinner','chinese_home','light'],ingredients:[{name:'瘦猪肉',amount:100,unit:'g'},{name:'白菜',amount:200,unit:'g'},{name:'姜',amount:4,unit:'g'}],reason:'菜多肉少，适合想吃热食又想控热量的晚餐'},
+  {id:'sr_eggplant_chicken',title:'蒜香鸡丁配青椒',mealType:'dinner',calories:400,protein:34,carbs:16,fat:18,fiber:4,cookTime:15,difficulty:'简单',noCook:false,allergens:[],appliances:['炒锅'],tags:['dinner','high_protein','chinese_home','easy'],ingredients:[{name:'鸡胸肉',amount:130,unit:'g'},{name:'青椒',amount:100,unit:'g'},{name:'蒜',amount:3,unit:'瓣'}],reason:'家常快炒，蛋白质高、不拖时间'},
+  {id:'sr_tomato_egg_drop',title:'番茄蛋花汤配米饭',mealType:'dinner',calories:380,protein:16,carbs:58,fat:8,fiber:3,cookTime:12,difficulty:'简单',noCook:false,allergens:['鸡蛋'],appliances:['炒锅'],tags:['dinner','chinese_home','light','easy'],ingredients:[{name:'番茄',amount:2,unit:'个'},{name:'鸡蛋',amount:1,unit:'个'},{name:'米饭',amount:150,unit:'g'}],reason:'特别省事的清淡晚饭'},
+  {id:'sr_yogurt_cup',title:'希腊酸奶杯',mealType:'snack',calories:150,protein:15,carbs:10,fat:4,fiber:0,cookTime:0,difficulty:'简单',noCook:true,allergens:['牛奶'],appliances:[],tags:['snack','high_protein','no_cook','easy','light'],ingredients:[{name:'希腊酸奶',amount:150,unit:'g'}],reason:'开杯即吃，适合补一点蛋白质'},
+  {id:'sr_apple',title:'切片苹果',mealType:'snack',calories:104,protein:0.5,carbs:28,fat:0.3,fiber:5,cookTime:0,difficulty:'简单',noCook:true,allergens:[],appliances:[],tags:['snack','vegetarian','no_cook','light','easy','fruit'],ingredients:[{name:'苹果',amount:1,unit:'个'}],reason:'几乎不用准备，适合热量不多时加餐'},
+  {id:'sr_edamame',title:'水煮毛豆',mealType:'snack',calories:131,protein:13,carbs:10,fat:5,fiber:5,cookTime:5,difficulty:'简单',noCook:false,allergens:['大豆'],appliances:[],tags:['snack','vegetarian','high_protein','easy','light'],ingredients:[{name:'毛豆',amount:100,unit:'g'}],reason:'加餐也能补蛋白，准备很快'},
+  {id:'sr_corn',title:'煮玉米',mealType:'snack',calories:112,protein:4,carbs:25,fat:1,fiber:2,cookTime:8,difficulty:'简单',noCook:false,allergens:[],appliances:[],tags:['snack','vegetarian','easy','light'],ingredients:[{name:'玉米',amount:1,unit:'根'}],reason:'简单补碳水，不容易做成大餐'},
+  {id:'sr_nuts',title:'原味坚果一小把',mealType:'snack',calories:91,protein:3,carbs:4,fat:8,fiber:1,cookTime:0,difficulty:'简单',noCook:true,allergens:['坚果'],appliances:[],tags:['snack','no_cook','easy'],ingredients:[{name:'原味坚果',amount:15,unit:'g'}],reason:'一小把就够，适合脂肪还差一点时'},
+  {id:'sr_ready_chicken',title:'即食鸡胸小切',mealType:'snack',calories:120,protein:23,carbs:2,fat:2,fiber:0,cookTime:0,difficulty:'简单',noCook:true,allergens:[],appliances:[],tags:['snack','high_protein','no_cook','easy','light'],ingredients:[{name:'即食鸡胸肉',amount:100,unit:'g'}],reason:'不用做饭，蛋白质补得最快'},
+  {id:'sr_orange',title:'鲜橙',mealType:'snack',calories:94,protein:2,carbs:21,fat:0.4,fiber:4,cookTime:0,difficulty:'简单',noCook:true,allergens:[],appliances:[],tags:['snack','vegetarian','no_cook','light','easy','fruit'],ingredients:[{name:'橙子',amount:1,unit:'个'}],reason:'清爽加餐，热量占用很少'},
+  {id:'sr_cucumber_tofu',title:'凉拌黄瓜豆腐',mealType:'snack',calories:140,protein:10,carbs:8,fat:7,fiber:2,cookTime:8,difficulty:'简单',noCook:true,allergens:['大豆'],appliances:[],tags:['snack','vegetarian','light','chinese_home','easy','no_cook'],ingredients:[{name:'嫩豆腐',amount:150,unit:'g'},{name:'黄瓜',amount:100,unit:'g'}],reason:'不用开火，清淡也能当加餐'}
+];
+let smartRecipeActiveTab='today';
+let smartRecipePrefsDraft=null;
+let smartRecipePrefsAddField=null;
+let smartRecipeSupplementShuffle=0;
+let smartRecipePickIndex=0;
+let smartRecipeContext=null;
+let smartRecipeSearchQuery='';
+let smartRecipeSearchResult=null;
+let smartRecipeSearchLoading=false;
+let smartRecipeSearchError='';
+let smartRecipeIngredientPhoto='';
+let smartRecipeIdentifiedIngredients=[];
+let smartRecipeIngredientResult=null;
+let smartRecipeIngredientLoading=false;
+let smartRecipeIngredientError='';
+let smartRecipeIngredientPhase='idle';
+let smartRecipeDetailState=null;
 let mealSelectionTouched = false; // true after user manually clicks a meal button
 let foodDraft = [];
 let foodDraftSession = null;
@@ -1563,19 +1082,21 @@ function getProfilesDebugSummary(data){
     hasHeight:!!p.height,
     hasStartWeight:!!p.startWeight,
     weightRecords:(p.weightRecords||[]).length,
-    avatarBytes:(()=>{const a=resolveProfileAvatar(p);return a?Math.round((a.length*3)/4):0})()
+    avatarBytes:p.avatar?Math.round((p.avatar.length*3)/4):0
   }));
 }
 function logDeviceOwnerDebug(stage,data=state){
-  // Keep boot-path logging cheap: never scan all localStorage on startup (very slow on iOS).
   try{
     console.info('[DeviceOwnerDebug]',{
       stage,
+      storageKey:CURRENT_PROFILE_STORAGE_KEY,
       storedCurrentProfileId:localStorage.getItem(CURRENT_PROFILE_STORAGE_KEY)||'',
       stateCurrentProfileId:data?.current_profile_id||'',
       viewerId:data?.viewerId||'',
       activeProfileId:data?.activeProfileId||'',
-      profileCount:(data?.profiles||[]).length
+      profiles:getProfilesDebugSummary(data),
+      storageAvailable:isLocalStorageWritable(),
+      localStorageUsageBytes:getLocalStorageUsageBytes()
     });
   }catch(e){
     console.error('[DeviceOwnerDebug] 诊断失败',e);
@@ -1637,14 +1158,41 @@ function applyLocalDeviceOwner(data){
 }
 
 function getPersistableState(){
-  // Keep large avatars out of the main blob (side keys / memory). Sync re-attaches via resolveProfileAvatar.
-  detachLargeAvatarsFromData(state);
   const localData=JSON.parse(JSON.stringify(state));
   delete localData.viewerId;
   delete localData.current_profile_id;
   return localData;
 }
 
+// 云端只同步家庭健康数据。viewer/currentViewDate/themeMode 属于本地 UI 状态，不能进入云端。
+// 调用方（pushToCloud/clearCloudData）仅做 JSON.stringify，无需深拷贝。
+function getSyncData(source){
+  // 优化5：无source时使用缓存，避免每次同步都深拷贝+normalize+migrate
+  if(!source && !_syncDataCacheDirty && _syncDataCache){
+    return _syncDataCache;
+  }
+  const src=JSON.parse(JSON.stringify(source||state));
+  migrateProfiles(src);
+  normalizeDeletedRecords(src);
+  normalizeCoupleSpace(src);
+  const result = {
+    appMode:getAppMode(src),
+    appModeUpdatedAt:Number(src.appModeUpdatedAt)||0,
+    profiles: (src.profiles||[]).map(p=>{
+      normalizeFavoriteCollections(p);
+      return p;
+    }),
+    coupleSpace:src.coupleSpace,
+    deletedRecords: src.deletedRecords||{weight:[],food:[],exercise:[],steps:[],sleep:[],water:[]}
+  };
+  // 优化5/2：缓存结果并计算hash，供周期同步变化检测使用
+  if(!source){
+    _syncDataCache = result;
+    _syncDataCacheHash = hashString(JSON.stringify(result));
+    _syncDataCacheDirty = false;
+  }
+  return result;
+}
 
 function normalizeRecordProfileId(record,profile){
   if(record&&profile) record.profile_id=getProfileDataId(profile);
@@ -1756,171 +1304,12 @@ function migrateWeightRecords(data){
   return data;
 }
 
-/* Boot: only shape fields the home screen needs. Heavy migrate* runs after first paint. */
-function hydrateProfilesForBoot(data){
-  (data.profiles||[]).forEach((p,index)=>{
-    p.profile_id=normalizeProfileDataId(p.profile_id||LOCAL_PROFILE_IDS[index]||p.id||`profile_${index+1}`);
-    p.weightRecords=p.weightRecords||[];
-    p.foodRecords=p.foodRecords||[];
-    p.exerciseRecords=p.exerciseRecords||[];
-    p.stepsRecords=p.stepsRecords||[];
-    p.sleepRecords=p.sleepRecords||[];
-    p.waterRecords=p.waterRecords||[];
-    p.favoriteFoods=p.favoriteFoods||[];
-    p.deletedFavoriteFoods=p.deletedFavoriteFoods||[];
-    p.favoriteRecipes=Array.isArray(p.favoriteRecipes)?p.favoriteRecipes:[];
-    if(p.goalWeight===undefined) p.goalWeight=null;
-    if(p.startWeight===undefined) p.startWeight=null;
-    if(p.goal===undefined) p.goal='';
-    if(p.gender===undefined) p.gender='';
-    if(p.relation===undefined) p.relation='';
-    if(p.displayName===undefined) p.displayName='';
-    if(p.avatar===undefined) p.avatar='';
-    if(p.height===undefined) p.height=null;
-    if(p.birthDate===undefined) p.birthDate='';
-    if(p.activityLevel===undefined) p.activityLevel='';
-    if(p.profileUpdatedAt===undefined) p.profileUpdatedAt=0;
-    if(!Array.isArray(p.goal_history)) p.goal_history=[];
-  });
-  return data;
-}
-function isLargeAvatarValue(v){
-  return typeof v==='string' && v.length>AVATAR_INLINE_MAX_CHARS && /^data:image\//i.test(v);
-}
-function avatarSideStorageKey(profileDataId){
-  return AVATAR_SIDE_STORAGE_PREFIX+normalizeProfileDataId(profileDataId);
-}
-function resolveProfileAvatar(profile){
-  if(!profile) return '';
-  if(profile.avatar) return profile.avatar;
-  const pid=getProfileDataId(profile);
-  if(!pid) return '';
-  if(_avatarSideCache[pid]) return _avatarSideCache[pid];
-  try{
-    const stored=localStorage.getItem(avatarSideStorageKey(pid))||'';
-    if(stored){
-      _avatarSideCache[pid]=stored;
-      return stored;
-    }
-  }catch(e){}
-  return '';
-}
-function parkProfileAvatar(profile,avatarValue){
-  if(!profile) return;
-  const pid=getProfileDataId(profile);
-  const val=avatarValue==null?'':String(avatarValue);
-  if(!val){
-    profile.avatar='';
-    if(pid){
-      delete _avatarSideCache[pid];
-      try{localStorage.removeItem(avatarSideStorageKey(pid))}catch(e){}
-    }
-    return;
-  }
-  if(pid&&isLargeAvatarValue(val)){
-    _avatarSideCache[pid]=val;
-    try{
-      localStorage.setItem(avatarSideStorageKey(pid),val);
-      profile.avatar='';
-    }catch(e){
-      // Quota: keep inline so data is not lost.
-      profile.avatar=val;
-    }
-    return;
-  }
-  profile.avatar=val;
-  if(pid){
-    delete _avatarSideCache[pid];
-    try{localStorage.removeItem(avatarSideStorageKey(pid))}catch(e){}
-  }
-}
-function detachLargeAvatarsFromData(data){
-  let moved=0;
-  (data?.profiles||[]).forEach(p=>{
-    if(isLargeAvatarValue(p.avatar)){
-      parkProfileAvatar(p,p.avatar);
-      moved++;
-    }else if(!p.avatar){
-      const pid=getProfileDataId(p);
-      if(pid&&!_avatarSideCache[pid]){
-        try{
-          const stored=localStorage.getItem(avatarSideStorageKey(pid))||'';
-          if(stored) _avatarSideCache[pid]=stored;
-        }catch(e){}
-      }
-    }
-  });
-  return moved;
-}
-function getStoredDataMigrationVersion(){
-  try{return Number(localStorage.getItem(DATA_MIGRATION_VERSION_KEY))||0}
-  catch(e){return 0}
-}
-function setStoredDataMigrationVersion(version){
-  try{localStorage.setItem(DATA_MIGRATION_VERSION_KEY,String(version))}catch(e){}
-}
-function readMemoizedLocalJson(key){
-  if(Object.prototype.hasOwnProperty.call(_aiLocalCacheMemo,key)) return _aiLocalCacheMemo[key];
-  try{
-    _aiLocalCacheMemo[key]=JSON.parse(localStorage.getItem(key)||'{}')||{};
-  }catch(e){
-    _aiLocalCacheMemo[key]={};
-  }
-  return _aiLocalCacheMemo[key];
-}
-function writeMemoizedLocalJson(key,value){
-  _aiLocalCacheMemo[key]=value&&typeof value==='object'?value:{};
-  try{localStorage.setItem(key,JSON.stringify(_aiLocalCacheMemo[key]))}catch(e){}
-}
-function invalidateMemoizedLocalJson(key){
-  delete _aiLocalCacheMemo[key];
-}
-function runDeferredDataMigrations(){
-  if(!_deferredDataMigratePending) return;
-  _deferredDataMigratePending=false;
-  const t0=_bootNow();
-  let didMigrate=false;
-  let movedAvatars=0;
-  try{
-    const ver=getStoredDataMigrationVersion();
-    if(ver<DATA_MIGRATION_VERSION){
-      migrateProfiles(state);
-      migrateWeightRecords(state);
-      normalizeCoupleSpace(state);
-      setStoredDataMigrationVersion(DATA_MIGRATION_VERSION);
-      didMigrate=true;
-      console.log('[BOOT] migration ran (from '+ver+' to '+DATA_MIGRATION_VERSION+')');
-    }else{
-      console.log('[BOOT] migration skip (version '+ver+')');
-    }
-    movedAvatars=detachLargeAvatarsFromData(state);
-    if(_pendingAppModeWriteback||didMigrate||movedAvatars>0){
-      _pendingAppModeWriteback=false;
-      try{
-        localStorage.setItem(STORAGE_KEY,JSON.stringify(getPersistableState()));
-      }catch(e){
-        console.error('[AppMode] 旧数据模式迁移暂未写回，将继续使用双人模式',e);
-      }
-    }
-    invalidateHealthScoreMemo();
-    if(typeof invalidateSyncDataCache==='function') invalidateSyncDataCache();
-  }catch(err){
-    console.error('[BOOT] deferredMigrate failed:',err);
-  }
-  console.log('[BOOT] migration '+Math.round(_bootNow()-t0)+' ms');
-}
-
 function loadData(){
-  const tAll=_bootNow();
   try{
     logDeviceOwnerDebug('loadData:before-read',{profiles:[],current_profile_id:'',viewerId:'',activeProfileId:''});
-    const tRead=_bootNow();
     const d = localStorage.getItem(STORAGE_KEY);
-    console.log('[BOOT] loadData read '+Math.round(_bootNow()-tRead)+' ms');
     if(d){
-      const tParse=_bootNow();
       const parsed=JSON.parse(d);
-      console.log('[BOOT] parse '+Math.round(_bootNow()-tParse)+' ms (chars '+(d.length||0)+')');
       parsed.aiConfig={
         apiKey:EMBEDDED_BAILIAN_CONFIG.apiKey,
         modelId:EMBEDDED_BAILIAN_CONFIG.modelId
@@ -1936,26 +1325,25 @@ function loadData(){
       parsed.lastLocalClearAt=parsed.lastLocalClearAt||null;
       const appModeMigrated=normalizeAppMode(parsed,{existingData:true});
       normalizeDeletedRecords(parsed);
-      // Fast path for first paint: skip full migrateProfiles / migrateWeightRecords /
-      // normalizeCoupleSpace (and avoid deep-clone writeback). Compatibility preserved
-      // via runDeferredDataMigrations() after first paint (and before sync).
-      const tHydrate=_bootNow();
-      hydrateProfilesForBoot(parsed);
-      detachLargeAvatarsFromData(parsed);
-      console.log('[BOOT] hydrate '+Math.round(_bootNow()-tHydrate)+' ms');
-      _deferredDataMigratePending=true;
-      _pendingAppModeWriteback=!!appModeMigrated;
-      console.log('[BOOT] loadData total '+Math.round(_bootNow()-tAll)+' ms');
+      migrateProfiles(parsed);
+      migrateWeightRecords(parsed);
+      normalizeCoupleSpace(parsed);
+      if(appModeMigrated){
+        try{
+          const migratedData=JSON.parse(JSON.stringify(parsed));
+          delete migratedData.viewerId;
+          delete migratedData.current_profile_id;
+          localStorage.setItem(STORAGE_KEY,JSON.stringify(migratedData));
+        }catch(e){
+          console.error('[AppMode] 旧数据模式迁移暂未写回，将继续使用双人模式',e);
+        }
+      }
       return applyLocalDeviceOwner(parsed);
     }
   }catch(e){console.error('Load error:',e)}
-  _deferredDataMigratePending=false;
-  _pendingAppModeWriteback=false;
-  console.log('[BOOT] loadData total '+Math.round(_bootNow()-tAll)+' ms (default)');
   return applyLocalDeviceOwner(getDefaultData());
 }
 function saveData(){
-  runDeferredDataMigrations();
   try{
     state.lastModifiedAt=Date.now();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(getPersistableState()));
@@ -1963,9 +1351,8 @@ function saveData(){
     showToast('存储空间不足，请导出数据后清理','error');
     return false;
   }
-  invalidateHealthScoreMemo();
-  if(typeof invalidateSyncDataCache==='function') invalidateSyncDataCache(); // 优化5：数据变化，标记sync payload缓存失效
-  if(typeof debouncedSync==='function') debouncedSync();
+  invalidateSyncDataCache(); // 优化5：数据变化，标记sync payload缓存失效
+  debouncedSync();
   return true;
 }
 function saveLocalOnly(touchModified=true){
@@ -1976,10 +1363,7 @@ function saveLocalOnly(touchModified=true){
     showToast('存储空间不足，请导出数据后清理','error');
     return false;
   }
-  if(touchModified){
-    invalidateHealthScoreMemo();
-    if(typeof invalidateSyncDataCache==='function') invalidateSyncDataCache(); // 优化5：数据可能变化，标记缓存失效
-  }
+  if(touchModified) invalidateSyncDataCache(); // 优化5：数据可能变化，标记缓存失效
   return true;
 }
 function getActiveProfile(){
@@ -2022,10 +1406,7 @@ function getAIConfig(){
 }
 
 // ==================== EXERCISE DATABASE ====================
-let _EXERCISE_DB_CACHE=null;
-function getExerciseDB(){
-  if(!_EXERCISE_DB_CACHE){
-    _EXERCISE_DB_CACHE=[
+const EXERCISE_DB = [
   {name:'步行',met:3.5,unit:'分钟',defaultVal:30,inputType:'time'},
   {name:'跑步',met:9.8,unit:'分钟',defaultVal:30,inputType:'time'},
   {name:'快走',met:5.0,unit:'分钟',defaultVal:30,inputType:'time'},
@@ -2043,25 +1424,16 @@ function getExerciseDB(){
   {name:'HIIT',met:10.0,unit:'分钟',defaultVal:20,inputType:'time'},
   {name:'计步走路',met:3.5,unit:'步数',defaultVal:8000,inputType:'steps'},
 ];
-  }
-  return _EXERCISE_DB_CACHE;
-}
-let _STEP_BASED_EXERCISE_NAMES=null;
-function getStepBasedExerciseNames(){
-  if(!_STEP_BASED_EXERCISE_NAMES){
-    _STEP_BASED_EXERCISE_NAMES=new Set([
-      ...getExerciseDB().filter(ex=>ex.inputType==='steps').map(ex=>ex.name),
-      '步行','跑步','快走','爬山'
-    ]);
-  }
-  return _STEP_BASED_EXERCISE_NAMES;
-}
+const STEP_BASED_EXERCISE_NAMES=new Set([
+  ...EXERCISE_DB.filter(ex=>ex.inputType==='steps').map(ex=>ex.name),
+  '步行','跑步','快走','爬山'
+]);
 function isStepBasedExercise(record){
   if(!record) return false;
   const name=String(record.name||'').trim();
-  if(name&&getStepBasedExerciseNames().has(name)) return true;
+  if(name&&STEP_BASED_EXERCISE_NAMES.has(name)) return true;
   if(/\d[\d,]*\s*步/.test(String(record.detail||''))) return true;
-  const dbMatch=getExerciseDB().find(ex=>ex.name===name);
+  const dbMatch=EXERCISE_DB.find(ex=>ex.name===name);
   return dbMatch?.inputType==='steps';
 }
 function sumDailySteps(stepsRecords){
@@ -2087,7 +1459,7 @@ function normalizeAIExercise(data){
 }
 function getCachedAIExercise(query){
   try{
-    const cache=readMemoizedLocalJson(AI_EXERCISE_CACHE_KEY);
+    const cache=JSON.parse(localStorage.getItem(AI_EXERCISE_CACHE_KEY)||'{}');
     return normalizeAIExercise(cache[getAIExerciseCacheKey(query)]);
   }catch(e){
     console.warn('AI exercise cache read error:',e);
@@ -2098,9 +1470,9 @@ function setCachedAIExercise(query,exercise){
   try{
     const normalized=normalizeAIExercise(exercise);
     if(!normalized) return;
-    const cache=readMemoizedLocalJson(AI_EXERCISE_CACHE_KEY);
+    const cache=JSON.parse(localStorage.getItem(AI_EXERCISE_CACHE_KEY)||'{}');
     cache[getAIExerciseCacheKey(query)]=normalized;
-    writeMemoizedLocalJson(AI_EXERCISE_CACHE_KEY,cache);
+    localStorage.setItem(AI_EXERCISE_CACHE_KEY,JSON.stringify(cache));
   }catch(e){
     console.warn('AI exercise cache write error:',e);
   }
@@ -2134,8 +1506,8 @@ function findLocalExercises(query){
   const raw=String(query||'').trim().toLowerCase();
   const aliasMap={骑行:'骑自行车',单车:'骑自行车',撸铁:'力量训练'};
   const q=aliasMap[raw]||raw;
-  if(!q) return getExerciseDB().slice();
-  return getExerciseDB().filter(ex=>ex.name.toLowerCase().includes(q)||String(ex.unit||'').toLowerCase().includes(q));
+  if(!q) return EXERCISE_DB.slice();
+  return EXERCISE_DB.filter(ex=>ex.name.toLowerCase().includes(q)||String(ex.unit||'').toLowerCase().includes(q));
 }
 function getExerciseIntensity(exercise){
   const met=Number(exercise?.met)||0;
@@ -2197,7 +1569,6 @@ function loadLocalViewDate(){
 function saveLocalViewDate(date){
   if(!isValidDateStr(date)) return;
   currentViewDate=date;
-  invalidateHealthScoreMemo();
   try{
     localStorage.setItem(VIEW_DATE_STORAGE_KEY,date);
   }catch(e){}
@@ -2724,46 +2095,9 @@ function buildHomeActivityTargetDetailMarkup(snap){
   if(extra>0) return '<span class="home-diet-target-detail">今日活动 '+activity+' · 动态增加 +'+extra+'</span>';
   return '<span class="home-diet-target-detail">今日活动 '+activity+' · 基线 '+allowance+'</span>';
 }
-/* Short-lived health snapshot memo — avoid recompute storms during one home render. */
-let _healthSnapMemo=null;
-let _healthSnapMemoGen=0;
-let _calorieStatusMemo=null;
-let _dailyRecordMemo=null;
-let _homeRenderCtx=null;
-function invalidateHealthScoreMemo(){
-  _healthSnapMemoGen+=1;
-  _healthSnapMemo=null;
-  _calorieStatusMemo=null;
-  _dailyRecordMemo=null;
-  _homeRenderCtx=null;
-}
-function beginHomeRenderContext(profile,date,snap){
-  const cs=getDailyCalorieStatus(profile,date);
-  const calDisplay=getDailyCalorieDisplayContextFromStatus(cs);
-  _homeRenderCtx={
-    profileId:profile?.id||'',
-    date,
-    snap,
-    cs,
-    calDisplay,
-    gen:_healthSnapMemoGen
-  };
-  return _homeRenderCtx;
-}
-function getHomeRenderContext(){
-  return _homeRenderCtx;
-}
-function endHomeRenderContext(){
-  _homeRenderCtx=null;
-}
 function getDailyCalorieStatus(profile,date=currentViewDate){
   const p=profile||getActiveProfile();
-  const pid=p?.id||'';
-  const d=date||currentViewDate;
-  if(_calorieStatusMemo&&_calorieStatusMemo.pid===pid&&_calorieStatusMemo.date===d&&_calorieStatusMemo.gen===_healthSnapMemoGen){
-    return _calorieStatusMemo.status;
-  }
-  const snap=getHealthScoreData(p,d);
+  const snap=getHealthScoreData(p,date);
   const budget=snap.calorieBudget||calculateDailyCalorieBalance({
     baseCalorieTarget:snap.baseTargetCals||snap.targets?.calories,
     exerciseCalories:snap.exerciseCalories,
@@ -2780,7 +2114,7 @@ function getDailyCalorieStatus(profile,date=currentViewDate){
   const gapRec=calcCalorieGapRecommendation(p);
   const recommendedDeficitMin=gapRec?.min||0;
   const recommendedDeficitMax=gapRec?.max||0;
-  const status={
+  return {
     ...budget,
     recordedExerciseCalories:Math.round(Number(snap.recordedExerciseCalories)||0),
     activityAllowanceCalories:Math.round(Number(snap.activityAllowanceCalories)||0),
@@ -2799,39 +2133,6 @@ function getDailyCalorieStatus(profile,date=currentViewDate){
     hasFood:snap.hasFood,
     hasTarget:intakeTargetKcal>0,
     hasMaintenance:maintenanceKcal>0
-  };
-  _calorieStatusMemo={pid,date:d,gen:_healthSnapMemoGen,status};
-  return status;
-}
-
-/* Unified calorie display context for UI.
-   remainingCalories = ONLY intakeRemainingKcal (dynamicTarget - intake).
-   Never use maintenanceTDEE / energyDeficit for "还能吃多少". */
-function getDailyCalorieDisplayContext(profile,date=currentViewDate){
-  const cs=getDailyCalorieStatus(profile,date);
-  const remaining=cs.hasTarget?Math.max(0,Math.round(Number(cs.intakeRemainingKcal)||0)):null;
-  const over=cs.hasTarget?Math.max(0,Math.round(Number(cs.intakeOverTargetKcal)||0)):null;
-  let status='unknown';
-  if(!cs.hasTarget) status='no_target';
-  else if(!cs.hasFood) status='no_food';
-  else if(over>0) status='over';
-  else if(remaining===0) status='on_target';
-  else if(remaining>0&&remaining<100) status='low_remaining';
-  else if(remaining>=100) status='under';
-  return {
-    intakeCalories:Math.round(Number(cs.intakeKcal)||0),
-    targetCalories:cs.hasTarget?Math.round(Number(cs.dynamicCalorieTarget)||0):null,
-    remainingCalories:remaining,
-    overCalories:over,
-    maintenanceCalories:cs.hasMaintenance?Math.round(Number(cs.maintenanceKcal)||0):null,
-    deficitCalories:cs.hasMaintenance?Math.round(Number(cs.energyDeficitKcal)||0):null,
-    surplusCalories:cs.hasMaintenance?Math.round(Number(cs.energySurplusKcal)||0):null,
-    status,
-    hasFood:!!cs.hasFood,
-    hasTarget:!!cs.hasTarget,
-    goalType:cs.goalType||'maintain',
-    exerciseCalories:Math.round(Number(cs.exerciseCalories)||0),
-    calorieStatus:cs
   };
 }
 
@@ -3031,58 +2332,24 @@ function getCalorieBalance(actualCalories, targetCalories) {
   return { value: 0, displayValue: '已达今日目标', status: '已达目标', type: 'on-target', hasTarget: true };
 }
 
-/* Build a short deterministic summary for homepage / 今日建议 focus.
-   Always reads remainingCalories from getDailyCalorieDisplayContext —
-   never maintenance TDEE / energyDeficit, never AI-invented numbers. */
-function getDailyCalorieDisplayContextFromStatus(cs){
-  if(!cs||typeof cs!=='object'){
-    return {intakeCalories:0,targetCalories:null,remainingCalories:null,overCalories:null,maintenanceCalories:null,deficitCalories:null,surplusCalories:null,status:'unknown',hasFood:false,hasTarget:false,goalType:'maintain',exerciseCalories:0};
+/* Build a short deterministic summary for the homepage hero focus.
+   This text never comes from AI – it uses only the unified calorie status.
+   The AI may provide additional qualitative advice, but the hero text
+   must always reflect correct, deterministic numbers. */
+function buildDeterministicCalorieSummary(cs){
+  if(!cs||!cs.hasFood) return '今天还没有饮食记录，建议先补充一餐。';
+  if(!cs.hasTarget) return `今日已摄入 ${cs.intakeKcal} kcal，营养目标待完善。`;
+  var balance=getCalorieBalance(cs.caloriesConsumed, cs.dynamicCalorieTarget);
+  if(balance.type==='over'){
+    if(cs.goalType==='fat_loss') return `今日摄入超过动态目标 ${balance.value} kcal，建议控制下一餐热量。`;
+    if(cs.goalType==='muscle_gain') return `今日摄入超过动态目标 ${balance.value} kcal，保持蛋白质摄入。`;
+    return `今日摄入超过动态目标 ${balance.value} kcal，单日波动无需焦虑。`;
   }
-  if(cs.remainingCalories!==undefined&&cs.status&&!('intakeRemainingKcal' in cs)&&!('caloriesConsumed' in cs)) return cs;
-  const remaining=cs.hasTarget?Math.max(0,Math.round(Number(cs.intakeRemainingKcal??cs.remainingCalories)||0)):null;
-  const over=cs.hasTarget?Math.max(0,Math.round(Number(cs.intakeOverTargetKcal)||0)):null;
-  let status='unknown';
-  if(!cs.hasTarget) status='no_target';
-  else if(!cs.hasFood) status='no_food';
-  else if(over>0) status='over';
-  else if(remaining===0) status='on_target';
-  else if(remaining>0&&remaining<100) status='low_remaining';
-  else if(remaining>=100) status='under';
-  return {
-    intakeCalories:Math.round(Number(cs.intakeKcal??cs.caloriesConsumed)||0),
-    targetCalories:cs.hasTarget?Math.round(Number(cs.dynamicCalorieTarget||cs.intakeTargetKcal)||0):null,
-    remainingCalories:remaining,
-    overCalories:over,
-    maintenanceCalories:cs.hasMaintenance?Math.round(Number(cs.maintenanceKcal)||0):null,
-    deficitCalories:cs.hasMaintenance?Math.round(Number(cs.energyDeficitKcal)||0):null,
-    surplusCalories:cs.hasMaintenance?Math.round(Number(cs.energySurplusKcal)||0):null,
-    status,
-    hasFood:!!cs.hasFood,
-    hasTarget:!!cs.hasTarget,
-    goalType:cs.goalType||'maintain',
-    exerciseCalories:Math.round(Number(cs.exerciseCalories)||0),
-    calorieStatus:cs
-  };
-}
-function buildDeterministicCalorieSummary(csOrCtx){
-  const d=getDailyCalorieDisplayContextFromStatus(csOrCtx||{});
-  if(!d.hasFood) return '今天还没有饮食记录，建议先补充一餐。';
-  if(!d.hasTarget) return '完善健康目标后可计算每日摄入建议。';
-  if(d.status==='over'){
-    const over=d.overCalories||0;
-    if(d.goalType==='fat_loss') return `今日已超过目标 ${over} kcal，建议控制下一餐热量。`;
-    if(d.goalType==='muscle_gain') return `今日已超过目标 ${over} kcal，保持蛋白质摄入。`;
-    return `今日已超过目标 ${over} kcal，单日波动无需焦虑。`;
-  }
-  if(d.status==='on_target') return '今日摄入已达到动态热量目标。';
-  if(d.status==='low_remaining'){
-    return `今日剩余空间较少，还可摄入约 ${d.remainingCalories} kcal，建议选择轻量加餐。`;
-  }
-  if(d.status==='under'){
-    const rem=d.remainingCalories||0;
-    if(d.exerciseCalories>0) return `今日运动增加了 ${d.exerciseCalories} kcal 热量预算，目前仍在目标范围内，还可摄入约 ${rem} kcal。`;
-    if(d.goalType==='muscle_gain') return `今日摄入距离目标还差 ${rem} kcal，建议增加蛋白质和优质碳水。`;
-    return `今日仍在目标范围内，还可摄入约 ${rem} kcal。`;
+  if(balance.type==='under'){
+    if(cs.exerciseCalories>0) return `今日运动增加了 ${cs.exerciseCalories} kcal 热量预算，目前仍在目标范围内，还可摄入约 ${Math.abs(balance.value)} kcal。`;
+    if(cs.goalType==='fat_loss') return `今日仍在目标范围内，还可摄入约 ${Math.abs(balance.value)} kcal。`;
+    if(cs.goalType==='muscle_gain') return `今日摄入距离目标还差 ${Math.abs(balance.value)} kcal，建议增加蛋白质和优质碳水。`;
+    return `今日仍在目标范围内，还可摄入约 ${Math.abs(balance.value)} kcal。`;
   }
   return '今日摄入已达到动态热量目标。';
 }
@@ -3334,23 +2601,16 @@ function getDailyRecord(profile,date=currentViewDate){
     console.error('[Health] getDailyRecord missing profile for date:',date);
     return {date,weight:[],steps:[],sleep:[],water:[],meals:[],food:[],exercise:[]};
   }
-  const pid=p.id||'';
-  const d=date||currentViewDate;
-  if(_dailyRecordMemo&&_dailyRecordMemo.pid===pid&&_dailyRecordMemo.date===d&&_dailyRecordMemo.gen===_healthSnapMemoGen){
-    return _dailyRecordMemo.daily;
-  }
-  const daily={
-    date:d,
-    weight:(p.weightRecords||[]).filter(r=>getRecordDate(r)===d),
-    steps:(p.stepsRecords||[]).filter(r=>getRecordDate(r)===d),
-    sleep:(p.sleepRecords||[]).filter(r=>getRecordDate(r)===d),
-    water:(p.waterRecords||[]).filter(r=>getRecordDate(r)===d),
-    meals:(p.foodRecords||[]).filter(r=>getRecordDate(r)===d),
-    food:(p.foodRecords||[]).filter(r=>getRecordDate(r)===d),
-    exercise:(p.exerciseRecords||[]).filter(r=>getRecordDate(r)===d)
+  return {
+    date,
+    weight:(p.weightRecords||[]).filter(r=>getRecordDate(r)===date),
+    steps:(p.stepsRecords||[]).filter(r=>getRecordDate(r)===date),
+    sleep:(p.sleepRecords||[]).filter(r=>getRecordDate(r)===date),
+    water:(p.waterRecords||[]).filter(r=>getRecordDate(r)===date),
+    meals:(p.foodRecords||[]).filter(r=>getRecordDate(r)===date),
+    food:(p.foodRecords||[]).filter(r=>getRecordDate(r)===date),
+    exercise:(p.exerciseRecords||[]).filter(r=>getRecordDate(r)===date)
   };
-  _dailyRecordMemo={pid,date:d,gen:_healthSnapMemoGen,daily};
-  return daily;
 }
 function getTrendData(profile,days=chartPeriod){
   const dates=[];
@@ -3382,7 +2642,22 @@ function getHealthMetricTrendSeries(profile,metric,days=chartPeriod,sharedDates=
 function getTodayFoods(p){
   return getDailyRecord(p,currentViewDate).food;
 }
-
+function calcTodayIntake(p){
+  const foods=getTodayFoods(p);
+  const totals={calories:0,carbs:0,protein:0,fat:0,fiber:0};
+  foods.forEach(r=>{
+    r.foods.forEach(f=>{
+      const n=getFoodActualNutrition(f);
+      totals.calories+=n.calories;
+      totals.carbs+=n.carbs;
+      totals.protein+=n.protein;
+      totals.fat+=n.fat;
+      totals.fiber+=n.fiber;
+    });
+  });
+  Object.keys(totals).forEach(k=>totals[k]=+totals[k].toFixed(1));
+  return totals;
+}
 function getTodayExercises(p){
   return getDailyRecord(p,currentViewDate).exercise;
 }
@@ -3869,32 +3144,23 @@ function getHealthSnapshot(profile,date=currentViewDate){
 }
 function getHealthScoreData(profile,date=currentViewDate){
   // 首页健康状态、AI健康教练、AI行动计划、健康详情统一读取这个入口。
-  // Short-lived memoization avoids 4–8× recompute during one home render frame (critical on iOS).
-  const p=profile||getActiveProfile();
-  const pid=p?.id||'';
-  const d=date||currentViewDate;
-  if(_healthSnapMemo&&_healthSnapMemo.pid===pid&&_healthSnapMemo.date===d&&_healthSnapMemo.gen===_healthSnapMemoGen){
-    return _healthSnapMemo.snap;
-  }
-  const snap=getHealthSnapshot(p,d);
-  _healthSnapMemo={pid,date:d,gen:_healthSnapMemoGen,snap};
-  return snap;
+  return getHealthSnapshot(profile,date);
 }
 // ── 统一首页状态判断 ──
 // 所有模块根据这个状态决定展示内容，避免各自单独判断。
 // status: "empty"(无数据) / "partial"(少量数据) / "complete"(完整数据)
-function getDashboardStatus(profile,date=currentViewDate,snap=null){
-  const healthSnap=snap||getHealthScoreData(profile,date);
-  const hasFood=healthSnap.hasFood;
-  const hasWater=healthSnap.hasWater;
-  const hasExercise=healthSnap.hasExercise;
-  const hasSleep=healthSnap.hasSleep;
+function getDashboardStatus(profile,date=currentViewDate){
+  const snap=getHealthScoreData(profile,date);
+  const hasFood=snap.hasFood;
+  const hasWater=snap.hasWater;
+  const hasExercise=snap.hasExercise;
+  const hasSleep=snap.hasSleep;
   const availableDataCount=[hasFood,hasWater,hasExercise,hasSleep].filter(Boolean).length;
   let status='empty';
   if(availableDataCount===0) status='empty';
   else if(availableDataCount<2) status='partial';
   else status='complete';
-  return {status,hasFood,hasWater,hasExercise,hasSleep,availableDataCount,snap:healthSnap};
+  return {status,hasFood,hasWater,hasExercise,hasSleep,availableDataCount,snap};
 }
 function getHealthStatusLabel(score){
   if(score>=80) return {label:'优秀',hint:'今日健康状态很好，继续保持！'};
@@ -3929,9 +3195,9 @@ function buildTodayHealthAiSummary(profile,snap){
     const scoreLabel=snap.healthScore?.score!==null&&snap.healthScore?.score!==undefined?getHealthStatusLabel(snap.score).label:'数据不足';
     lead=low.length?`今天状态${scoreLabel}，${low.slice(0,2).join('、')}还可以继续补充。`:`今天整体状态不错，主要健康习惯都有记录。`;
   }
-  const calDisplay=getDailyCalorieDisplayContext(profile,snap.date);
+  const budget=snap.calorieBudget||calculateDailyCalorieBalance({baseCalorieTarget:snap.baseTargetCals,exerciseCalories:snap.exerciseCalories,caloriesConsumed:snap.intakeCalories});
   const dietText=snap.hasFood
-    ? `今日摄入约 ${calDisplay.intakeCalories} kcal${calDisplay.targetCalories!=null?`，动态目标 ${calDisplay.targetCalories} kcal`:''}${calDisplay.overCalories>0?`，超出约 ${calDisplay.overCalories} kcal`:(calDisplay.remainingCalories>0?`，还可摄入约 ${calDisplay.remainingCalories} kcal`:(calDisplay.hasTarget?'，已达到今日目标':''))}，蛋白质约 ${Math.round(snap.intake.protein)}g。`
+    ? `今日摄入约 ${snap.intakeCalories} kcal${snap.targetCals?`，动态目标 ${snap.targetCals} kcal`:''}${budget.remainingCalories>0?`，还可摄入约 ${budget.remainingCalories} kcal`:budget.calorieBalance>0?`，超出约 ${budget.calorieBalance} kcal`:'，已达到今日目标'}，蛋白质约 ${Math.round(snap.intake.protein)}g。`
     : '今天暂未记录饮食，可以先补充一餐记录。';
   const exerciseText=snap.hasExercise
     ? `今日运动 ${Math.round(snap.exerciseMinutes)} 分钟，记录消耗约 ${snap.recordedExerciseCalories} kcal${snap.exerciseCalories>0?`，其中 ${snap.exerciseCalories} kcal 计入动态预算`:''}。`
@@ -3950,7 +3216,7 @@ function buildTodayHealthAiSummary(profile,snap){
   else if(goalType==='sleep_improve') advice=`围绕睡眠目标，今晚尽量接近 ${formatShortSleep(snap.sleepTarget)}，并固定睡前准备时间。`;
   else if(goalType==='fitness'&&snap.exerciseMinutes<snap.exerciseTarget) advice=`围绕体能目标，今天还可补足到 ${snap.exerciseTarget} 分钟活动量。`;
   else if(snap.waterPct>0&&snap.waterPct<60) advice='今天饮水偏少，晚些时候可以继续小口补充。';
-  else if(snap.hasFood&&calDisplay.remainingCalories>0&&snap.dietPct<60) advice=`今日仍在动态目标范围内，还可按需要摄入约 ${calDisplay.remainingCalories} kcal，优先补充优质蛋白和蔬菜。`;
+  else if(snap.hasFood&&budget.remainingCalories>0&&snap.dietPct<60) advice=`今日仍在动态目标范围内，还可按需要摄入约 ${budget.remainingCalories} kcal，优先补充优质蛋白和蔬菜。`;
   else if(!snap.hasExercise) advice='如果时间允许，可以安排 10-20 分钟散步或拉伸。';
   const result={lead:`${getGoalProgressHeadline(profile)}。${lead}`,dietText,exerciseText,sleepText,waterText,advice};
   window.todayHealthAiSummaryCache[key]=result;
@@ -4003,6 +3269,886 @@ function renderHealthTrendSection(profile){
       </div>
     </details>`;
 }
+const aiWeeklyReportInFlight = {};
+function getWeeklyReportCache(){
+  try{return JSON.parse(localStorage.getItem(AI_WEEKLY_REPORT_CACHE_KEY)||'{}')||{}}
+  catch(e){return {}}
+}
+function saveWeeklyReportCache(cache){
+  try{localStorage.setItem(AI_WEEKLY_REPORT_CACHE_KEY,JSON.stringify(cache||{}))}catch(e){}
+}
+function getWeeklyReportProfileKey(profile){
+  return getProfileDataId(profile)||profile?.id||'unknown';
+}
+function getWeeklyReportRange(date=currentViewDate){
+  const dates=getRecentDateList(7,date);
+  const [y,m,d]=date.split('-').map(Number);
+  const end=new Date(y,m-1,d);
+  const day=end.getDay()||7;
+  const weekStart=new Date(end);
+  weekStart.setDate(end.getDate()-day+1);
+  const weekKey=`week_${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
+  return {dates,start:dates[0],end:dates[dates.length-1],key:weekKey};
+}
+function getWeeklyReportDayCache(profile,date=currentViewDate){
+  const cache=getWeeklyReportCache();
+  const pkey=getWeeklyReportProfileKey(profile);
+  const range=getWeeklyReportRange(date);
+  return cache[pkey]?.[range.key]||{};
+}
+function setWeeklyReportDayCache(profile,date,patch){
+  const cache=getWeeklyReportCache();
+  const pkey=getWeeklyReportProfileKey(profile);
+  const range=getWeeklyReportRange(date);
+  cache[pkey]=cache[pkey]||{};
+  cache[pkey][range.key]={...(cache[pkey][range.key]||{}),...patch,range_start:range.start,range_end:range.end,updatedAt:Date.now()};
+  saveWeeklyReportCache(cache);
+  return cache[pkey][range.key];
+}
+function getWeeklyReportSourceSignature(profile,date=currentViewDate){
+  const range=getWeeklyReportRange(date);
+  const pkey=getWeeklyReportProfileKey(profile);
+  const dailyCache=getDailyTasksCache();
+  const goal=getHealthGoal(profile);
+  return range.dates.map(d=>{
+    const snap=getHealthSnapshot(profile,d);
+    const dayTasks=dailyCache[pkey]?.[d]?.tasks||[];
+    return [
+      d,
+      snap.healthScore?.score,
+      snap.intakeCalories,
+      Math.round(snap.intake.protein||0),
+      snap.exerciseMinutes,
+      snap.recordedExerciseCalories,
+      snap.exerciseCalories,
+      snap.sleepMinutes,
+      snap.waterTotal,
+      snap.daily.weight.length,
+      snap.daily.food.length,
+      snap.daily.exercise.length,
+      snap.daily.sleep.length,
+      snap.daily.water.length,
+      dayTasks.length,
+      dayTasks.filter(t=>t.completed).length,
+      goal.type,
+      goal.target_weight||'',
+      goal.strategy?.daily_calories||'',
+      goal.strategy?.protein_target||''
+    ].join(':');
+  }).join('|');
+}
+function getWeeklyWeightStats(profile,dates){
+  const weightRecords=(profile.weightRecords||[])
+    .filter(r=>dates.includes(getRecordDate(r)))
+    .sort((a,b)=>getRecordTime(a).localeCompare(getRecordTime(b)));
+  const first=weightRecords[0]||null;
+  const last=weightRecords[weightRecords.length-1]||null;
+  const firstBmi=first?.weight&&profile.height?calcBMI(first.weight,profile.height):null;
+  const lastBmi=last?.weight&&profile.height?calcBMI(last.weight,profile.height):null;
+  return {
+    first_weight:first?.weight||null,
+    last_weight:last?.weight||null,
+    weight_change:first&&last?+(Number(last.weight-first.weight).toFixed(1)):null,
+    first_bmi:firstBmi?Number(firstBmi):null,
+    last_bmi:lastBmi?Number(lastBmi):null,
+    bmi_change:firstBmi&&lastBmi?+(Number(lastBmi-firstBmi).toFixed(1)):null,
+    record_count:weightRecords.length
+  };
+}
+function buildWeeklyReportInput(profile,date=currentViewDate){
+  const range=getWeeklyReportRange(date);
+  const targets=calcNutrientTargets(profile);
+  const latestWeight=getLatestWeight(profile);
+  const dailyCache=getDailyTasksCache();
+  const pkey=getWeeklyReportProfileKey(profile);
+  let totalCalories=0,totalProtein=0,totalCarbs=0,totalFat=0,dietTargetDays=0;
+  let exerciseCount=0,exerciseMinutes=0,exerciseCalories=0;
+  let sleepTotal=0,sleepDays=0,bestSleep=0,worstSleep=null;
+  let waterTotal=0,waterTargetDays=0,scoreTotal=0,scoreDays=0;
+  let aiTaskTotal=0,aiTaskDone=0;
+  const daily=range.dates.map(d=>{
+    const snap=getHealthSnapshot(profile,d);
+    const dayTasks=dailyCache[pkey]?.[d]?.tasks||[];
+    totalCalories+=snap.intakeCalories;
+    totalProtein+=snap.intake.protein||0;
+    totalCarbs+=snap.intake.carbs||0;
+    totalFat+=snap.intake.fat||0;
+    if(snap.hasFood&&snap.dietPct>=80&&snap.dietPct<=120) dietTargetDays++;
+    exerciseCount+=snap.daily.exercise.length;
+    exerciseMinutes+=snap.exerciseMinutes;
+    exerciseCalories+=snap.recordedExerciseCalories;
+    if(snap.sleepMinutes>0){
+      sleepTotal+=snap.sleepMinutes;
+      sleepDays++;
+      bestSleep=Math.max(bestSleep,snap.sleepMinutes);
+      worstSleep=worstSleep===null?snap.sleepMinutes:Math.min(worstSleep,snap.sleepMinutes);
+    }
+    waterTotal+=snap.waterTotal;
+    if(snap.waterGoal&&snap.waterTotal>=snap.waterGoal) waterTargetDays++;
+    const dayScore=snap.healthScore?.score;
+    if(dayScore!==null&&dayScore!==undefined){scoreTotal+=dayScore;scoreDays++;}
+    aiTaskTotal+=dayTasks.length;
+    aiTaskDone+=dayTasks.filter(t=>t.completed).length;
+    return {
+      date:d,
+      health_score:dayScore,
+      calories:snap.intakeCalories,
+      protein_g:Math.round(snap.intake.protein||0),
+      carbs_g:Math.round(snap.intake.carbs||0),
+      fat_g:Math.round(snap.intake.fat||0),
+      diet_pct:snap.dietPct,
+      exercise_count:snap.daily.exercise.length,
+      exercise_minutes:Math.round(snap.exerciseMinutes),
+      exercise_calories:snap.recordedExerciseCalories,
+      exercise_calories_counted_in_budget:snap.exerciseCalories,
+      dynamic_calorie_target:snap.targetCals,
+      sleep_minutes:snap.sleepMinutes,
+      water_ml:snap.waterTotal,
+      water_goal_ml:snap.waterGoal,
+      ai_tasks:dayTasks.length,
+      ai_tasks_done:dayTasks.filter(t=>t.completed).length
+    };
+  });
+  return {
+    range:{start:range.start,end:range.end,days:7},
+    health_goal:getGoalAIContext(profile),
+    profile:{
+      age:calcAge(profile.birthDate)||null,
+      gender:profile.gender||'',
+      height:profile.height||null,
+      latest_weight:latestWeight?.weight||null,
+      goal:profile.goal||'',
+      goalWeight:profile.goalWeight||null,
+      activityLevel:profile.activityLevel||''
+    },
+    body:getWeeklyWeightStats(profile,range.dates),
+    daily,
+    stats:{
+      avg_health_score:scoreDays?Math.round(scoreTotal/scoreDays):0,
+      diet:{
+        avg_calories:Math.round(totalCalories/range.dates.length),
+        avg_protein_g:Math.round(totalProtein/range.dates.length),
+        avg_carbs_g:Math.round(totalCarbs/range.dates.length),
+        avg_fat_g:Math.round(totalFat/range.dates.length),
+        target_calories:targets?.calories||null,
+        target_days:dietTargetDays
+      },
+      exercise:{
+        count:exerciseCount,
+        total_minutes:Math.round(exerciseMinutes),
+        total_calories:Math.round(exerciseCalories),
+        target_days:daily.filter(d=>d.exercise_minutes>=30).length
+      },
+      sleep:{
+        avg_minutes:sleepDays?Math.round(sleepTotal/sleepDays):0,
+        best_minutes:bestSleep,
+        worst_minutes:worstSleep||0,
+        recorded_days:sleepDays
+      },
+      water:{
+        avg_ml:Math.round(waterTotal/range.dates.length),
+        target_days:waterTargetDays,
+        target_ratio:clampPercent(waterTargetDays/range.dates.length*100)
+      },
+      ai_daily_plan:{
+        generated_tasks:aiTaskTotal,
+        completed_tasks:aiTaskDone,
+        completion_rate:aiTaskTotal?clampPercent(aiTaskDone/aiTaskTotal*100):0
+      }
+    }
+  };
+}
+function normalizeWeeklyReport(raw,input){
+  const obj=raw&&typeof raw==='object'?raw:{};
+  const fallback=buildFallbackWeeklyReport(input);
+  const section=(name)=>({
+    score:clampPercent(Number(obj[name]?.score??fallback[name].score)),
+    summary:String(obj[name]?.summary||fallback[name].summary).slice(0,180),
+    advice:String(obj[name]?.advice||fallback[name].advice).slice(0,180)
+  });
+  return {
+    week_summary:String(obj.week_summary||fallback.week_summary).slice(0,220),
+    health_score:clampPercent(Number(obj.health_score??fallback.health_score)),
+    body:{
+      weight_change:String(obj.body?.weight_change||fallback.body.weight_change).slice(0,40),
+      summary:String(obj.body?.summary||fallback.body.summary).slice(0,180)
+    },
+    diet:section('diet'),
+    exercise:section('exercise'),
+    sleep:section('sleep'),
+    water:section('water'),
+    next_week_plan:(Array.isArray(obj.next_week_plan)?obj.next_week_plan:fallback.next_week_plan).slice(0,5).map(x=>String(x).slice(0,80)).filter(Boolean)
+  };
+}
+function buildFallbackWeeklyReport(input){
+  const s=input.stats;
+  const goal=input.health_goal||{};
+  const weightChange=input.body.weight_change;
+  const weightText=weightChange===null?'记录不足':`${weightChange>0?'+':''}${weightChange}kg`;
+  let goalText=`当前目标为「${goal.title||'健康保持'}」`;
+  if(goal.type==='fat_loss'&&weightChange!==null){
+    const weeklyDrop=-Number(weightChange||0);
+    goalText=weeklyDrop>0?`本周下降 ${weeklyDrop.toFixed(1)}kg，${weeklyDrop>=0.3&&weeklyDrop<=0.8?'符合减脂节奏':'需要结合目标节奏调整'}`:'本周体重暂未下降，建议继续关注热量与蛋白质完成度';
+  }else if(goal.type==='muscle_gain'&&weightChange!==null){
+    goalText=Number(weightChange)>0?`本周体重增加 ${Number(weightChange).toFixed(1)}kg，可结合力量训练判断增肌质量`:'本周体重未明显增加，建议关注蛋白质和力量训练';
+  }
+  const weakest=[
+    {k:'饮食',v:s.diet.target_days/7*100},
+    {k:'运动',v:s.exercise.target_days/7*100},
+    {k:'睡眠',v:s.sleep.avg_minutes/420*100},
+    {k:'饮水',v:s.water.target_ratio}
+  ].sort((a,b)=>a.v-b.v)[0]?.k||'记录';
+  return {
+    week_summary:`${goalText}。本周平均健康评分 ${s.avg_health_score} 分，主要需要关注${weakest}。AI每日计划完成 ${s.ai_daily_plan.completed_tasks}/${s.ai_daily_plan.generated_tasks}。`,
+    health_score:s.avg_health_score,
+    body:{weight_change:weightText,summary:input.body.record_count>=2?`近7天体重变化 ${weightText}，BMI变化 ${input.body.bmi_change??'记录不足'}。`:'本周体重记录不足，建议至少记录2次以判断变化。'},
+    diet:{score:clampPercent(s.diet.target_days/7*100),summary:`日均摄入 ${s.diet.avg_calories} kcal，蛋白质约 ${s.diet.avg_protein_g}g，达标 ${s.diet.target_days}/7 天。`,advice:'下周优先保持三餐记录，并在蛋白质不足的日子补充鸡蛋、鱼虾、牛肉或豆制品。'},
+    exercise:{score:clampPercent(s.exercise.target_days/7*100),summary:`本周运动 ${s.exercise.count} 次，共 ${s.exercise.total_minutes} 分钟，消耗约 ${s.exercise.total_calories} kcal。`,advice:'下周安排2-3次轻中等强度运动，至少包含2次力量或抗阻训练。'},
+    sleep:{score:clampPercent(s.sleep.avg_minutes/420*100),summary:`有记录日平均睡眠 ${formatShortSleep(s.sleep.avg_minutes)}，最短 ${formatShortSleep(s.sleep.worst_minutes)}。`,advice:'如果平均睡眠低于7小时，下周固定23:30前进入睡眠准备。'},
+    water:{score:s.water.target_ratio,summary:`日均饮水 ${s.water.avg_ml}ml，达标 ${s.water.target_days}/7 天。`,advice:'饮水未达标的日子建议上午、下午、晚饭后三段补足。'},
+    next_week_plan:[`围绕「${goal.title||'健康目标'}」优先改善${weakest}。`,'保持每日记录，避免周报因数据不足失真。','下周至少复盘一次AI每日计划完成情况。']
+  };
+}
+async function callWeeklyReportAI(profile,date=currentViewDate){
+  const input=buildWeeklyReportInput(profile,date);
+  const aiCfg=getAIConfig();
+  if(!aiCfg.apiKey||!aiCfg.modelId) return normalizeWeeklyReport(null,input);
+  const prompt=`你是健康App里的个人AI健康周报分析师。请基于过去7天真实数据和health_goal生成一份个人健康总结报告。要求：1. 必须先按用户目标评价“是否接近目标”，不要只评价体重变化，例如减脂要判断下降是否符合计划，增肌要结合蛋白质和力量训练。2. 不要只复述数据，要发现问题、趋势和下周优先级。3. 如果数据不足，明确指出哪些数据不足，并给出具体补记录建议，不要空泛。4. 睡眠、饮水、饮食、运动建议必须围绕目标具体到时间、频次或动作。5. 健康评分是本周综合评分，不等于今日健康评分，也不等于AI每日计划完成率。6. 只返回严格JSON，不要Markdown，不要解释。JSON格式：{"week_summary":"","health_score":0,"body":{"weight_change":"","summary":""},"diet":{"score":0,"summary":"","advice":""},"exercise":{"score":0,"summary":"","advice":""},"sleep":{"score":0,"summary":"","advice":""},"water":{"score":0,"summary":"","advice":""},"next_week_plan":[""]}。输入数据：${JSON.stringify(input)}`;
+  const response=await fetch(getApiUrl('/api/weekly-report'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data?.error||data?.message||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
+  return normalizeWeeklyReport(extractJSONFromAIText(text),input);
+}
+async function generateWeeklyReport(profile,date=currentViewDate,{manual=false}={}){
+  if(!profile) return null;
+  const range=getWeeklyReportRange(date);
+  const pkey=getWeeklyReportProfileKey(profile);
+  const inflightKey=`${pkey}|${range.key}`;
+  const dayCache=getWeeklyReportDayCache(profile,date);
+  const signature=getWeeklyReportSourceSignature(profile,date);
+  if(dayCache.report&&!manual) return dayCache;
+  if(aiWeeklyReportInFlight[inflightKey]) return aiWeeklyReportInFlight[inflightKey];
+  aiWeeklyReportInFlight[inflightKey]=(async()=>{
+    let report;
+    try{
+      report=await callWeeklyReportAI(profile,date);
+    }catch(err){
+      console.warn('AI健康周报调用失败，使用本地兜底周报：',err);
+      report=normalizeWeeklyReport(null,buildWeeklyReportInput(profile,date));
+    }
+    return setWeeklyReportDayCache(profile,date,{report,generatedAt:Date.now(),source_signature:signature,source:'ai'});
+  })().finally(()=>{
+    delete aiWeeklyReportInFlight[inflightKey];
+    renderWeeklyReportCard(profile,date);
+  });
+  setTimeout(()=>renderWeeklyReportCard(profile,date),0);
+  return aiWeeklyReportInFlight[inflightKey];
+}
+let weeklySummaryDetailState={weak:null,advice:null};
+let weeklySummaryDetailTrigger=null;
+function syncWeeklySummaryMoreButtons(wrap){
+  wrap?.querySelectorAll('.weekly-highlight-summary-card').forEach(card=>{
+    const copy=card.querySelector('.weekly-highlight-copy');
+    const more=card.querySelector('.weekly-summary-more');
+    if(!copy||!more) return;
+    const hasHiddenText=more.dataset.hasMore==='true';
+    more.hidden=!(hasHiddenText||copy.scrollHeight>copy.clientHeight+1);
+  });
+}
+function openWeeklySummaryDetail(type,trigger){
+  const detail=weeklySummaryDetailState[type];
+  const modal=document.getElementById('weeklySummaryDetailModal');
+  if(!detail||!modal) return;
+  weeklySummaryDetailTrigger=trigger||null;
+  document.getElementById('weeklySummaryDetailTitle').textContent=detail.title;
+  document.getElementById('weeklySummaryDetailContent').textContent=detail.content;
+  modal.classList.add('show');
+  GlassScrollLock.lock('modal:weeklySummaryDetailModal');
+  document.getElementById('weeklySummaryDetailClose')?.focus({preventScroll:true});
+}
+function closeWeeklySummaryDetail(){
+  closeModal('weeklySummaryDetailModal');
+  weeklySummaryDetailTrigger?.focus?.({preventScroll:true});
+  weeklySummaryDetailTrigger=null;
+}
+function renderWeeklyReportCard(profile,date=currentViewDate){
+  const wrap=document.getElementById('weeklyReportContent');
+  if(!wrap||!profile) return;
+  const range=getWeeklyReportRange(date);
+  const pkey=getWeeklyReportProfileKey(profile);
+  const loading=!!aiWeeklyReportInFlight[`${pkey}|${range.key}`];
+  const dayCache=getWeeklyReportDayCache(profile,date);
+  const report=dayCache.report;
+  const displayStart=dayCache.range_start||range.start;
+  const displayEnd=dayCache.range_end||range.end;
+  if(!report){
+    wrap.innerHTML=`
+      <section class="ai-weekly-report-card">
+        <div class="ai-report-header">
+          <div class="ai-report-title-wrap">
+            <div class="ai-report-title">${icon('sparkles')}<span>AI健康周报</span></div>
+            <div class="ai-report-range">${displayStart} 至 ${displayEnd} · 最近7天</div>
+          </div>
+          <button class="ai-regenerate-btn" id="weeklyReportRefreshBtn" type="button" ${loading?'disabled':''}>${loading?'生成中':'生成周报'}</button>
+        </div>
+        <div class="ai-empty">${loading?'AI正在分析过去7天健康数据，请稍候…':'每周第一次打开健康页会自动生成，也可以点击生成。'}</div>
+      </section>`;
+    bindWeeklyReportCard(profile,date);
+    return;
+  }
+  const dims=[
+    ['饮食','diet',report.diet.score],
+    ['运动','exercise',report.exercise.score],
+    ['睡眠','sleep',report.sleep.score],
+    ['饮水','water',report.water.score]
+  ];
+  const weeklyDisplayInput=buildWeeklyReportInput(profile,date);
+  const hasWeeklyLifestyleData=weeklyDisplayInput.daily.some(day=>
+    day.calories>0||day.exercise_count>0||day.sleep_minutes>0||day.water_ml>0
+  );
+  const weeklySummaryText=hasWeeklyLifestyleData
+    ? report.week_summary
+    : '本周记录数据不足，继续完成饮食、运动、睡眠和饮水记录后，可生成更完整的健康分析。';
+  const best=dims.slice().sort((a,b)=>b[2]-a[2])[0]?.[0]||'记录';
+  const weak=dims.slice().sort((a,b)=>a[2]-b[2])[0]?.[0]||'记录';
+  const weakKey=dims.find(d=>d[0]===weak)?.[1]||'diet';
+  const weakSummary=String(report[weakKey]?.summary||'').replace(/\s+/g,' ').trim();
+  const weakReason=weakSummary.split(/[。！？!?]/)[0].trim();
+  const weakReasonShort=weakReason?weakReason.split(/[，,]/)[0].slice(0,14).trim():'需重点关注';
+  const aiAdvice=String(report.next_week_plan[0]||'下周继续保持记录。').replace(/\s+/g,' ').trim();
+  const adviceParts=aiAdvice.split(/[，,。！？!?]/).filter(s=>s.trim());
+  const aiAdviceTitle=adviceParts[0]?adviceParts[0].slice(0,8).trim():aiAdvice.slice(0,8);
+  const aiAdviceDesc=adviceParts[1]?adviceParts[1].slice(0,12).trim():'';
+  const fullReportParts=[];
+  if(report.week_summary) fullReportParts.push(report.week_summary);
+  if(report.body?.summary) fullReportParts.push(`【身体变化】\n${report.body.summary}`);
+  if(report.diet?.summary) fullReportParts.push(`【饮食分析】\n${report.diet.summary}${report.diet.advice?'\n建议：'+report.diet.advice:''}`);
+  if(report.exercise?.summary) fullReportParts.push(`【运动分析】\n${report.exercise.summary}${report.exercise.advice?'\n建议：'+report.exercise.advice:''}`);
+  if(report.sleep?.summary) fullReportParts.push(`【睡眠分析】\n${report.sleep.summary}${report.sleep.advice?'\n建议：'+report.sleep.advice:''}`);
+  if(report.water?.summary) fullReportParts.push(`【饮水分析】\n${report.water.summary}${report.water.advice?'\n建议：'+report.water.advice:''}`);
+  if(report.next_week_plan?.length) fullReportParts.push(`【下周计划】\n${report.next_week_plan.map(p=>'· '+p).join('\n')}`);
+  weeklySummaryDetailState={
+    summary:{title:'AI健康周报 · 完整报告',content:fullReportParts.filter(Boolean).join('\n\n')},
+    weak:{title:`需要改善 · ${weak}`,content:weakSummary||`${weak}需要重点改善。`},
+    advice:{title:'AI建议',content:aiAdvice}
+  };
+  wrap.innerHTML=`
+    <section class="ai-weekly-report-card">
+      <div class="ai-report-header">
+        <div class="ai-report-title-wrap">
+          <div class="ai-report-title">${icon('sparkles')}<span>AI健康周报</span></div>
+          <div class="ai-report-range">${displayStart} 至 ${displayEnd} · 最近7天</div>
+        </div>
+        <button class="ai-regenerate-btn" id="weeklyReportRefreshBtn" type="button" ${loading?'disabled':''}>${loading?'生成中':'重新生成'}</button>
+      </div>
+      <div class="ai-report-main">
+        <div class="ai-score-block">
+          <div class="ai-score-ring">
+            <div class="ai-score-number">${report.health_score}</div>
+            <div class="ai-score-label">本周健康评分</div>
+          </div>
+        </div>
+        <div class="ai-summary-block">
+          <div class="ai-summary-text">${escapeHTML(weeklySummaryText)}</div>
+          <button class="ai-summary-more" type="button" data-weekly-summary="summary">查看更多 ${icon('chevron-right')}</button>
+        </div>
+      </div>
+      <div class="ai-insight-grid">
+        <div class="ai-insight-card">
+          <div class="ai-insight-label">体重变化</div>
+          <div class="ai-insight-value">${escapeHTML(report.body.weight_change)}</div>
+          <div class="ai-insight-desc">较上周</div>
+        </div>
+        <div class="ai-insight-card">
+          <div class="ai-insight-label">最大进步</div>
+          <div class="ai-insight-value">${escapeHTML(best)}</div>
+          <div class="ai-insight-desc">保持良好</div>
+        </div>
+        <div class="ai-insight-card">
+          <div class="ai-insight-label">需要改善</div>
+          <div class="ai-insight-value">${escapeHTML(weak)}</div>
+          <div class="ai-insight-desc">${escapeHTML(weakReasonShort)}</div>
+        </div>
+        <div class="ai-insight-card">
+          <div class="ai-insight-label">AI建议</div>
+          <div class="ai-insight-value">${escapeHTML(aiAdviceTitle)}</div>
+          <div class="ai-insight-desc">${escapeHTML(aiAdviceDesc)}</div>
+        </div>
+      </div>
+      <div class="ai-dimension-bar">
+        <div class="ai-dimension-item ai-diet">${icon('utensils')}<span class="ai-dimension-name">饮食</span><strong class="ai-dimension-score">${report.diet.score}</strong></div>
+        <div class="ai-dimension-item ai-exercise">${icon('activity')}<span class="ai-dimension-name">运动</span><strong class="ai-dimension-score">${report.exercise.score}</strong></div>
+        <div class="ai-dimension-item ai-sleep">${icon('moon')}<span class="ai-dimension-name">睡眠</span><strong class="ai-dimension-score">${report.sleep.score}</strong></div>
+        <div class="ai-dimension-item ai-water">${icon('droplets')}<span class="ai-dimension-name">饮水</span><strong class="ai-dimension-score">${report.water.score}</strong></div>
+      </div>
+    </section>`;
+  bindWeeklyReportCard(profile,date);
+}
+function bindWeeklyReportCard(profile,date=currentViewDate){
+  const btn=document.getElementById('weeklyReportRefreshBtn');
+  if(btn){
+    btn.addEventListener('click',async()=>{
+      btn.disabled=true;
+      btn.textContent='生成中';
+      await generateWeeklyReport(profile,date,{manual:true}).catch(()=>showToast('AI健康周报暂时不可用，已生成本地周报','error'));
+      showToast('AI健康周报已更新','success');
+    });
+  }
+  const wrap=document.getElementById('weeklyReportContent');
+  wrap?.querySelectorAll('.ai-summary-more').forEach(more=>{
+    more.addEventListener('click',()=>openWeeklySummaryDetail(more.dataset.weeklySummary,more));
+  });
+}
+function triggerWeeklyReportAuto(profile,date=currentViewDate){
+  if(!profile||activeAppPage!=='health'||isFutureDate(date)) return;
+  const dayCache=getWeeklyReportDayCache(profile,date);
+  if(dayCache.report) return;
+  generateWeeklyReport(profile,date,{manual:false}).catch(()=>{});
+}
+const AI_HEALTH_PROFILE_MANUAL_COOLDOWN = 24*60*60*1000;
+const AI_HEALTH_PROFILE_STALE_AFTER = 7*24*60*60*1000;
+const aiHealthProfileInFlight = {};
+function getHealthProfileCache(){
+  try{return JSON.parse(localStorage.getItem(AI_HEALTH_PROFILE_CACHE_KEY)||'{}')||{}}
+  catch(e){return {}}
+}
+function saveHealthProfileCache(cache){
+  try{localStorage.setItem(AI_HEALTH_PROFILE_CACHE_KEY,JSON.stringify(cache||{}))}catch(e){}
+}
+function getHealthProfileProfileKey(profile){
+  return getProfileDataId(profile)||profile?.id||'unknown';
+}
+function getHealthProfileCacheItem(profile){
+  const cache=getHealthProfileCache();
+  return cache[getHealthProfileProfileKey(profile)]||{};
+}
+function setHealthProfileCacheItem(profile,entry){
+  const cache=getHealthProfileCache();
+  const pkey=getHealthProfileProfileKey(profile);
+  cache[pkey]=entry;
+  saveHealthProfileCache(cache);
+  return entry;
+}
+function getHealthProfileCooldownText(entry){
+  const last=Number(entry?.generated_time)||0;
+  const remain=AI_HEALTH_PROFILE_MANUAL_COOLDOWN-(Date.now()-last);
+  if(remain<=0) return '';
+  const hours=Math.ceil(remain/(60*60*1000));
+  return hours>=1?`${hours}小时后可重新分析`:`${Math.ceil(remain/60000)}分钟后可重新分析`;
+}
+function getLatestWeeklyReportForProfile(profile){
+  const cache=getWeeklyReportCache();
+  const pkey=getWeeklyReportProfileKey(profile);
+  const entries=Object.values(cache[pkey]||{}).filter(x=>x?.report);
+  entries.sort((a,b)=>(Number(b.generatedAt)||0)-(Number(a.generatedAt)||0));
+  const latest=entries[0];
+  if(!latest) return null;
+  return {
+    range_start:latest.range_start,
+    range_end:latest.range_end,
+    health_score:latest.report.health_score,
+    summary:latest.report.week_summary,
+    weak:[
+      ['饮食',latest.report.diet?.score],
+      ['运动',latest.report.exercise?.score],
+      ['睡眠',latest.report.sleep?.score],
+      ['饮水',latest.report.water?.score]
+    ].filter(x=>Number.isFinite(Number(x[1]))).sort((a,b)=>a[1]-b[1])[0]?.[0]||''
+  };
+}
+function getHealthProfileWeightStats(profile,dates){
+  const records=(profile.weightRecords||[])
+    .filter(r=>dates.includes(getRecordDate(r)))
+    .sort((a,b)=>getRecordTime(a).localeCompare(getRecordTime(b)));
+  const first=records[0]||null;
+  const last=records[records.length-1]||null;
+  const firstBmi=first?.weight&&profile.height?calcBMI(first.weight,profile.height):null;
+  const lastBmi=last?.weight&&profile.height?calcBMI(last.weight,profile.height):null;
+  return {
+    first_weight:first?.weight||null,
+    last_weight:last?.weight||null,
+    latest_weight:last?.weight||getLatestWeight(profile)?.weight||null,
+    weight_change:first&&last?+(last.weight-first.weight).toFixed(1):null,
+    first_bmi:firstBmi?Number(firstBmi):null,
+    last_bmi:lastBmi?Number(lastBmi):null,
+    bmi_change:firstBmi&&lastBmi?+(lastBmi-firstBmi).toFixed(1):null,
+    record_count:records.length
+  };
+}
+function buildHealthProfileInput(profile,date=currentViewDate){
+  const dates=getRecentDateList(30,date);
+  const targets=calcNutrientTargets(profile);
+  const latestWeight=getLatestWeight(profile);
+  const latestBmi=latestWeight?.weight&&profile.height?calcBMI(latestWeight.weight,profile.height):null;
+  const goalContext=getGoalAIContext(profile);
+  const dailyCache=getDailyTasksCache();
+  const pkey=getDailyTasksProfileKey(profile);
+  const foodNames=[];
+  const exerciseTypes=[];
+  const incompleteTaskTitles={};
+  let dataDays=0,foodDays=0,exerciseDays=0,sleepDays=0,waterDays=0,weightDays=0;
+  let totalCalories=0,totalProtein=0,totalCarbs=0,totalFat=0,waterTotal=0,waterTargetDays=0;
+  let exerciseCount=0,exerciseMinutes=0,exerciseCalories=0,sleepTotal=0,sleepMin=null,sleepMax=0;
+  let aiTasks=0,aiTasksDone=0;
+  const daily=dates.map(d=>{
+    const snap=getHealthSnapshot(profile,d);
+    const hasAny=snap.hasFood||snap.hasExercise||snap.hasSleep||snap.hasWater||snap.daily.weight.length>0;
+    if(hasAny) dataDays++;
+    if(snap.hasFood) foodDays++;
+    if(snap.hasExercise) exerciseDays++;
+    if(snap.hasSleep) sleepDays++;
+    if(snap.hasWater) waterDays++;
+    if(snap.daily.weight.length) weightDays++;
+    totalCalories+=snap.intakeCalories;
+    totalProtein+=snap.intake.protein||0;
+    totalCarbs+=snap.intake.carbs||0;
+    totalFat+=snap.intake.fat||0;
+    waterTotal+=snap.waterTotal;
+    if(snap.waterGoal&&snap.waterTotal>=snap.waterGoal) waterTargetDays++;
+    exerciseCount+=snap.daily.exercise.length;
+    exerciseMinutes+=snap.exerciseMinutes;
+    exerciseCalories+=snap.recordedExerciseCalories;
+    if(snap.sleepMinutes>0){
+      sleepTotal+=snap.sleepMinutes;
+      sleepMin=sleepMin===null?snap.sleepMinutes:Math.min(sleepMin,snap.sleepMinutes);
+      sleepMax=Math.max(sleepMax,snap.sleepMinutes);
+    }
+    (snap.daily.food||[]).forEach(r=>(r.foods||[]).forEach(f=>foodNames.push(String(f.name||''))));
+    (snap.daily.exercise||[]).forEach(e=>exerciseTypes.push(String(e.name||e.detail||'运动')));
+    const dayTasks=dailyCache[pkey]?.[d]?.tasks||[];
+    aiTasks+=dayTasks.length;
+    aiTasksDone+=dayTasks.filter(t=>t.completed).length;
+    dayTasks.filter(t=>!t.completed).forEach(t=>{
+      const title=String(t.title||t.type||'未完成任务');
+      incompleteTaskTitles[title]=(incompleteTaskTitles[title]||0)+1;
+    });
+    return {
+      date:d,
+      has_data:hasAny,
+      calories:snap.intakeCalories,
+      protein_g:Math.round(snap.intake.protein||0),
+      exercise_minutes:Math.round(snap.exerciseMinutes),
+      sleep_minutes:snap.sleepMinutes,
+      water_ml:snap.waterTotal,
+      score:snap.healthScore?.score
+    };
+  });
+  const highOilSugarCount=foodNames.filter(name=>/炸|煎|油|烧烤|奶茶|蛋糕|甜|糖|薯片|辣条|可乐|饮料|炸鸡|汉堡/.test(name)).length;
+  const exerciseTypeCount=exerciseTypes.reduce((map,name)=>{
+    const key=name||'运动';
+    map[key]=(map[key]||0)+1;
+    return map;
+  },{});
+  const commonIncomplete=Object.entries(incompleteTaskTitles).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([title,count])=>({title,count}));
+  const dataCompleteness=clampPercent(dataDays/30*100);
+  return {
+    range:{start:dates[0],end:dates[dates.length-1],days:30},
+    data_completeness:dataCompleteness,
+    health_goal:goalContext,
+    profile:{
+      age:calcAge(profile.birthDate)||null,
+      gender:profile.gender||'',
+      height:profile.height||null,
+      weight:latestWeight?.weight||null,
+      bmi:latestBmi?Number(latestBmi):null,
+      goal:profile.goal||'',
+      goalWeight:profile.goalWeight||null,
+      activityLevel:profile.activityLevel||''
+    },
+    body:getHealthProfileWeightStats(profile,dates),
+    diet:{
+      recorded_days:foodDays,
+      avg_calories:Math.round(totalCalories/30),
+      avg_protein_g:Math.round(totalProtein/30),
+      avg_carbs_g:Math.round(totalCarbs/30),
+      avg_fat_g:Math.round(totalFat/30),
+      target_calories:targets?.calories||null,
+      regularity_pct:clampPercent(foodDays/30*100),
+      high_oil_sugar_mentions:highOilSugarCount,
+      common_foods:foodNames.filter(Boolean).slice(-20)
+    },
+    exercise:{
+      recorded_days:exerciseDays,
+      count:exerciseCount,
+      total_minutes:Math.round(exerciseMinutes),
+      total_calories:Math.round(exerciseCalories),
+      frequency_per_week:Math.round(exerciseDays/30*7*10)/10,
+      types:Object.entries(exerciseTypeCount).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([name,count])=>({name,count}))
+    },
+    sleep:{
+      recorded_days:sleepDays,
+      avg_minutes:sleepDays?Math.round(sleepTotal/sleepDays):0,
+      min_minutes:sleepMin||0,
+      max_minutes:sleepMax,
+      variability_minutes:sleepMin?Math.round(sleepMax-sleepMin):0,
+      regularity_pct:clampPercent(sleepDays/30*100)
+    },
+    water:{
+      recorded_days:waterDays,
+      avg_ml:Math.round(waterTotal/30),
+      target_days:waterTargetDays,
+      target_ratio:clampPercent(waterTargetDays/30*100)
+    },
+    ai_daily_plan:{
+      generated_tasks:aiTasks,
+      completed_tasks:aiTasksDone,
+      completion_rate:aiTasks?clampPercent(aiTasksDone/aiTasks*100):0,
+      common_incomplete_tasks:commonIncomplete
+    },
+    weekly_report:getLatestWeeklyReportForProfile(profile),
+    daily
+  };
+}
+function buildFallbackHealthProfile(input){
+  const goal=input.health_goal||{};
+  const weak=[
+    {k:'饮食',v:input.diet.regularity_pct},
+    {k:'运动',v:clampPercent(input.exercise.frequency_per_week/3*100)},
+    {k:'睡眠',v:clampPercent(input.sleep.avg_minutes/420*100)},
+    {k:'饮水',v:input.water.target_ratio}
+  ].sort((a,b)=>a.v-b.v)[0]?.k||'记录';
+  const type=goal.title?`${goal.title}型`:(input.profile.goal?.includes('增肌')?'增肌提升型':input.profile.goal?.includes('减')?'减脂改善型':weak==='睡眠'?'睡眠优化型':weak==='运动'?'久坐改善型':weak==='饮食'?'饮食调整型':'健康保持型');
+  const strengths=[];
+  if(input.water.target_ratio>=60) strengths.push('饮水达标情况相对稳定');
+  if(input.exercise.frequency_per_week>=2) strengths.push('已有一定运动习惯');
+  if(input.diet.regularity_pct>=60) strengths.push('饮食记录较规律');
+  if(input.sleep.avg_minutes>=420) strengths.push('平均睡眠时长较充足');
+  if(!strengths.length) strengths.push('已经开始积累健康数据，这是改善的第一步');
+  return {
+    profile_type:type,
+    profile_title:type,
+    health_summary:`最近30天数据完整度 ${input.data_completeness}%。你的长期画像目前更接近「${type}」，目标匹配度约 ${goal.progress_pct??0}%，主要改善方向是${weak}。继续记录后画像会更准确。`,
+    strengths:strengths.slice(0,4),
+    improvements:[{title:`优先改善${weak}`,reason:`最近30天${weak}相关数据低于其他项目，适合作为下月重点。`,priority:'high'}],
+    habits:[
+      {name:'饮食规律',level:input.diet.regularity_pct>=70?'good':input.diet.regularity_pct>=40?'normal':'poor'},
+      {name:'运动习惯',level:input.exercise.frequency_per_week>=3?'good':input.exercise.frequency_per_week>=1?'normal':'poor'},
+      {name:'睡眠稳定',level:input.sleep.avg_minutes>=420&&input.sleep.variability_minutes<=120?'good':input.sleep.avg_minutes>=360?'normal':'poor'},
+      {name:'饮水达标',level:input.water.target_ratio>=70?'good':input.water.target_ratio>=35?'normal':'poor'}
+    ],
+    long_term_goal:`未来30天围绕「${goal.title||'健康目标'}」优先提升${weak}，同时保持已有记录习惯。`,
+    next_month_focus:[`围绕「${goal.title||'健康目标'}」改善${weak}`,`关注目标策略：${(goal.focus||[]).slice(0,2).join('、')||'保持稳定记录'}`,'每周查看一次AI健康周报趋势','继续记录饮食、运动、睡眠和饮水，提高画像可信度'],
+    confidence:Math.max(20,input.data_completeness),
+    goal_match_pct:clampPercent(Number(goal.progress_pct)||0)
+  };
+}
+function normalizeHealthProfile(raw,input){
+  const obj=raw&&typeof raw==='object'?raw:{};
+  const fallback=buildFallbackHealthProfile(input);
+  const normalizeList=(list,fb,max=4)=>((Array.isArray(list)?list:fb)||[]).slice(0,max).map(x=>String(x).slice(0,80)).filter(Boolean);
+  const improvements=(Array.isArray(obj.improvements)?obj.improvements:fallback.improvements).slice(0,4).map(item=>({
+    title:String(item?.title||'改善方向').slice(0,30),
+    reason:String(item?.reason||'根据长期数据推荐').slice(0,120),
+    priority:['high','medium','low'].includes(item?.priority)?item.priority:'medium'
+  }));
+  const habits=(Array.isArray(obj.habits)?obj.habits:fallback.habits).slice(0,6).map(item=>({
+    name:String(item?.name||'健康习惯').slice(0,24),
+    level:['good','normal','poor'].includes(item?.level)?item.level:'normal'
+  }));
+  return {
+    profile_type:String(obj.profile_type||fallback.profile_type).slice(0,24),
+    profile_title:String(obj.profile_title||obj.profile_type||fallback.profile_title).slice(0,36),
+    health_summary:String(obj.health_summary||fallback.health_summary).slice(0,220),
+    strengths:normalizeList(obj.strengths,fallback.strengths,4),
+    improvements,
+    habits,
+    long_term_goal:String(obj.long_term_goal||fallback.long_term_goal).slice(0,140),
+    next_month_focus:normalizeList(obj.next_month_focus,fallback.next_month_focus,5),
+    confidence:clampPercent(Number(obj.confidence??fallback.confidence)),
+    goal_match_pct:clampPercent(Number(obj.goal_match_pct??fallback.goal_match_pct))
+  };
+}
+function getHealthProfileSourceSignature(profile,date=currentViewDate){
+  const goal=getHealthGoal(profile);
+  const latest=getLatestWeight(profile);
+  return [
+    getProfileDataId(profile),
+    date,
+    goal.type,
+    goal.target_weight||'',
+    goal.target_date||'',
+    goal.strategy?.daily_calories||'',
+    goal.strategy?.protein_target||'',
+    latest?.weight||''
+  ].join('|');
+}
+async function callHealthProfileAI(profile,date=currentViewDate){
+  const input=buildHealthProfileInput(profile,date);
+  const aiCfg=getAIConfig();
+  if(!aiCfg.apiKey||!aiCfg.modelId) return {content:normalizeHealthProfile(null,input),input};
+  const prompt=`你是健康App里的AI个人健康画像分析师。请基于最近30天长期健康数据和health_goal，为用户生成动态个人健康画像。要求：1. 不是单日总结，要发现长期规律，例如工作日睡眠不足、运动类型单一、饮食记录不规律、饮水稳定等。2. 必须输出goal_match_pct，表示当前行为与目标的匹配度或完成度，减脂/增肌要结合目标进度、饮食蛋白和运动，睡眠目标要重点看睡眠时长与规律。3. 数据不足时必须说明可信度较低，并给出继续记录建议。4. profile_type由你根据数据和目标自动判断，不限于健康保持型、减脂改善型、增肌提升型、久坐改善型、睡眠优化型、饮食调整型。5. 改善方向必须有原因和优先级。6. 只返回严格JSON，不要Markdown，不要解释。JSON格式：{"profile_type":"","profile_title":"","health_summary":"","strengths":[""],"improvements":[{"title":"","reason":"","priority":"high"}],"habits":[{"name":"","level":"good"}],"long_term_goal":"","next_month_focus":[""],"confidence":0,"goal_match_pct":0}。输入数据：${JSON.stringify(input)}`;
+  const response=await fetch(getApiUrl('/api/health-profile'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data?.error||data?.message||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
+  return {content:normalizeHealthProfile(extractJSONFromAIText(text),input),input};
+}
+async function generateHealthProfile(profile,date=currentViewDate,{manual=false}={}){
+  if(!profile) return null;
+  const pkey=getHealthProfileProfileKey(profile);
+  const entry=getHealthProfileCacheItem(profile);
+  const signature=getHealthProfileSourceSignature(profile,date);
+  if(manual){
+    const cooldown=getHealthProfileCooldownText(entry);
+    if(cooldown){showToast(`请稍后再重新分析，${cooldown}`,'error');return entry}
+  }else if(entry?.content&&entry.source_signature===signature){
+    return entry;
+  }
+  if(aiHealthProfileInFlight[pkey]) return aiHealthProfileInFlight[pkey];
+  aiHealthProfileInFlight[pkey]=(async()=>{
+    let result;
+    try{
+      result=await callHealthProfileAI(profile,date);
+    }catch(err){
+      console.warn('AI健康画像调用失败，使用本地兜底画像：',err);
+      const input=buildHealthProfileInput(profile,date);
+      result={content:normalizeHealthProfile(null,input),input};
+    }
+    const range=result.input.range;
+    const saved=setHealthProfileCacheItem(profile,{
+      profile_id:getProfileDataId(profile),
+      generated_time:Date.now(),
+      data_range:`${range.start}_${range.end}`,
+      profile:result.content.profile_type,
+      confidence:result.content.confidence,
+      content:result.content,
+      data_completeness:result.input.data_completeness,
+      source_signature:signature,
+      updatedAt:Date.now()
+    });
+    return saved;
+  })().finally(()=>{
+    delete aiHealthProfileInFlight[pkey];
+    renderHealthProfileCard(profile,date);
+  });
+  setTimeout(()=>renderHealthProfileCard(profile,date),0);
+  return aiHealthProfileInFlight[pkey];
+}
+function renderHealthProfileCard(profile,date=currentViewDate){
+  const wrap=document.getElementById('healthProfileContent');
+  if(!wrap||!profile) return;
+  const pkey=getHealthProfileProfileKey(profile);
+  const loading=!!aiHealthProfileInFlight[pkey];
+  const entry=getHealthProfileCacheItem(profile);
+  const content=entry.content;
+  const cooldown=getHealthProfileCooldownText(entry);
+  const stale=entry.generated_time&&(Date.now()-Number(entry.generated_time)>AI_HEALTH_PROFILE_STALE_AFTER);
+  if(!content){
+    wrap.innerHTML=`
+      <div class="health-profile-head">
+        <div><div class="health-profile-title">${icon('dna')} 我的健康画像</div><div class="health-profile-sub">最近30天 · 长期健康状态</div></div>
+        <button class="health-profile-refresh" id="healthProfileRefreshBtn" type="button" ${loading?'disabled':''}>${loading?'生成中':'生成画像'}</button>
+      </div>
+      <div class="health-profile-empty">${loading?'AI正在分析长期健康数据，请稍候…':'首次进入会自动生成；数据不足时也会给出低可信度画像。'}</div>`;
+    bindHealthProfileCard(profile,date);
+    return;
+  }
+  const levelLabel={good:'良好',normal:'一般',poor:'待改善'};
+  const summaryText=String(content.health_summary||'').slice(0,96);
+  wrap.innerHTML=`
+    <div class="health-profile-head">
+      <div><div class="health-profile-title">${icon('dna')} 我的健康画像</div><div class="health-profile-sub">最近30天 · ${entry.data_range||'长期健康状态'}${stale?' · 建议更新':''}</div></div>
+      <button class="health-profile-refresh" id="healthProfileRefreshBtn" type="button" ${loading||!!cooldown?'disabled':''}>${loading?'生成中':(cooldown||'重新分析')}</button>
+    </div>
+    <div class="health-profile-hero">
+      <div class="health-profile-type">${escapeHTML(content.profile_type)}</div>
+      <div class="health-profile-label">${escapeHTML(content.profile_title)}</div>
+      <div class="health-profile-summary">${escapeHTML(summaryText)}${content.health_summary&&content.health_summary.length>96?'…':''}</div>
+    </div>
+    <div class="health-profile-meta">
+      <div class="health-profile-meta-item"><b>${entry.data_completeness??content.confidence}%</b><span>数据完整度</span></div>
+      <div class="health-profile-meta-item"><b>${content.confidence}%</b><span>数据可信度</span></div>
+      <div class="health-profile-meta-item"><b>${content.goal_match_pct??getGoalMatchScore(profile)}%</b><span>目标匹配度</span></div>
+    </div>
+    <details class="health-profile-full-details">
+      <summary>查看完整画像 ›</summary>
+      <div class="health-profile-section">
+        <div class="health-profile-section-title">健康优势</div>
+        <div class="health-profile-list">${(content.strengths||[]).map(x=>`<div class="health-profile-chip good">✓ ${escapeHTML(x)}</div>`).join('')}</div>
+      </div>
+      <div class="health-profile-section">
+        <div class="health-profile-section-title">改善方向</div>
+        <div class="health-profile-list">${(content.improvements||[]).map(x=>`<div class="health-profile-chip warn">⚠ ${escapeHTML(x.title)}：${escapeHTML(x.reason)}</div>`).join('')}</div>
+      </div>
+      <div class="health-profile-section">
+        <div class="health-profile-section-title">习惯特征</div>
+        <div class="health-profile-habit-grid">${(content.habits||[]).map(x=>`<div class="health-profile-habit"><b>${escapeHTML(x.name)}</b>${escapeHTML(levelLabel[x.level]||x.level)}</div>`).join('')}</div>
+      </div>
+      <div class="health-profile-section">
+        <div class="health-profile-section-title">未来30天</div>
+        <div class="health-profile-list">
+          <div class="health-profile-chip">${escapeHTML(content.long_term_goal)}</div>
+          ${(content.next_month_focus||[]).map(x=>`<div class="health-profile-chip">${escapeHTML(x)}</div>`).join('')}
+        </div>
+      </div>
+    </details>`;
+  bindHealthProfileCard(profile,date);
+}
+function bindHealthProfileCard(profile,date=currentViewDate){
+  const btn=document.getElementById('healthProfileRefreshBtn');
+  if(!btn) return;
+  btn.addEventListener('click',async()=>{
+    btn.disabled=true;
+    btn.textContent='生成中';
+    await generateHealthProfile(profile,date,{manual:true}).catch(()=>showToast('AI健康画像暂时不可用，已生成本地画像','error'));
+    showToast('AI健康画像已更新','success');
+  });
+}
+function triggerHealthProfileAuto(profile,date=currentViewDate){
+  if(!profile||activeAppPage!=='health'||isFutureDate(date)) return;
+  const entry=getHealthProfileCacheItem(profile);
+  if(entry?.content) return;
+  generateHealthProfile(profile,date,{manual:false}).catch(()=>{});
+}
+function renderCoupleHealthSection(activeSnap){
+  const me=getDeviceOwnerProfile();
+  const other=getPartnerProfile();
+  if(!me||!other||activeSnap?.profile?.id!==me.id) return '';
+  const otherSnap=getHealthScoreData(other,currentViewDate);
+  const meHasScore=activeSnap.healthScore?.score!==null&&activeSnap.healthScore?.score!==undefined;
+  const otherHasScore=otherSnap.healthScore?.score!==null&&otherSnap.healthScore?.score!==undefined;
+  const meScoreDisplay=meHasScore?activeSnap.score:'--';
+  const otherScoreDisplay=otherHasScore?otherSnap.score:'--';
+  const validScores=[meHasScore?activeSnap.score:null,otherHasScore?otherSnap.score:null].filter(s=>s!==null);
+  const bothScore=validScores.length?Math.round(validScores.reduce((a,b)=>a+b,0)/validScores.length):0;
+  let note='你们的数据会按当前选择分别展示，不会混合。';
+  if((activeSnap.hasFood||activeSnap.hasExercise||activeSnap.hasSleep||activeSnap.hasWater)&&(otherSnap.hasFood||otherSnap.hasExercise||otherSnap.hasSleep||otherSnap.hasWater)){
+    note=`今天你们一起完成了约 ${bothScore}% 的健康目标，继续互相提醒就很好。`;
+  }else if(activeSnap.hasWater||otherSnap.hasWater){
+    note='今天已有饮水记录，可以轻松提醒对方也补一杯水。';
+  }else if(activeSnap.hasExercise||otherSnap.hasExercise){
+    note='今天已有运动记录，适合互相鼓励保持活动。';
+  }
+  return `
+    <details class="tho-v2-section">
+      <summary>
+        <span class="tho-v2-title">${icon('users')} 我们的健康状态</span>
+        <span class="tho-v2-mini">陪伴式对比 <span class="tho-v2-arrow">▼</span></span>
+      </summary>
+      <div class="tho-v2-body">
+        <div class="tho-couple-score">
+          <div class="tho-couple-item"><div class="name">${escapeHTML(getDisplayName(me))}</div><div class="score">${meScoreDisplay}</div><div class="tho-trend-note">今日健康分</div></div>
+          <div class="tho-couple-item"><div class="name">${escapeHTML(getDisplayName(other))}</div><div class="score">${otherScoreDisplay}</div><div class="tho-trend-note">今日健康分</div></div>
+        </div>
+        <div class="tho-couple-note">${escapeHTML(note)}</div>
+      </div>
+    </details>`;
+}
+function renderTodayHealthV2Sections(profile,snap){
+  return `
+    <div class="tho-v2-stack">
+      ${renderHealthTrendSection(profile)}
+    </div>`;
+}
 function buildTodayReminders(snap){
   const reminders=[];
   // Water
@@ -4041,6 +4187,796 @@ function buildTodayReminders(snap){
     return [{icon:'✨',text:'今天状态很好，继续保持',type:'good'}];
   }
   return reminders.slice(0,4);
+}
+const AI_HEALTH_COACH_MANUAL_COOLDOWN = 30*60*1000;
+const aiHealthCoachInFlight = {};
+function getHealthCoachCache(){
+  try{return JSON.parse(localStorage.getItem(AI_HEALTH_COACH_CACHE_KEY)||'{}')||{}}
+  catch(e){return {}}
+}
+function saveHealthCoachCache(cache){
+  try{localStorage.setItem(AI_HEALTH_COACH_CACHE_KEY,JSON.stringify(cache||{}))}catch(e){}
+}
+function getHealthCoachProfileKey(profile){
+  return getProfileDataId(profile)||profile?.id||'unknown';
+}
+function getHealthCoachDayCache(profile,date=currentViewDate){
+  const cache=getHealthCoachCache();
+  const pkey=getHealthCoachProfileKey(profile);
+  return cache[pkey]?.[date]||{};
+}
+function setHealthCoachDayCache(profile,date,patch){
+  const cache=getHealthCoachCache();
+  const pkey=getHealthCoachProfileKey(profile);
+  cache[pkey]=cache[pkey]||{};
+  cache[pkey][date]={...(cache[pkey][date]||{}),...patch,updatedAt:Date.now()};
+  saveHealthCoachCache(cache);
+  return cache[pkey][date];
+}
+// Mark day cache stale after health data changes; keep existing slot advice as history.
+function invalidateHealthCoachDayCache(profile,date=currentViewDate){
+  if(!profile) return;
+  setHealthCoachDayCache(profile,date,{needsRefresh:true});
+}
+// Invalidate the entire profile's health coach cache (all dates).
+// Called when profile fundamentals change (height, gender, birthDate, activityLevel, weight, goal).
+// Only affects the given profile; other profiles keep their cached advice.
+function invalidateHealthCoachProfile(profile){
+  if(!profile) return;
+  const cache=getHealthCoachCache();
+  const pkey=getHealthCoachProfileKey(profile);
+  if(cache[pkey]){
+    delete cache[pkey];
+    saveHealthCoachCache(cache);
+  }
+}
+function getHealthCoachSlotLabel(slot){
+  return {morning:'今日计划',noon:'午间调整',evening:'晚间建议',manual:'手动分析'}[slot]||'AI建议';
+}
+function getLatestHealthCoachAdvice(dayCache){
+  const items=[
+    ['manual',dayCache.manualAdvice,dayCache.manualRefreshTime||0],
+    ['evening',dayCache.eveningAdvice,dayCache.eveningAdvice?.generatedAt||0],
+    ['noon',dayCache.noonAdvice,dayCache.noonAdvice?.generatedAt||0],
+    ['morning',dayCache.morningAdvice,dayCache.morningAdvice?.generatedAt||0]
+  ].filter(x=>x[1]);
+  if(!items.length) return null;
+  items.sort((a,b)=>(b[2]||0)-(a[2]||0));
+  return {slot:items[0][0],advice:items[0][1]};
+}
+function getHealthCoachCurrentSlot(hour=new Date().getHours()){
+  if(hour<11) return 'morning';
+  if(hour<18) return 'noon';
+  return 'evening';
+}
+function getHealthCoachDueSlots(profile,date=currentViewDate){
+  if(date!==todayStr()) return [];
+  const dayCache=getHealthCoachDayCache(profile,date);
+  const slot=getHealthCoachCurrentSlot();
+  if(dayCache[`${slot}Advice`]) return [];
+  return [slot];
+}
+function getFoodSummaryForDate(profile,date,mealFilter=null,beforeHour=null){
+  const daily=getDailyRecord(profile,date);
+  const records=(daily.food||[]).filter(r=>{
+    const mealOk=!mealFilter||r.meal===mealFilter;
+    const time=normalizeDateTime(r.dateTime||`${date}T12:00`).slice(11,13);
+    const hourOk=beforeHour===null||Number(time)<beforeHour;
+    return mealOk&&hourOk;
+  });
+  let calories=0,protein=0,carbs=0,fat=0;
+  records.forEach(r=>(r.foods||[]).forEach(f=>{
+    const n=getFoodActualNutrition(f);
+    calories+=n.calories;
+    protein+=n.protein;
+    carbs+=n.carbs;
+    fat+=n.fat;
+  }));
+  return {count:records.length,calories:Math.round(calories),protein:Math.round(protein),carbs:Math.round(carbs),fat:Math.round(fat)};
+}
+function getWaterTotalForDateBefore(profile,date,beforeHour=null){
+  return getDailyRecord(profile,date).water.filter(r=>{
+    if(beforeHour===null) return true;
+    return Number(normalizeDateTime(r.dateTime||`${date}T12:00`).slice(11,13))<beforeHour;
+  }).reduce((sum,r)=>sum+(Number(r.amount)||0),0);
+}
+function getExerciseSummaryForDateBefore(profile,date,beforeHour=null){
+  const records=getDailyRecord(profile,date).exercise.filter(r=>{
+    if(beforeHour===null) return true;
+    return Number(normalizeDateTime(r.dateTime||`${date}T12:00`).slice(11,13))<beforeHour;
+  });
+  return {
+    count:records.length,
+    calories:Math.round(records.reduce((sum,r)=>sum+(Number(r.calories)||0),0)),
+    minutes:Math.round(records.reduce((sum,r)=>{
+      const explicit=Number(r.duration);
+      if(Number.isFinite(explicit)&&explicit>0) return sum+explicit;
+      const match=String(r.detail||'').match(/(\d+(?:\.\d+)?)\s*分/);
+      return sum+(match?Number(match[1]):0);
+    },0))
+  };
+}
+function buildHealthCoachInput(profile,date,slot){
+  const todaySnap=getHealthScoreData(profile,date);
+  const yesterday=addDays(date,-1);
+  const yesterdaySnap=getHealthScoreData(profile,yesterday);
+  const targets=calcNutrientTargets(profile);
+  const calStatus=getDailyCalorieStatus(profile,date);
+  return {
+    slot,
+    date,
+    health_goal:getGoalAIContext(profile),
+    profile:{
+      profile_id:getProfileDataId(profile),
+      display_name:getDisplayName(profile),
+      gender:profile.gender||'',
+      birthDate:profile.birthDate||'',
+      height:profile.height||null,
+      activityLevel:profile.activityLevel||'',
+      goal:profile.goal||'',
+      goalWeight:profile.goalWeight||null,
+      latestWeight:todaySnap.latestWeight?.weight||null
+    },
+    targets:{
+      calories:todaySnap.targetCals||null,
+      base_calories:targets?.calories||null,
+      water_ml:todaySnap.waterGoal,
+      exercise_minutes:todaySnap.exerciseTarget,
+      sleep_minutes:todaySnap.sleepTarget
+    },
+    yesterday:{
+      sleep_minutes:yesterdaySnap.sleepMinutes,
+      intake_calories:yesterdaySnap.intakeCalories,
+      water_ml:yesterdaySnap.waterTotal,
+      exercise_minutes:yesterdaySnap.exerciseMinutes
+    },
+    today:{
+      health_score:todaySnap.healthScore?.score,
+      health_status:todaySnap.healthScore?.status,
+      data_coverage:todaySnap.healthScore?.dataCoverage,
+      intake_calories:todaySnap.intakeCalories,
+      diet_pct:todaySnap.targetCals>0?todaySnap.dietPct:null,
+      water_ml:todaySnap.waterTotal,
+      water_pct:todaySnap.waterPct,
+      exercise_minutes:todaySnap.exerciseMinutes,
+      exercise_calories:todaySnap.recordedExerciseCalories,
+      exercise_calories_counted_in_budget:todaySnap.exerciseCalories,
+      exercise_pct:todaySnap.exercisePct,
+      sleep_minutes:todaySnap.sleepMinutes,
+      sleep_pct:todaySnap.sleepPct,
+      breakfast:getFoodSummaryForDate(profile,date,'breakfast',11),
+      morning_water_ml:getWaterTotalForDateBefore(profile,date,11),
+      morning_exercise:getExerciseSummaryForDateBefore(profile,date,11),
+      all_day_food:getFoodSummaryForDate(profile,date),
+      all_day_water_ml:getWaterTotalForDateBefore(profile,date),
+      all_day_exercise:getExerciseSummaryForDateBefore(profile,date)
+    },
+    // Pre-calculated calorie metrics – AI must NOT recalculate these.
+    calorie_status:{
+      base_calorie_target:calStatus.baseCalorieTarget,
+      recorded_exercise_calories:calStatus.recordedExerciseCalories,
+      exercise_calories:calStatus.exerciseCalories,
+      dynamic_calorie_target:calStatus.dynamicCalorieTarget,
+      calories_consumed:calStatus.caloriesConsumed,
+      net_calories:calStatus.netCalories,
+      remaining_calories:calStatus.remainingCalories,
+      calorie_balance:calStatus.calorieBalance,
+      intake_kcal:calStatus.intakeKcal,
+      intake_target_kcal:calStatus.intakeTargetKcal,
+      intake_remaining_kcal:calStatus.intakeRemainingKcal,
+      intake_over_target_kcal:calStatus.intakeOverTargetKcal,
+      maintenance_kcal:calStatus.maintenanceKcal,
+      energy_deficit_kcal:calStatus.energyDeficitKcal,
+      energy_surplus_kcal:calStatus.energySurplusKcal,
+      recommended_deficit_min:calStatus.recommendedDeficitMin,
+      recommended_deficit_max:calStatus.recommendedDeficitMax,
+      goal_type:calStatus.goalType
+    }
+  };
+}
+function normalizeHealthCoachAdvice(raw,snap,slot='morning',calStatus=null){
+  const fallback=buildFallbackHealthCoachAdvice(snap,slot);
+  const obj=raw&&typeof raw==='object'?raw:{};
+  const actionPlan=Array.isArray(obj.action_plan)?obj.action_plan:fallback.action_plan;
+  // summary: prefer deterministic calorie summary when available.
+  // This prevents AI from inventing conflicting calorie numbers (e.g. "热量超支477kcal").
+  const detSummary=calStatus?buildDeterministicCalorieSummary(calStatus):null;
+  return {
+    // Health Engine: always use unified score, never let AI override
+    health_score:snap.healthScore?.score,
+    summary:String(detSummary||obj.summary||fallback.summary).slice(0,80),
+    diet_advice:String(obj.diet_advice||fallback.diet_advice).slice(0,160),
+    exercise_advice:String(obj.exercise_advice||fallback.exercise_advice).slice(0,160),
+    water_advice:String(obj.water_advice||fallback.water_advice).slice(0,160),
+    sleep_advice:String(obj.sleep_advice||fallback.sleep_advice).slice(0,160),
+    action_plan:actionPlan.slice(0,4).map(item=>{
+      if(typeof item==='string') return {task:item,done:false};
+      return {task:String(item.task||item.title||'健康行动'),done:!!(item.done||item.completed),type:item.type||''};
+    }),
+    generatedAt:Date.now(),
+    slot
+  };
+}
+function buildFallbackHealthCoachAdvice(snap,slot='morning'){
+  const waterNeed=Math.max(0,(snap.waterGoal||0)-snap.waterTotal);
+  const goalType=snap.healthGoal?.type||'maintain';
+  const hasTdee=snap.targetCals>0;
+  const action=[];
+  if(waterNeed>0) action.push({task:`补充饮水 ${Math.min(500,waterNeed)} ml`,done:false,type:'water'});
+  if(snap.exerciseMinutes<(snap.exerciseTarget||30)) action.push({task:goalType==='muscle_gain'?`力量或抗阻训练 ${Math.max(10,(snap.exerciseTarget||30)-snap.exerciseMinutes)} 分钟`:`散步或拉伸 ${Math.max(10,(snap.exerciseTarget||30)-snap.exerciseMinutes)} 分钟`,done:false,type:'exercise'});
+  if(!snap.hasFood||(hasTdee&&snap.dietPct<60)) action.push({task:goalType==='fat_loss'||goalType==='muscle_gain'?'下一餐优先补足优质蛋白':'下一餐增加优质蛋白和蔬菜',done:false,type:'diet'});
+  if(snap.sleepMinutes>0&&snap.sleepMinutes<(snap.sleepTarget||420)) action.push({task:'今晚尽量提前入睡30分钟',done:false,type:'sleep'});
+  if(!action.length) action.push({task:'保持当前节奏，晚间复盘一次',done:false,type:'habit'});
+  const dietAdvice=snap.hasFood
+    ?(hasTdee
+      ?`今日已摄入 ${snap.intakeCalories} kcal，蛋白质约 ${Math.round(snap.intake.protein||0)}g，对照目标 ${Math.round(snap.targets?.protein||0)}g 调整。`
+      :`今日已摄入 ${snap.intakeCalories} kcal，蛋白质约 ${Math.round(snap.intake.protein||0)}g。如需精确热量和营养目标，请在 设置 → 个人资料 中补全资料。`)
+    :'今天还没有饮食记录，建议先补充一餐并记录。';
+  return {
+    health_score:snap.healthScore?.score,
+    summary:slot==='morning'?`今天围绕「${snap.healthGoal?.title||'健康目标'}」完成关键记录。`:`根据当前数据，优先补齐最影响「${snap.healthGoal?.title||'健康目标'}」的短板。`,
+    diet_advice:dietAdvice,
+    exercise_advice:snap.exerciseMinutes>=(snap.exerciseTarget||30)?'运动目标已完成，可以做轻量拉伸收尾。':(goalType==='muscle_gain'?'建议优先安排力量训练或抗阻动作。':'建议安排10-30分钟散步或拉伸，避免久坐。'),
+    water_advice:waterNeed>0?`距离饮水目标还差约 ${waterNeed} ml，建议分次小口补充。`:'饮水目标完成得不错，继续保持。',
+    sleep_advice:snap.sleepMinutes>=(snap.sleepTarget||420)?'睡眠时长达标，继续保持规律作息。':`今晚尽量接近 ${formatShortSleep(snap.sleepTarget||420)}，减少熬夜。`,
+    action_plan:action.slice(0,4)
+  };
+}
+function extractJSONFromAIText(text){
+  const raw=String(text||'').trim();
+  try{return JSON.parse(raw)}catch(e){}
+  const match=raw.match(/\{[\s\S]*\}/);
+  if(match){
+    try{return JSON.parse(match[0])}catch(e){}
+  }
+  return null;
+}
+async function callHealthCoachAI(profile,date,slot){
+  const snap=getHealthScoreData(profile,date);
+  const calStatus=getDailyCalorieStatus(profile,date);
+  const aiCfg=getAIConfig();
+  if(!aiCfg.apiKey||!aiCfg.modelId) return normalizeHealthCoachAdvice(null,snap,slot,calStatus);
+  const input=buildHealthCoachInput(profile,date,slot);
+  const csInput=input.calorie_status;
+  const calStatusText=[
+    `基础热量目标：${csInput.base_calorie_target} kcal`,
+    `运动记录消耗：${csInput.recorded_exercise_calories} kcal`,
+    `计入动态预算的额外运动：${csInput.exercise_calories} kcal`,
+    `动态热量目标：${csInput.dynamic_calorie_target} kcal`,
+    `今日摄入：${csInput.calories_consumed} kcal`,
+    `净摄入：${csInput.net_calories} kcal`,
+    csInput.calorie_balance>0
+      ? `超出动态目标：${csInput.calorie_balance} kcal`
+      : `今日还可摄入：${Math.max(0,csInput.remaining_calories)} kcal`,
+    csInput.maintenance_kcal>0?`预计今日总消耗（维持热量）：${csInput.maintenance_kcal} kcal`:'',
+    csInput.maintenance_kcal>0
+      ? (csInput.energy_deficit_kcal>0
+        ? `预计实际热量缺口：${csInput.energy_deficit_kcal} kcal`
+        : `预计热量盈余：${csInput.energy_surplus_kcal} kcal`)
+      : '',
+    csInput.recommended_deficit_min>0?`建议热量缺口范围：${csInput.recommended_deficit_min}～${csInput.recommended_deficit_max} kcal`:''
+  ].filter(Boolean).join('\n');
+  const prompt=`你是一个健康App中的AI健康教练。请根据用户健康数据和health_goal生成个性化建议，只返回严格JSON，不要Markdown，不要解释。JSON字段必须为：summary(string, 40字以内), diet_advice(string), exercise_advice(string), water_advice(string), sleep_advice(string), action_plan(array，最多4项，每项为{task:string,done:boolean,type:string})。
+
+【重要规则】以下数值已由系统计算完成，你不得自行修改、重新计算或创造任何热量、缺口、超支、盈余等数值。summary中如需提及热量，必须直接引用以下数值，禁止自己推算：
+${calStatusText}
+
+不要返回health_score字段，健康评分由系统统一计算。建议必须服从用户目标：减脂关注热量、蛋白和饭后活动；增肌关注蛋白和力量训练；睡眠目标关注入睡时间、时长和规律；体能目标关注运动频率和活动量。建议要温和、具体、可执行，不要医疗诊断。当前分析阶段：${slot}。输入数据：${JSON.stringify(input)}`;
+  const response=await fetch(getApiUrl('/api/health-coach'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data?.error||data?.message||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
+  return normalizeHealthCoachAdvice(extractJSONFromAIText(text),snap,slot,calStatus);
+}
+async function generateHealthCoachAdvice(profile,date,slot,{manual=false}={}){
+  const pkey=getHealthCoachProfileKey(profile);
+  const inflightKey=`${pkey}|${date}|${slot}`;
+  if(aiHealthCoachInFlight[inflightKey]) return aiHealthCoachInFlight[inflightKey];
+  aiHealthCoachInFlight[inflightKey]=(async()=>{
+    const snap=getHealthScoreData(profile,date);
+    let advice;
+    try{
+      advice=await callHealthCoachAI(profile,date,slot);
+    }catch(err){
+      console.warn('AI健康教练调用失败，使用本地兜底建议：',err);
+      advice=normalizeHealthCoachAdvice(null,snap,slot,getDailyCalorieStatus(profile,date));
+      advice.fallback=true;
+    }
+    const patch=manual
+      ? {manualAdvice:advice,manualRefreshTime:Date.now(),needsRefresh:false}
+      : {[`${slot}Advice`]:advice,lastAutoCallTime:Date.now(),needsRefresh:false};
+    setHealthCoachDayCache(profile,date,patch);
+    return advice;
+  })().finally(()=>{
+    delete aiHealthCoachInFlight[inflightKey];
+    if(activeAppPage==='daily-advice'&&date===currentViewDate){
+      renderDailyAdvicePage(profile,date);
+    }
+  });
+  return aiHealthCoachInFlight[inflightKey];
+}
+function triggerHealthCoachV2Auto(profile,date=currentViewDate){
+  if(!profile||date!==todayStr()) return;
+  // 统一状态检查：数据不足时不触发AI分析
+  const ds=getDashboardStatus(profile,date);
+  if(ds.status!=='complete') return;
+  const slots=getHealthCoachDueSlots(profile,date);
+  if(!slots.length) return;
+  const slot=slots[0];
+  const pkey=getHealthCoachProfileKey(profile);
+  if(aiHealthCoachInFlight[`${pkey}|${date}|${slot}`]) return;
+  generateHealthCoachAdvice(profile,date,slot).catch(()=>{});
+}
+function getHealthCoachCooldownText(dayCache){
+  const last=Number(dayCache.manualRefreshTime)||0;
+  const remain=AI_HEALTH_COACH_MANUAL_COOLDOWN-(Date.now()-last);
+  if(remain<=0) return '';
+  return `${Math.ceil(remain/60000)}分钟后可刷新`;
+}
+const AI_DAILY_TASKS_MANUAL_COOLDOWN = 2*60*60*1000;
+const AI_DAILY_TASKS_AUTO_REFRESH_COOLDOWN = 20*60*1000;
+const DAILY_TASK_ACTION_MAP = {
+  water:'open_water_record',
+  food:'open_food_record',
+  exercise:'open_exercise_record',
+  sleep:'open_sleep_record',
+  habit:'open_today_overview'
+};
+const aiDailyTasksInFlight = {};
+function getDailyTasksCache(){
+  try{return JSON.parse(localStorage.getItem(AI_DAILY_TASKS_CACHE_KEY)||'{}')||{}}
+  catch(e){return {}}
+}
+function saveDailyTasksCache(cache){
+  try{localStorage.setItem(AI_DAILY_TASKS_CACHE_KEY,JSON.stringify(cache||{}))}catch(e){}
+}
+function getDailyTasksProfileKey(profile){
+  return getProfileDataId(profile)||profile?.id||'unknown';
+}
+function getDailyTasksDayCache(profile,date=currentViewDate){
+  const cache=getDailyTasksCache();
+  const pkey=getDailyTasksProfileKey(profile);
+  return cache[pkey]?.[date]||{};
+}
+function setDailyTasksDayCache(profile,date,patch){
+  const cache=getDailyTasksCache();
+  const pkey=getDailyTasksProfileKey(profile);
+  cache[pkey]=cache[pkey]||{};
+  const next={...(cache[pkey][date]||{}),...patch,updatedAt:Date.now()};
+  next.completed_count=(next.tasks||[]).filter(t=>t.completed).length;
+  cache[pkey][date]=next;
+  saveDailyTasksCache(cache);
+  return next;
+}
+function getDailyTasksCooldownText(dayCache){
+  const last=Number(dayCache.last_ai_call_time)||0;
+  const remain=AI_DAILY_TASKS_MANUAL_COOLDOWN-(Date.now()-last);
+  if(remain<=0) return '';
+  const minutes=Math.ceil(remain/60000);
+  return minutes>=60?`${Math.ceil(minutes/60)}小时后可重新分析`:`${minutes}分钟后可重新分析`;
+}
+function getDailyTasksSourceSignature(profile,date=currentViewDate){
+  const snap=getHealthScoreData(profile,date);
+  const trend=getSevenDayTrend(profile);
+  return [
+    date,
+    getProfileDataId(profile),
+    snap.healthScore?.score,
+    snap.intakeCalories,
+    Math.round(snap.intake.protein||0),
+    Math.round(snap.intake.carbs||0),
+    Math.round(snap.intake.fat||0),
+    snap.exerciseMinutes,
+    snap.recordedExerciseCalories,
+    snap.exerciseCalories,
+    snap.sleepMinutes,
+    snap.waterTotal,
+    snap.waterGoal,
+    snap.daily.food.length,
+    snap.daily.exercise.length,
+    snap.daily.sleep.length,
+    snap.daily.water.length,
+    trend.weight.delta??'',
+    trend.avgWaterPct,
+    snap.healthGoal?.type||'',
+    snap.healthGoal?.target_weight||'',
+    snap.goalStrategy?.daily_calories||'',
+    snap.goalStrategy?.protein_target||'',
+    snap.goalStrategy?.exercise_days||'',
+    snap.goalStrategy?.sleep_target||''
+  ].join('|');
+}
+function getDailyTaskAction(task){
+  return String(task?.action||DAILY_TASK_ACTION_MAP[task?.type]||DAILY_TASK_ACTION_MAP.habit);
+}
+function handleDailyTaskAction(action){
+  const recordTypeMap={
+    open_water_record:'water',water:'water',
+    open_food_record:'food',food:'food',protein:'food',nutrition:'food',
+    open_exercise_record:'exercise',exercise:'exercise',
+    open_sleep_record:'sleep',sleep:'sleep',
+    open_steps_record:'steps',steps:'steps'
+  };
+  const normalized=String(action||'');
+  const recordType=recordTypeMap[normalized];
+  if(recordType&&window.openRecordEntry) return window.openRecordEntry(recordType,{source:'daily-task'});
+  if(normalized==='open_today_overview'||normalized==='habit') return switchAppPage('daily-tasks');
+  showToast('暂时无法打开该记录入口','error');
+  return false;
+}
+window.handleDailyTaskAction=handleDailyTaskAction;
+function buildDailyTasksInput(profile,date){
+  const snap=getHealthScoreData(profile,date);
+  const trend=getSevenDayTrend(profile);
+  const latestWeight=snap.latestWeight?.weight||null;
+  const bmi=latestWeight&&profile.height?calcBMI(latestWeight,profile.height):null;
+  const sleepQMap={good:'良好',normal:'一般',poor:'较差'};
+  return {
+    date,
+    health_goal:getGoalAIContext(profile),
+    profile:{
+      profile_id:getProfileDataId(profile),
+      gender:profile.gender||'',
+      age:calcAge(profile.birthDate)||null,
+      height:profile.height||null,
+      weight:latestWeight,
+      bmi:bmi?Number(bmi):null,
+      goal:profile.goal||'',
+      goalWeight:profile.goalWeight||null,
+      activityLevel:profile.activityLevel||''
+    },
+    targets:{
+      calories:snap.targetCals||null,
+      protein_g:snap.targets?.protein||null,
+      carbs_g:snap.targets?.carbs||null,
+      fat_g:snap.targets?.fat||null,
+      water_ml:snap.waterGoal,
+      exercise_minutes:snap.exerciseTarget,
+      sleep_minutes:snap.sleepTarget
+    },
+    today:{
+      health_score:snap.healthScore?.score,
+      intake_calories:snap.intakeCalories,
+      protein_g:Math.round(snap.intake.protein||0),
+      carbs_g:Math.round(snap.intake.carbs||0),
+      fat_g:Math.round(snap.intake.fat||0),
+      foods:(snap.daily.food||[]).flatMap(r=>(r.foods||[]).map(f=>f.name)).slice(0,12),
+      exercise_records:(snap.daily.exercise||[]).map(e=>({name:e.name||'',detail:e.detail||'',calories:e.calories||0})).slice(0,8),
+      exercise_minutes:snap.exerciseMinutes,
+      exercise_calories:snap.recordedExerciseCalories,
+      exercise_calories_counted_in_budget:snap.exerciseCalories,
+      sleep_minutes:snap.sleepMinutes,
+      sleep_quality:snap.daily.sleep.length?sleepQMap[snap.daily.sleep[snap.daily.sleep.length-1].quality||'normal']||'一般':'未记录',
+      water_ml:snap.waterTotal,
+      water_goal_ml:snap.waterGoal
+    },
+    trend_7d:{
+      weight_delta:trend.weight.delta,
+      avg_calories:trend.avgCalories,
+      exercise_minutes:trend.exercise.minutes,
+      avg_sleep_minutes:trend.avgSleep,
+      avg_water_pct:trend.avgWaterPct
+    },
+    // Pre-calculated calorie metrics – AI must NOT recalculate these.
+    calorie_status:(()=>{const cs=getDailyCalorieStatus(profile,date);return{
+      base_calorie_target:cs.baseCalorieTarget,recorded_exercise_calories:cs.recordedExerciseCalories,
+      exercise_calories:cs.exerciseCalories,dynamic_calorie_target:cs.dynamicCalorieTarget,
+      calories_consumed:cs.caloriesConsumed,net_calories:cs.netCalories,
+      remaining_calories:cs.remainingCalories,calorie_balance:cs.calorieBalance,
+      intake_kcal:cs.intakeKcal,intake_target_kcal:cs.intakeTargetKcal,
+      intake_remaining_kcal:cs.intakeRemainingKcal,intake_over_target_kcal:cs.intakeOverTargetKcal,
+      maintenance_kcal:cs.maintenanceKcal,energy_deficit_kcal:cs.energyDeficitKcal,
+      energy_surplus_kcal:cs.energySurplusKcal,
+      recommended_deficit_min:cs.recommendedDeficitMin,recommended_deficit_max:cs.recommendedDeficitMax
+    };})()
+  };
+}
+function makeDailyTaskId(type,index,date=currentViewDate){
+  return `${type||'habit'}_${date.replace(/-/g,'')}_${index+1}`;
+}
+function isActionableDailyTaskText(text){
+  const s=String(text||'');
+  if(/改善健康|保持习惯|注意健康|适当运动|合理饮食|多喝水$/.test(s)) return false;
+  return /\d|ml|毫升|分钟|小时|点|:|g|克|蛋白|散步|拉伸|记录|睡觉|放下手机|喝水|补充/.test(s);
+}
+function getDailyTasksNeedContext(snap){
+  const waterNeed=Math.max(0,(snap.waterGoal||0)-snap.waterTotal);
+  const proteinTarget=Number(snap.targets?.protein)||60;
+  const proteinNeed=Math.max(0,Math.round(proteinTarget-(snap.intake.protein||0)));
+  const exerciseNeed=Math.max(0,(snap.exerciseTarget||30)-(snap.exerciseMinutes||0));
+  const sleepNeed=snap.hasSleep?Math.max(0,(snap.sleepTarget||420)-(snap.sleepMinutes||0)):(snap.sleepTarget||420);
+  const hasAnyData=!!(snap.hasFood||snap.hasExercise||snap.hasSleep||snap.hasWater);
+  const hsScore=snap.healthScore?.score;
+  const hasScore=hsScore!==null&&hsScore!==undefined;
+  const statusGood=hasAnyData
+    && hasScore
+    && hsScore>=85
+    && waterNeed<200
+    && proteinNeed<12
+    && exerciseNeed<=0
+    && (!snap.hasSleep||sleepNeed<30);
+  return {waterNeed,proteinNeed,exerciseNeed,sleepNeed,hasAnyData,statusGood};
+}
+function getDailyTasksMaxCount(snap){
+  const ctx=getDailyTasksNeedContext(snap);
+  if(!ctx.hasAnyData) return 2;
+  if(ctx.statusGood) return 1;
+  const hsScore=snap.healthScore?.score;
+  if(hsScore!==null&&hsScore!==undefined&&hsScore>=78) return 3;
+  return 5;
+}
+function getDailyTaskPriority(task,snap){
+  const ctx=getDailyTasksNeedContext(snap);
+  const type=task?.type||'habit';
+  if(!ctx.hasAnyData) return type==='food'?'high':'low';
+  if(type==='water'){
+    if(!snap.hasWater||ctx.waterNeed>=500||(snap.waterPct||0)<70) return 'high';
+    return ctx.waterNeed>=200?'medium':'low';
+  }
+  if(type==='food'){
+    if(!snap.hasFood||ctx.proteinNeed>=20||(snap.targetCals>0&&(snap.dietPct||0)<65)) return 'high';
+    return ctx.proteinNeed>=12||(snap.targetCals>0&&(snap.dietPct||0)<80)?'medium':'low';
+  }
+  if(type==='exercise'){
+    if(!snap.hasExercise||ctx.exerciseNeed>=20) return 'high';
+    return ctx.exerciseNeed>0?'medium':'low';
+  }
+  if(type==='sleep'){
+    if(!snap.hasSleep||ctx.sleepNeed>=60) return 'high';
+    return ctx.sleepNeed>=30?'medium':'low';
+  }
+  return 'low';
+}
+function getDailyTaskCurrentData(type,snap){
+  const ctx=getDailyTasksNeedContext(snap);
+  if(type==='water') return `饮水 ${snap.waterTotal||0}/${snap.waterGoal||0}ml，完成 ${snap.waterPct||0}%`;
+  if(type==='food') return snap.hasFood?`蛋白质 ${Math.round(snap.intake.protein||0)}/${Math.round(Number(snap.targets?.protein)||60)}g，饮食完成 ${snap.targetCals>0?(snap.dietPct||0)+'%':'未设目标'}`:'今天还没有饮食记录';
+  if(type==='exercise') return `运动 ${snap.exerciseMinutes||0}/${snap.exerciseTarget||30} 分钟`;
+  if(type==='sleep') return snap.hasSleep?`睡眠 ${Math.round((snap.sleepMinutes||0)/60*10)/10} 小时`:'今天还没有睡眠记录';
+  const hs=snap.healthScore;
+  return hs?.score===null?`健康评分：数据不足（${hs?.reason||'记录不足'}）`:`综合健康状态 ${hs?.score??0} 分`;
+}
+function getDailyTaskSuggestion(task,snap){
+  const ctx=getDailyTasksNeedContext(snap);
+  const type=task?.type||'habit';
+  if(type==='water') return ctx.waterNeed>0?'下午或晚上分2次补充，不要一次性大量饮水。':'饮水目标已完成，保持当前节奏即可。';
+  if(type==='food') return ctx.proteinNeed>0?`围绕${snap.healthGoal?.title||'健康目标'}，下一餐增加鸡蛋、牛肉、鱼虾、豆制品等高蛋白食物。`:'饮食状态较好，继续记录即可。';
+  if(type==='exercise') return ctx.exerciseNeed>0?(snap.healthGoal?.type==='muscle_gain'?'优先安排力量训练或抗阻动作，避免只做有氧。':'优先选择饭后步行、拉伸或低强度有氧，降低完成门槛。'):'运动目标已完成，今天不必额外加量。';
+  if(type==='sleep') return ctx.sleepNeed>0?'今晚提前30分钟洗漱、放下手机并准备入睡。':'睡眠状态较好，保持固定入睡节奏。';
+  return '睡前用1分钟复盘记录完整性，不需要额外增加负担。';
+}
+function getDailyTaskShortReason(task,snap){
+  const type=task?.type||'habit';
+  if(type==='water') return (snap.waterTotal||0)>=(snap.waterGoal||0)?'饮水目标已完成':'今日饮水仍有缺口';
+  if(type==='food') return snap.hasFood?'今日蛋白质或饮食结构待优化':'今天还没有饮食记录';
+  if(type==='exercise') return (snap.exerciseMinutes||0)>=30?'运动目标已完成':'今日运动时间不足';
+  if(type==='sleep') return snap.hasSleep?'睡眠时长可继续优化':'今天还没有睡眠记录';
+  return '健康状态较好，保持记录习惯';
+}
+function enrichDailyTask(task,snap){
+  const type=task?.type||'habit';
+  const action=getDailyTaskAction({type,action:task?.action});
+  const priority=getDailyTaskPriority(task,snap);
+  const currentData=String(task?.current_data||task?.currentData||getDailyTaskCurrentData(type,snap)).slice(0,80);
+  const suggestion=String(task?.suggestion||getDailyTaskSuggestion(task,snap)).slice(0,90);
+  const shortReason=String(task?.short_reason||task?.shortReason||getDailyTaskShortReason(task,snap)).slice(0,32);
+  return {...task,type,action,priority,current_data:currentData,suggestion,short_reason:shortReason};
+}
+function sortDailyTasksByPriority(tasks){
+  const rank={high:0,medium:1,low:2};
+  return (tasks||[]).slice().sort((a,b)=>(rank[a.priority]??9)-(rank[b.priority]??9));
+}
+function isDailyTaskStillNeeded(task,snap){
+  const ctx=getDailyTasksNeedContext(snap);
+  const type=task?.type||'habit';
+  if(type==='water') return ctx.waterNeed>=200||!snap.hasWater;
+  if(type==='food') return !snap.hasFood||ctx.proteinNeed>=12||(snap.targetCals>0&&(snap.dietPct||0)<70);
+  if(type==='exercise') return ctx.exerciseNeed>0||!snap.hasExercise;
+  if(type==='sleep') return !snap.hasSleep||ctx.sleepNeed>=30;
+  return true;
+}
+function refineDailyTasksByContext(tasks,snap){
+  const maxCount=getDailyTasksMaxCount(snap);
+  const seen=new Set();
+  return sortDailyTasksByPriority((tasks||[])
+    .filter(task=>isDailyTaskStillNeeded(task,snap))
+    .filter(task=>{
+      const key=`${task.type}|${task.title}|${task.description}`;
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }))
+    .slice(0,maxCount);
+}
+function normalizeDailyTasksPlan(raw,profile,date,snap){
+  const fallback=buildFallbackDailyTasksPlan(profile,snap);
+  const obj=raw&&typeof raw==='object'?raw:{};
+  const validTypes=['water','food','exercise','sleep','habit'];
+  let tasks=Array.isArray(obj.tasks)?obj.tasks:fallback.tasks;
+  tasks=tasks.map((item,index)=>{
+    const fallbackTask=fallback.tasks[index]||fallback.tasks[fallback.tasks.length-1]||{};
+    const type=validTypes.includes(item?.type)?item.type:'habit';
+    const title=String(item?.title||fallback.tasks[index]?.title||'健康任务').trim().slice(0,24);
+    const description=String(item?.description||fallback.tasks[index]?.description||'完成一个具体健康动作').trim().slice(0,52);
+    const reason=String(item?.reason||fallback.tasks[index]?.reason||'根据今天健康数据推荐').trim().slice(0,60);
+    if(!isActionableDailyTaskText(`${title} ${description}`)){
+      return {...fallbackTask,id:makeDailyTaskId(fallbackTask.type,index,date),completed:false};
+    }
+    return enrichDailyTask({
+      id:String(item?.id||makeDailyTaskId(type,index,date)).replace(/[^a-zA-Z0-9_-]/g,'_'),
+      type,title,description,reason,
+      short_reason:item?.short_reason||item?.shortReason||'',
+      current_data:item?.current_data||item?.currentData||'',
+      suggestion:item?.suggestion||'',
+      action:item?.action||'',
+      completed:!!item?.completed
+    },snap);
+  }).filter(t=>t.title&&t.description);
+  tasks=tasks.map(task=>enrichDailyTask(task,snap));
+  tasks=refineDailyTasksByContext(tasks,snap);
+  if(!tasks.length) tasks=fallback.tasks;
+  tasks=tasks.map(task=>enrichDailyTask(task,snap));
+  tasks=refineDailyTasksByContext(tasks,snap);
+  if(!tasks.length) tasks=fallback.tasks.slice(0,1).map(task=>enrichDailyTask(task,snap));
+  return {
+    date,
+    profile_id:getProfileDataId(profile),
+    summary:String(obj.summary||fallback.summary||'今天优先完成最关键的小任务。').slice(0,60),
+    tasks,
+    completed_count:tasks.filter(t=>t.completed).length,
+    generated_time:Date.now(),
+    last_ai_call_time:Date.now(),
+    source_signature:getDailyTasksSourceSignature(profile,date),
+    source:'ai'
+  };
+}
+function dailyTaskStateKey(task){
+  return `${task?.type||''}|${String(task?.title||'').trim()}|${String(task?.description||'').trim()}`;
+}
+function preserveCompletedDailyTasks(nextPlan,previousCache,snap){
+  const doneKeys=new Set((previousCache?.tasks||[]).filter(t=>t.completed).map(dailyTaskStateKey));
+  const doneIds=new Set((previousCache?.tasks||[]).filter(t=>t.completed).map(t=>t.id));
+  const marked=(nextPlan.tasks||[]).map(task=>({
+    ...enrichDailyTask(task,snap),
+    completed:!!task.completed||doneIds.has(task.id)||doneKeys.has(dailyTaskStateKey(task))
+  }));
+  const nextKeys=new Set(marked.map(dailyTaskStateKey));
+  const nextIds=new Set(marked.map(t=>t.id));
+  const carried=(previousCache?.tasks||[])
+    .filter(t=>t.completed&&!nextIds.has(t.id)&&!nextKeys.has(dailyTaskStateKey(t)))
+    .map(t=>({...enrichDailyTask(t,snap),completed:true}));
+  const room=Math.max(0,5-carried.length);
+  nextPlan.tasks=[...carried.slice(0,5),...marked.filter(t=>!carried.find(old=>old.id===t.id||dailyTaskStateKey(old)===dailyTaskStateKey(t))).slice(0,room)];
+  nextPlan.completed_count=nextPlan.tasks.filter(t=>t.completed).length;
+  return nextPlan;
+}
+function buildFallbackDailyTasksPlan(profile,snap){
+  const tasks=[];
+  const ctx=getDailyTasksNeedContext(snap);
+  const goalType=snap.healthGoal?.type||'maintain';
+  if(!ctx.hasAnyData){
+    tasks.push({id:makeDailyTaskId('food',tasks.length),type:'food',title:'先记录一项健康数据',description:'记录一餐饮食或一次饮水',reason:'今天还没有任何健康记录，先建立真实数据基础',priority:'high',completed:false});
+    if(goalType==='sleep_improve') tasks.push({id:makeDailyTaskId('sleep',tasks.length),type:'sleep',title:'设定睡前时间',description:'今晚提前30分钟放下手机',reason:'当前目标是改善睡眠，先建立睡前节律',priority:'medium',completed:false});
+    else tasks.push({id:makeDailyTaskId('exercise',tasks.length),type:'exercise',title:goalType==='muscle_gain'?'完成力量启动':'完成轻量启动',description:goalType==='muscle_gain'?'完成 10 分钟自重抗阻训练':'散步或拉伸 10 分钟',reason:'无记录时只给少量具体行动，不做过度推荐',priority:'low',completed:false});
+    return {summary:`今天还没有记录，先围绕「${snap.healthGoal?.title||'健康目标'}」从少量可执行动作开始。`,tasks};
+  }
+  const waterNeed=Math.max(0,(snap.waterGoal||0)-snap.waterTotal);
+  const proteinTarget=Number(snap.targets?.protein)||60;
+  const proteinNeed=Math.max(0,Math.round(proteinTarget-(snap.intake.protein||0)));
+  if(waterNeed>=250){
+    const amount=Math.min(600,Math.ceil(waterNeed/100)*100);
+    tasks.push({id:makeDailyTaskId('water',tasks.length),type:'water',title:'补充饮水',description:`今天再补充 ${amount}ml 水`,reason:`当前饮水还差约 ${waterNeed}ml`,priority:'high',completed:false});
+  }
+  if(proteinNeed>=15&&(goalType==='fat_loss'||goalType==='muscle_gain'||goalType==='maintain')){
+    tasks.push({id:makeDailyTaskId('food',tasks.length),type:'food',title:'增加蛋白质',description:`下一餐增加约 ${Math.min(30,proteinNeed)}g 蛋白质`,reason:`今日蛋白质距离目标还差约 ${proteinNeed}g`,priority:'high',completed:false});
+  }else if(!snap.hasFood){
+    tasks.push({id:makeDailyTaskId('food',tasks.length),type:'food',title:'记录一餐饮食',description:'下一餐拍照或搜索记录食物',reason:'今天还没有饮食记录',priority:'medium',completed:false});
+  }
+  if(snap.exerciseMinutes<(snap.exerciseTarget||30)){
+    const target=snap.exerciseTarget||30;
+    const mins=Math.max(10,Math.min(30,target-snap.exerciseMinutes));
+    const isStrength=goalType==='muscle_gain';
+    tasks.push({id:makeDailyTaskId('exercise',tasks.length),type:'exercise',title:isStrength?'安排力量训练':(goalType==='fitness'?'补足体能活动':'补足轻运动'),description:isStrength?`完成 ${mins} 分钟力量或抗阻训练`:`饭后散步或拉伸 ${mins} 分钟`,reason:`今日运动距离目标还差约 ${target-snap.exerciseMinutes} 分钟`,priority:snap.exerciseMinutes?'medium':'high',completed:false});
+  }
+  if((snap.hasSleep&&snap.sleepMinutes<(snap.sleepTarget||420))||!snap.hasSleep){
+    tasks.push({id:makeDailyTaskId('sleep',tasks.length),type:'sleep',title:'提前准备睡眠',description:'23:30前放下手机并准备睡觉',reason:snap.hasSleep?`昨晚睡眠少于目标 ${formatShortSleep(snap.sleepTarget||420)}`:'今天还未记录睡眠',priority:goalType==='sleep_improve'?'high':'medium',completed:false});
+  }
+  if(!tasks.length){
+    tasks.push({id:makeDailyTaskId('habit',0),type:'habit',title:'晚间复盘记录',description:'睡前用1分钟检查饮水、运动和饮食记录',reason:'今天主要指标完成较好，减少额外任务',priority:'low',completed:false});
+  }
+  return {
+    summary:tasks.length<=2?`围绕「${snap.healthGoal?.title||'健康目标'}」，今天只保留关键小任务。`:`今天优先补齐最影响「${snap.healthGoal?.title||'健康目标'}」的项目。`,
+    tasks:tasks.slice(0,getDailyTasksMaxCount(snap))
+  };
+}
+async function callDailyTasksAI(profile,date){
+  const snap=getHealthScoreData(profile,date);
+  const aiCfg=getAIConfig();
+  if(!aiCfg.apiKey||!aiCfg.modelId) return normalizeDailyTasksPlan(null,profile,date,snap);
+  const input=buildDailyTasksInput(profile,date);
+  const csInput=input.calorie_status;
+  const calStatusText=[
+    `基础热量目标：${csInput.base_calorie_target} kcal`,
+    `运动记录消耗：${csInput.recorded_exercise_calories} kcal`,
+    `计入动态预算的额外运动：${csInput.exercise_calories} kcal`,
+    `动态热量目标：${csInput.dynamic_calorie_target} kcal`,
+    `今日摄入：${csInput.calories_consumed} kcal`,
+    `净摄入：${csInput.net_calories} kcal`,
+    csInput.calorie_balance>0
+      ? `超出动态目标：${csInput.calorie_balance} kcal`
+      : `今日还可摄入：${Math.max(0,csInput.remaining_calories)} kcal`,
+    csInput.maintenance_kcal>0?`预计今日总消耗（维持热量）：${csInput.maintenance_kcal} kcal`:'',
+    csInput.maintenance_kcal>0
+      ? (csInput.energy_deficit_kcal>0
+        ? `预计实际热量缺口：${csInput.energy_deficit_kcal} kcal`
+        : `预计热量盈余：${csInput.energy_surplus_kcal} kcal`)
+      : '',
+    csInput.recommended_deficit_min>0?`建议热量缺口范围：${csInput.recommended_deficit_min}～${csInput.recommended_deficit_max} kcal`:''
+  ].filter(Boolean).join('\n');
+  const prompt=`你是健康App里的AI每日健康行动计划生成器。请严格基于输入数据和health_goal生成用户今天能完成的1-5个具体任务。规则：1. 任务必须服从用户当前目标，减脂不要生成增肌增重任务，增肌不要只给有氧消耗任务，睡眠目标要优先分析入睡时间、睡眠时长和规律。2. 已达标的项目不要继续推荐同类任务，例如饮水已达到或超过目标就不要推荐继续喝水；可在summary里说明“饮水目标已完成，保持当前状态”。3. 无健康记录或数据很少时，只给1-2个具体启动任务，不要输出“保持健康、改善生活方式、注意饮食、适当运动”这类空泛建议。4. 健康状态良好时最多给1-2个低负担任务，不要制造任务压力。5. high表示当前最需要改善的问题，medium表示建议优化，low表示保持习惯。6. 每个任务必须包含具体动作和数量/时长/时间，例如喝多少ml水、晚饭后步行多少分钟、增加多少g蛋白质、几点准备睡眠。7. type只能是water、food、exercise、sleep、habit；action按type填写：water=open_water_record，food=open_food_record，exercise=open_exercise_record，sleep=open_sleep_record，habit=open_today_overview。8. 不要医疗诊断。
+
+【重要规则】以下数值已由系统计算完成，你不得自行修改、重新计算或创造任何热量、缺口、超支、盈余等数值。summary和task描述中如需提及热量，必须直接引用以下数值，禁止自己推算：
+${calStatusText}
+
+只返回严格JSON，不要Markdown，不要解释。JSON格式：{"summary":"","tasks":[{"id":"","type":"water|food|exercise|sleep|habit","title":"","description":"","short_reason":"","reason":"","current_data":"","suggestion":"","priority":"high|medium|low","action":"","completed":false}]}。输入数据：${JSON.stringify(input)}`;
+  const response=await fetch(getApiUrl('/api/daily-tasks'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data?.error||data?.message||`AI请求失败：${response.status}`);
+  const text=data?.text||'';
+  return normalizeDailyTasksPlan(extractJSONFromAIText(text),profile,date,snap);
+}
+async function generateDailyTasksPlan(profile,date=currentViewDate,{manual=false}={}){
+  const pkey=getDailyTasksProfileKey(profile);
+  const inflightKey=`${pkey}|${date}`;
+  const dayCache=getDailyTasksDayCache(profile,date);
+  const currentSignature=getDailyTasksSourceSignature(profile,date);
+  const stale=dayCache.source_signature&&dayCache.source_signature!==currentSignature;
+  if(manual){
+    const cooldown=getDailyTasksCooldownText(dayCache);
+    if(cooldown){showToast(`请稍后再重新分析，${cooldown}`,'error');return dayCache}
+  }else if(dayCache.tasks?.length&&!stale){
+    return dayCache;
+  }
+  if(aiDailyTasksInFlight[inflightKey]) return aiDailyTasksInFlight[inflightKey];
+  aiDailyTasksInFlight[inflightKey]=(async()=>{
+    let plan;
+    try{
+      plan=await callDailyTasksAI(profile,date);
+    }catch(err){
+      console.warn('AI每日计划调用失败，使用本地兜底任务：',err);
+      plan=normalizeDailyTasksPlan(null,profile,date,getHealthScoreData(profile,date));
+      plan.source='fallback';
+      plan.fallback=true;
+    }
+    plan=preserveCompletedDailyTasks(plan,dayCache,getHealthScoreData(profile,date));
+    setDailyTasksDayCache(profile,date,plan);
+    return plan;
+  })().finally(()=>{
+    delete aiDailyTasksInFlight[inflightKey];
+  });
+  return aiDailyTasksInFlight[inflightKey];
+}
+function triggerDailyTasksAuto(profile,date=currentViewDate){
+  if(!profile||date!==todayStr()) return;
+  // 统一状态检查：数据不足时不触发AI计划生成
+  const ds=getDashboardStatus(profile,date);
+  if(ds.status!=='complete') return;
+  const dayCache=getDailyTasksDayCache(profile,date);
+  const currentSignature=getDailyTasksSourceSignature(profile,date);
+  if(dayCache.tasks?.length){
+    const stale=dayCache.source_signature&&dayCache.source_signature!==currentSignature;
+    const last=Number(dayCache.last_ai_call_time)||0;
+    if(!stale||Date.now()-last<AI_DAILY_TASKS_AUTO_REFRESH_COOLDOWN) return;
+  }
+  generateDailyTasksPlan(profile,date,{manual:false}).catch(()=>{});
 }
 function renderHomeNutritionCard(profile,snap){
   const card=document.getElementById('homeNutritionCard');
@@ -4104,7 +5040,7 @@ function renderHomeNutritionCard(profile,snap){
     '<div class="home-diet-calorie-primary">'+
     '<div class="home-diet-intake-label">已摄入</div>'+
     '<div class="home-diet-intake-val">'+calories+'<span class="unit">kcal</span></div></div>'+
-    '<div class="home-diet-target">'+calorieTargetMarkup+'</div></div>'+
+    '<div class="home-diet-target">'+calorieTargetMarkup+'</div></div>'+ 
     '<div class="home-diet-nutrient-names">'+nutrientNames+'</div>'+
     '<div class="home-diet-nutrient-data">'+nutrientData+'</div></div></div>';
 }
@@ -4119,16 +5055,6 @@ function renderTodayHealthOverview(){
   if(!p) console.error('[Render] renderTodayHealthOverview missing active profile');
   const dateEl=document.getElementById('todayHealthDate');
   if(dateEl) dateEl.textContent=formatDate(currentViewDate);
-  // Keep #todayHealthCard mounted as the first module on the home page.
-  const homePage=document.querySelector('.app-page[data-app-page="home"]');
-  const todayCard=document.getElementById('todayHealthCard');
-  if(homePage&&todayCard&&todayCard.parentElement!==homePage){
-    homePage.insertBefore(todayCard,homePage.firstChild);
-  }
-  if(todayCard){
-    todayCard.hidden=false;
-    todayCard.removeAttribute('hidden');
-  }
   const wrap=document.getElementById('todayHealthContent');
   if(!wrap){
     console.error('[Render] #todayHealthContent not found');
@@ -4150,21 +5076,15 @@ function renderTodayHealthOverview(){
     });
     return;
   }
-  let snap;
-  try{
-    snap=getHealthScoreData(p,currentViewDate);
-  }catch(err){
-    console.error('[Render] getHealthScoreData failed:',err);
-    return;
-  }
-  const homeCtx=beginHomeRenderContext(p,currentViewDate,snap);
-  try{renderHomeNutritionCard(p,snap)}catch(err){console.error('[Render] renderHomeNutritionCard failed:',err)}
+  const snap=getHealthScoreData(p,currentViewDate);
+  renderHomeNutritionCard(p,snap);
   const insights=document.getElementById('homeInsightsContent');
   if(insights) insights.innerHTML='';
+  const v2Sections=renderTodayHealthV2Sections(p,snap);
   const reminders=buildTodayReminders(snap);
 
   // ── 统一首页状态判断 ──
-  const dashStatus=getDashboardStatus(p,currentViewDate,snap);
+  const dashStatus=getDashboardStatus(p,currentViewDate);
   const isToday=currentViewDate===todayStr();
   const weightVal=snap.latestWeight
     ? `${snap.latestWeight.weight}<span class="unit">kg</span>`
@@ -4209,7 +5129,6 @@ function renderTodayHealthOverview(){
     bindHomeCalorieDeficitUI(wrap);
     if(document.getElementById('calorieDeficitModal')?.classList.contains('show')) fillCalorieDeficitModal();
     // 空状态不触发AI健康教练和行动计划生成
-    endHomeRenderContext();
     return;
   }
 
@@ -4227,139 +5146,111 @@ function renderTodayHealthOverview(){
   const coverageHTML=hs?`<div class="dash-coverage">${hasScore?`基于饮食、饮水、运动、睡眠4项数据评估`:`数据不足，继续记录后生成健康评分`}</div>`:'';
 
   // ---- AI summary for hero (one-line focus) ----
-  // heroFocus always uses live intakeRemainingKcal — never stale AI-cached kcal.
-  let heroFocus='保持记录，持续关注健康';
-  try{
-    heroFocus=buildDeterministicCalorieSummary(homeCtx.calDisplay)||(reminders.find(r=>r.type==='warn')?.text)||statusInfo.hint||heroFocus;
-  }catch(err){console.error('[Render] heroFocus failed:',err)}
+  // heroFocus always uses deterministic calorie text to prevent AI-invented
+  // numbers (e.g. "热量超支477kcal") from appearing in the hero.  AI
+  // qualitative advice remains available in the health coach card detail.
+  const _coachDayCache=getHealthCoachDayCache(p,currentViewDate);
+  const _coachLatest=getLatestHealthCoachAdvice(_coachDayCache);
+  const _coachAdvice=_coachLatest?.advice||null;
+  const _heroCalStatus=getDailyCalorieStatus(p,currentViewDate);
+  const heroFocus=buildDeterministicCalorieSummary(_heroCalStatus)||_coachAdvice?.summary||(reminders.find(r=>r.type==='warn')?.text)||statusInfo.hint||'保持记录，持续关注健康';
 
   // ---- 状态2: 少量数据状态 (partial) ----
   // 仅有1类有效数据时，不展示AI详细分析，但保持与完整状态相同的布局骨架。
   if(dashStatus.status==='partial'){
-    try{
-      var csPartial=homeCtx.cs;
-      var balanceP=getCalorieBalance(csPartial.caloriesConsumed,csPartial.dynamicCalorieTarget);
-      var calorieDiffTextP=formatHomeCalorieBalanceHTML(balanceP,csPartial.hasFood);
-      var dietScoreTextP='<span class="empty">未记录</span>';
-      var dietScoreStatusP='';
-      var stepsTextP=stepsTotal>0?stepsTotal.toLocaleString()+'<span class="unit">步</span>':'<span class="empty">未记录</span>';
-      var stepsStatusP=stepsTotal>0?(stepsTotal>=8000?'已达标':stepsTotal>=4000?'达成中':'刚刚开始'):'';
-      var sleepHoursP=snap.sleepMinutes>0?(snap.sleepMinutes/60).toFixed(1):null;
-      var sleepTextP=sleepHoursP?sleepHoursP+'<span class="unit">h</span>':'<span class="empty">未记录</span>';
-      var sleepStatusP=snap.hasSleep?(snap.sleepPct>=90?'作息稳定':snap.sleepPct>=60?'基本充足':'略不足'):'';
-      var heroRingRP=42,heroRingCircP=2*Math.PI*heroRingRP;
-      var partialConclusion='已记录'+[dashStatus.hasFood?'饮食':null,dashStatus.hasWater?'饮水':null,dashStatus.hasExercise?'运动':null,dashStatus.hasSleep?'睡眠':null].filter(Boolean).length+'项，需至少2项数据生成健康评分';
-      wrap.innerHTML='<div class="home-hero-card"><div class="home-hero-top">'+
-        '<div class="home-hero-ring"><svg width="100" height="100" viewBox="0 0 100 100">'+
-        '<circle cx="50" cy="50" r="'+heroRingRP+'" fill="none" stroke="var(--home-track-bg)" stroke-width="8"/>'+
-        '<circle cx="50" cy="50" r="'+heroRingRP+'" fill="none" stroke="var(--home-text-caption)" stroke-width="8" stroke-dasharray="'+heroRingCircP+'" stroke-dashoffset="'+heroRingCircP+'" stroke-linecap="round" transform="rotate(-90 50 50)"/>'+
-        '</svg><div class="home-hero-ring-num"><span class="num">--</span><span class="lbl">数据不足</span></div></div>'+
-        '<div class="home-hero-info"><div class="label">今日健康状态</div>'+
-        '<div class="conclusion">'+escapeHTML(partialConclusion)+'</div>'+
-        '<button class="home-hero-link" type="button" data-goto-health>查看健康分析 ></button></div></div>'+
-        '<div class="home-metrics-grid">'+
-        renderHomeCalorieMetricHTML(p,currentViewDate,calorieDiffTextP,csPartial.hasFood?'':'empty')+
-        '<div class="home-metric"><span class="home-metric-icon diet">'+icon('utensils')+'</span><div class="home-metric-text"><span class="home-metric-label">饮食评分</span>'+
-        '<div class="home-metric-value">'+dietScoreTextP+'</div><div class="home-metric-status">'+dietScoreStatusP+'</div></div></div>'+
-        '<div class="home-metric"><span class="home-metric-icon steps">'+icon('footprints')+'</span><div class="home-metric-text"><span class="home-metric-label">今日步数</span>'+
-        '<div class="home-metric-value">'+stepsTextP+'</div><div class="home-metric-status '+(stepsTotal>=8000?'good':'')+'">'+stepsStatusP+'</div></div></div>'+
-        '<div class="home-metric"><span class="home-metric-icon sleep">'+icon('moon')+'</span><div class="home-metric-text"><span class="home-metric-label">睡眠时长</span>'+
-        '<div class="home-metric-value">'+sleepTextP+'</div><div class="home-metric-status '+(snap.sleepPct>=90?'good':'')+'">'+sleepStatusP+'</div></div></div>'+
-        '</div></div>';
-      var gotoHealthBtnP=wrap.querySelector('[data-goto-health]');
-      if(gotoHealthBtnP) gotoHealthBtnP.addEventListener('click',function(){switchAppPage('health-analysis');});
-      bindHomeCalorieDeficitUI(wrap);
-      if(document.getElementById('calorieDeficitModal')?.classList.contains('show')) fillCalorieDeficitModal();
-    }catch(err){console.error('[Render] home hero (partial) failed:',err)}
+    var csPartial=getDailyCalorieStatus(p,currentViewDate);
+    var balanceP=getCalorieBalance(csPartial.caloriesConsumed,csPartial.dynamicCalorieTarget);
+    var calorieDiffTextP=formatHomeCalorieBalanceHTML(balanceP,csPartial.hasFood);
+    var calorieDiffStatusP=csPartial.hasFood?balanceP.status:'';
+    var dietScoreTextP='<span class="empty">未记录</span>';
+    var dietScoreStatusP='';
+    var stepsTextP=stepsTotal>0?stepsTotal.toLocaleString()+'<span class="unit">步</span>':'<span class="empty">未记录</span>';
+    var stepsStatusP=stepsTotal>0?(stepsTotal>=8000?'已达标':stepsTotal>=4000?'达成中':'刚刚开始'):'';
+    var sleepHoursP=snap.sleepMinutes>0?(snap.sleepMinutes/60).toFixed(1):null;
+    var sleepTextP=sleepHoursP?sleepHoursP+'<span class="unit">h</span>':'<span class="empty">未记录</span>';
+    var sleepStatusP=snap.hasSleep?(snap.sleepPct>=90?'作息稳定':snap.sleepPct>=60?'基本充足':'略不足'):'';
+    var heroRingRP=42,heroRingCircP=2*Math.PI*heroRingRP;
+    var partialConclusion='已记录'+[dashStatus.hasFood?'饮食':null,dashStatus.hasWater?'饮水':null,dashStatus.hasExercise?'运动':null,dashStatus.hasSleep?'睡眠':null].filter(Boolean).length+'项，需至少2项数据生成健康评分';
+    wrap.innerHTML='<div class="home-hero-card"><div class="home-hero-top">'+
+      '<div class="home-hero-ring"><svg width="100" height="100" viewBox="0 0 100 100">'+
+      '<circle cx="50" cy="50" r="'+heroRingRP+'" fill="none" stroke="var(--home-track-bg)" stroke-width="8"/>'+
+      '<circle cx="50" cy="50" r="'+heroRingRP+'" fill="none" stroke="var(--home-text-caption)" stroke-width="8" stroke-dasharray="'+heroRingCircP+'" stroke-dashoffset="'+heroRingCircP+'" stroke-linecap="round" transform="rotate(-90 50 50)"/>'+
+      '</svg><div class="home-hero-ring-num"><span class="num">--</span><span class="lbl">数据不足</span></div></div>'+
+      '<div class="home-hero-info"><div class="label">今日健康状态</div>'+
+      '<div class="conclusion">'+escapeHTML(partialConclusion)+'</div>'+
+      '<button class="home-hero-link" type="button" data-goto-health>查看健康分析 ></button></div></div>'+
+      '<div class="home-metrics-grid">'+
+      renderHomeCalorieMetricHTML(p,currentViewDate,calorieDiffTextP,csPartial.hasFood?'':'empty')+
+      '<div class="home-metric"><span class="home-metric-icon diet">'+icon('utensils')+'</span><div class="home-metric-text"><span class="home-metric-label">饮食评分</span>'+
+      '<div class="home-metric-value">'+dietScoreTextP+'</div><div class="home-metric-status">'+dietScoreStatusP+'</div></div></div>'+
+      '<div class="home-metric"><span class="home-metric-icon steps">'+icon('footprints')+'</span><div class="home-metric-text"><span class="home-metric-label">今日步数</span>'+
+      '<div class="home-metric-value">'+stepsTextP+'</div><div class="home-metric-status '+(stepsTotal>=8000?'good':'')+'">'+stepsStatusP+'</div></div></div>'+
+      '<div class="home-metric"><span class="home-metric-icon sleep">'+icon('moon')+'</span><div class="home-metric-text"><span class="home-metric-label">睡眠时长</span>'+
+      '<div class="home-metric-value">'+sleepTextP+'</div><div class="home-metric-status '+(snap.sleepPct>=90?'good':'')+'">'+sleepStatusP+'</div></div></div>'+
+      '</div></div>';
+    var gotoHealthBtnP=wrap.querySelector('[data-goto-health]');
+    if(gotoHealthBtnP) gotoHealthBtnP.addEventListener('click',function(){switchAppPage('health-analysis');});
+    bindHomeCalorieDeficitUI(wrap);
+    if(document.getElementById('calorieDeficitModal')?.classList.contains('show')) fillCalorieDeficitModal();
     if(insights){
-      try{
-        insights.innerHTML=renderHomeActionTasks(p,snap)+renderHomeAdviceCard(p,snap,homeCtx.calDisplay);
-        _bindTodayHealthNav(insights);
-        bindHomeActionTasks(p,currentViewDate);
-        bindHomeAdviceCard(p,currentViewDate);
-      }catch(err){console.error('[Render] home insights (partial) failed:',err)}
-      scheduleDeferredHomeExtras(p,snap,{allowAI:false});
+      insights.innerHTML=renderHomeActionTasks(p,snap)+renderHomeAdviceCard(p,snap)+renderHomeTrendOverview(p);
+      _bindTodayHealthNav(insights);
+      bindHomeActionTasks(p,currentViewDate);
+      bindHomeAdviceCard(p,currentViewDate);
+      bindHomeTrendOverview(p,currentViewDate);
     }
     // 少量数据状态不触发AI健康教练和行动计划生成
-    endHomeRenderContext();
     return;
   }
 
   // ---- 状态3: 完整数据状态 (complete) ----
-  try{
-    var cs=homeCtx.cs;
-    var balance=getCalorieBalance(cs.caloriesConsumed,cs.dynamicCalorieTarget);
-    var calorieDiffText=formatHomeCalorieBalanceHTML(balance,cs.hasFood);
-    var dietFactor=hs&&hs.factors?hs.factors.find(function(f){return f.name==='饮食'}):null;
-    var dietScore=dietFactor&&dietFactor.hasData?Math.round(dietFactor.pct):null;
-    var stepsTotalNum=stepsTotal;
-    var sleepHours=snap.sleepMinutes>0?(snap.sleepMinutes/60).toFixed(1):null;
-    var heroRingR=42,heroRingCirc=2*Math.PI*heroRingR;
-    var heroRingOffset=heroRingCirc*(1-(hasScore?score:0)/100);
-    var heroRingColor=hasScore?(score>=80?'var(--home-green)':score>=60?'var(--home-gold)':score>=30?'var(--home-amber)':'var(--home-red)'):'var(--home-text-caption)';
-    var dietScoreText=dietScore!==null?dietScore+'<span class="unit">分</span>':'<span class="empty">未记录</span>';
-    var dietScoreStatus=dietScore!==null?(dietScore>=80?'良好':dietScore>=60?'一般':'待改善'):'';
-    var stepsText=stepsTotalNum>0?stepsTotalNum.toLocaleString()+'<span class="unit">步</span>':'<span class="empty">未记录</span>';
-    var stepsStatus=stepsTotalNum>0?(stepsTotalNum>=8000?'已达标':stepsTotalNum>=4000?'达成中':'刚刚开始'):'';
-    var sleepText=sleepHours?sleepHours+'<span class="unit">h</span>':'<span class="empty">未记录</span>';
-    var sleepStatus=snap.hasSleep?(snap.sleepPct>=90?'作息稳定':snap.sleepPct>=60?'基本充足':'略不足'):'';
-    wrap.innerHTML='<div class="home-hero-card"><div class="home-hero-top">'+
-      '<div class="home-hero-ring"><svg width="100" height="100" viewBox="0 0 100 100">'+
-      '<circle cx="50" cy="50" r="'+heroRingR+'" fill="none" stroke="var(--home-track-bg)" stroke-width="8"/>'+
-      '<circle cx="50" cy="50" r="'+heroRingR+'" fill="none" stroke="'+heroRingColor+'" stroke-width="8" stroke-dasharray="'+heroRingCirc+'" stroke-dashoffset="'+heroRingOffset+'" stroke-linecap="round" transform="rotate(-90 50 50)" style="transition:stroke-dashoffset .8s ease"/>'+
-      '</svg><div class="home-hero-ring-num"><span class="num">'+(hasScore?score:'--')+'</span><span class="lbl">'+(hasScore?statusInfo.label:'待评估')+'</span></div></div>'+
-      '<div class="home-hero-info"><div class="label">今日健康状态</div>'+
-      '<div class="conclusion">'+escapeHTML(heroFocus)+'</div>'+
-      '<button class="home-hero-link" type="button" data-goto-health>查看健康分析 ></button></div></div>'+
-      '<div class="home-metrics-grid">'+
-      renderHomeCalorieMetricHTML(p,currentViewDate,calorieDiffText,cs.hasFood?'':'empty')+
-      '<div class="home-metric"><span class="home-metric-icon diet">'+icon('utensils')+'</span><div class="home-metric-text"><span class="home-metric-label">饮食评分</span>'+
-      '<div class="home-metric-value">'+dietScoreText+'</div><div class="home-metric-status '+(dietScore>=80?'good':dietScore>=60?'gold':'')+'">'+dietScoreStatus+'</div></div></div>'+
-      '<div class="home-metric"><span class="home-metric-icon steps">'+icon('footprints')+'</span><div class="home-metric-text"><span class="home-metric-label">今日步数</span>'+
-      '<div class="home-metric-value">'+stepsText+'</div><div class="home-metric-status '+(stepsTotalNum>=8000?'good':'gold')+'">'+stepsStatus+'</div></div></div>'+
-      '<div class="home-metric"><span class="home-metric-icon sleep">'+icon('moon')+'</span><div class="home-metric-text"><span class="home-metric-label">睡眠时长</span>'+
-      '<div class="home-metric-value">'+sleepText+'</div><div class="home-metric-status '+(snap.sleepPct>=90?'good':'')+'">'+sleepStatus+'</div></div></div>'+
-      '</div></div>';
-    var gotoHealthBtn=wrap.querySelector('[data-goto-health]');
-    if(gotoHealthBtn) gotoHealthBtn.addEventListener('click',function(){switchAppPage('health-analysis');});
-    bindHomeCalorieDeficitUI(wrap);
-    if(document.getElementById('calorieDeficitModal')?.classList.contains('show')) fillCalorieDeficitModal();
-  }catch(err){console.error('[Render] home hero (complete) failed:',err)}
+  var cs=getDailyCalorieStatus(p,currentViewDate);
+  var balance=getCalorieBalance(cs.caloriesConsumed,cs.dynamicCalorieTarget);
+  var calorieDiffText=formatHomeCalorieBalanceHTML(balance,cs.hasFood);
+  var calorieDiffStatus=cs.hasFood?balance.status:'';
+  var calorieDiffStatusClass=balance.type==='over'?'warn':'gold';
+  var dietFactor=hs&&hs.factors?hs.factors.find(function(f){return f.name==='饮食'}):null;
+  var dietScore=dietFactor&&dietFactor.hasData?Math.round(dietFactor.pct):null;
+  var stepsTotalNum=stepsTotal;
+  var sleepHours=snap.sleepMinutes>0?(snap.sleepMinutes/60).toFixed(1):null;
+  var heroRingR=42,heroRingCirc=2*Math.PI*heroRingR;
+  var heroRingOffset=heroRingCirc*(1-(hasScore?score:0)/100);
+  var heroRingColor=hasScore?(score>=80?'var(--home-green)':score>=60?'var(--home-gold)':score>=30?'var(--home-amber)':'var(--home-red)'):'var(--home-text-caption)';
+  var dietScoreText=dietScore!==null?dietScore+'<span class="unit">分</span>':'<span class="empty">未记录</span>';
+  var dietScoreStatus=dietScore!==null?(dietScore>=80?'良好':dietScore>=60?'一般':'待改善'):'';
+  var stepsText=stepsTotalNum>0?stepsTotalNum.toLocaleString()+'<span class="unit">步</span>':'<span class="empty">未记录</span>';
+  var stepsStatus=stepsTotalNum>0?(stepsTotalNum>=8000?'已达标':stepsTotalNum>=4000?'达成中':'刚刚开始'):'';
+  var sleepText=sleepHours?sleepHours+'<span class="unit">h</span>':'<span class="empty">未记录</span>';
+  var sleepStatus=snap.hasSleep?(snap.sleepPct>=90?'作息稳定':snap.sleepPct>=60?'基本充足':'略不足'):'';
+  wrap.innerHTML='<div class="home-hero-card"><div class="home-hero-top">'+
+    '<div class="home-hero-ring"><svg width="100" height="100" viewBox="0 0 100 100">'+
+    '<circle cx="50" cy="50" r="'+heroRingR+'" fill="none" stroke="var(--home-track-bg)" stroke-width="8"/>'+
+    '<circle cx="50" cy="50" r="'+heroRingR+'" fill="none" stroke="'+heroRingColor+'" stroke-width="8" stroke-dasharray="'+heroRingCirc+'" stroke-dashoffset="'+heroRingOffset+'" stroke-linecap="round" transform="rotate(-90 50 50)" style="transition:stroke-dashoffset .8s ease"/>'+
+    '</svg><div class="home-hero-ring-num"><span class="num">'+(hasScore?score:'--')+'</span><span class="lbl">'+(hasScore?statusInfo.label:'待评估')+'</span></div></div>'+
+    '<div class="home-hero-info"><div class="label">今日健康状态</div>'+
+    '<div class="conclusion">'+escapeHTML(heroFocus)+'</div>'+
+    '<button class="home-hero-link" type="button" data-goto-health>查看健康分析 ></button></div></div>'+
+    '<div class="home-metrics-grid">'+
+    renderHomeCalorieMetricHTML(p,currentViewDate,calorieDiffText,cs.hasFood?'':'empty')+
+    '<div class="home-metric"><span class="home-metric-icon diet">'+icon('utensils')+'</span><div class="home-metric-text"><span class="home-metric-label">饮食评分</span>'+
+    '<div class="home-metric-value">'+dietScoreText+'</div><div class="home-metric-status '+(dietScore>=80?'good':dietScore>=60?'gold':'')+'">'+dietScoreStatus+'</div></div></div>'+
+    '<div class="home-metric"><span class="home-metric-icon steps">'+icon('footprints')+'</span><div class="home-metric-text"><span class="home-metric-label">今日步数</span>'+
+    '<div class="home-metric-value">'+stepsText+'</div><div class="home-metric-status '+(stepsTotalNum>=8000?'good':'gold')+'">'+stepsStatus+'</div></div></div>'+
+    '<div class="home-metric"><span class="home-metric-icon sleep">'+icon('moon')+'</span><div class="home-metric-text"><span class="home-metric-label">睡眠时长</span>'+
+    '<div class="home-metric-value">'+sleepText+'</div><div class="home-metric-status '+(snap.sleepPct>=90?'good':'')+'">'+sleepStatus+'</div></div></div>'+
+    '</div></div>';
+  var gotoHealthBtn=wrap.querySelector('[data-goto-health]');
+  if(gotoHealthBtn) gotoHealthBtn.addEventListener('click',function(){switchAppPage('health-analysis');});
+  bindHomeCalorieDeficitUI(wrap);
+  if(document.getElementById('calorieDeficitModal')?.classList.contains('show')) fillCalorieDeficitModal();
   if(insights){
-    // First paint: tasks + advice only. 7-day trend is deferred (7x snapshot is costly on iOS).
-    try{
-      insights.innerHTML=renderHomeActionTasks(p,snap)+renderHomeAdviceCard(p,snap,homeCtx.calDisplay);
-      _bindTodayHealthNav(insights);
-      bindHomeActionTasks(p,currentViewDate);
-      bindHomeAdviceCard(p,currentViewDate);
-    }catch(err){console.error('[Render] home insights failed:',err)}
-    scheduleDeferredHomeExtras(p,snap);
-  }else{
-    scheduleDeferredHomeExtras(p,snap);
+    insights.innerHTML=renderHomeActionTasks(p,snap)+renderHomeAdviceCard(p,snap)+renderHomeTrendOverview(p);
+    _bindTodayHealthNav(insights);
+    bindHomeActionTasks(p,currentViewDate);
+    bindHomeAdviceCard(p,currentViewDate);
+    bindHomeTrendOverview(p,currentViewDate);
   }
-  endHomeRenderContext();
-}
-function scheduleDeferredHomeExtras(profile,snap,options={}){
-  const allowAI=options.allowAI!==false;
-  const run=()=>{
-    if(activeAppPage!=='home') return;
-    const insights=document.getElementById('homeInsightsContent');
-    if(insights&&!document.getElementById('homeTrendSection')){
-      try{
-        insights.insertAdjacentHTML('beforeend',renderHomeTrendOverview(profile));
-        bindHomeTrendOverview(profile,currentViewDate);
-      }catch(err){console.error('[Render] deferred home trend failed:',err)}
-    }
-    if(allowAI){
-      try{triggerHealthCoachV2Auto(profile,currentViewDate)}catch(err){console.error('[Render] deferred health coach failed:',err)}
-    }
-    try{refreshHomeAdviceSlotLabel(profile)}catch(_){}
-  };
-  if(typeof requestIdleCallback==='function'){
-    requestIdleCallback(()=>run(),{timeout:2200});
-  }else{
-    setTimeout(run,350);
-  }
+  triggerHealthCoachV2Auto(p,currentViewDate);
 }
 
 function _bindTodayHealthNav(wrap){
@@ -4452,25 +5343,17 @@ function bindHomeTrendOverview(profile,date){
     });
   });
 }
-function renderHomeAdviceCard(p,snap,calDisplay){
-  // Boot path: do not JSON.parse AI coach cache. Slot label is filled after first paint.
-  var ctx=calDisplay||getHomeRenderContext()?.calDisplay||getDailyCalorieDisplayContext(p,currentViewDate);
-  var summary=buildDeterministicCalorieSummary(ctx);
+function renderHomeAdviceCard(p,snap){
+  var dayCache=getHealthCoachDayCache(p,currentViewDate);
+  var latest=getLatestHealthCoachAdvice(dayCache);
+  var advice=latest?latest.advice:null;
+  var summary=advice?advice.summary:null;
+  if(!summary) summary=buildDeterministicCalorieSummary(getDailyCalorieStatus(p,currentViewDate));
   return '<div class="home-advice-card" id="homeAdviceCard">'+
     '<span class="home-advice-icon">'+icon('sparkles')+'</span>'+
     '<div class="home-advice-body"><div class="home-advice-label">今日建议</div>'+
     '<div class="home-advice-text">'+escapeHTML(summary)+'</div></div>'+
     '<span class="home-advice-arrow">›</span></div>';
-}
-function refreshHomeAdviceSlotLabel(profile){
-  const labelEl=document.querySelector('#homeAdviceCard .home-advice-label');
-  if(!labelEl) return;
-  try{
-    const dayCache=getHealthCoachDayCache(profile,currentViewDate);
-    const latest=getLatestHealthCoachAdvice(dayCache);
-    const slotLabel=latest?getHealthCoachSlotLabel(latest.slot):'';
-    labelEl.textContent='今日建议'+(slotLabel?' · '+slotLabel:'');
-  }catch(_){}
 }
 function bindHomeAdviceCard(p,date){
   date=date||currentViewDate;
@@ -4564,24 +5447,14 @@ function renderHomeTrendOverview(profile){
     '</div></div>';
 }
 
-function renderHealthPageModules(profile,date=currentViewDate){
-  const p=profile||getActiveProfile();
-  const healthGrid=document.querySelector('.app-page[data-app-page="health"] .dashboard');
-  const managementSection=document.getElementById('healthRecordManagement');
-  if(healthGrid) ensureSmartRecipeCard(healthGrid,managementSection);
-  renderWeightCard();
-  renderWeeklyReportCard(p,date);
-  try{renderSmartRecipeCard(p,date)}catch(err){console.error('[Render] renderSmartRecipeCard failed:',err)}
-  renderHealthRecordManagement();
-  if(!isSyncing&&!isFutureDate(date)) triggerWeeklyReportAuto(p,date);
-  if(healthGrid) hydrateIconsIn(healthGrid);
-}
 function renderDailyView(){
-  // Startup / home refresh: only paint what the current page needs.
-  // Health modules (weight/weekly/smart-recipe/records) load when entering health.
   renderTodayHealthOverview();
   renderDateNavigator();
-  if(activeAppPage==='health') renderHealthPageModules();
+  renderWeightCard();
+  renderWeeklyReportCard(getActiveProfile(),currentViewDate);
+  if(!isSyncing&&!isFutureDate(currentViewDate)) triggerWeeklyReportAuto(getActiveProfile(),currentViewDate);
+  try{renderSmartRecipeCard(getActiveProfile(),currentViewDate)}catch(err){console.error('[Render] renderSmartRecipeCard failed:',err)}
+  renderHealthRecordManagement();
   renderOpenRecordDetail();
 }
 
@@ -4591,9 +5464,14 @@ const pageScrollPositions={home:0,health:0,growth:0,couple:0,settings:0,'health-
 function getAppPageForModule(moduleId){
   const map={
     weightCard:'health',
+    healthOverviewCard:'health',
+    waterCard:'health',
+    exerciseCard:'health',
+    dietManagementCard:'health',
     chartCard:'health',
     healthGoalProgressCard:'health',
     weeklyReportCard:'health',
+    healthProfileCard:'health',
     todayHealthCard:'home'
   };
   return map[moduleId]||'';
@@ -4643,114 +5521,71 @@ function setupAppPageShell(){
   const pages=document.createElement('main');
   pages.className='app-pages';
   pages.id='appPages';
-  // Boot: only mount home. Other primary tabs are created on first navigation.
   const pageHome=createAppPage('home','首页');
-  moveExistingNode('todayHealthCard',pageHome);
-  pageHome.appendChild(ensureHomeNutritionCard());
-  pageHome.appendChild(ensureHomeInsights());
-  // Keep chart/weight/weekly nodes in the legacy dashboard but hide until health page mounts.
-  const oldDashboard=app.querySelector(':scope > .dashboard');
-  if(oldDashboard){
-    oldDashboard.hidden=true;
-    oldDashboard.style.display='none';
-    oldDashboard.setAttribute('aria-hidden','true');
-  }
-  pages.appendChild(pageHome);
-  // Detail sub-pages are created lazily on first navigation (faster first paint on iOS).
-  app.insertBefore(pages,dateNav?.nextSibling||app.firstChild?.nextSibling||null);
-  syncModeNavigation();
-}
-const PRIMARY_PAGE_TITLES={
-  home:'首页',
-  health:'健康',
-  growth:'成长',
-  couple:'我们',
-  settings:'设置'
-};
-function ensurePrimaryAppPage(id){
-  let el=document.querySelector(`.app-page[data-app-page="${id}"]`);
-  if(el) return el;
-  const pages=document.getElementById('appPages');
-  if(!pages||!PRIMARY_PAGE_TITLES[id]) return null;
-  if(id==='home') return null;
-  el=createAppPage(id,PRIMARY_PAGE_TITLES[id]);
-  if(id==='health'){
-    const healthGrid=document.createElement('div');
-    healthGrid.className='dashboard';
-    const managementSection=document.createElement('section');
-    managementSection.className='card health-record-management health-record-management-card';
-    managementSection.id='healthRecordManagement';
-    managementSection.innerHTML=`
+  const pageHealth=createAppPage('health','健康');
+  const pageGrowth=createAppPage('growth','成长');
+  const pageCouple=createAppPage('couple','我们');
+  const pageSettings=createAppPage('settings','设置');
+
+  const healthGrid=document.createElement('div');
+  healthGrid.className='dashboard';
+  const managementSection=document.createElement('section');
+  managementSection.className='card health-record-management health-record-management-card';
+  managementSection.id='healthRecordManagement';
+  managementSection.innerHTML=`
     <div class="health-record-management-head">
       <div class="health-record-management-title">${icon('clipboard-list')} 记录管理</div>
       <div class="health-record-management-note" id="healthRecordCompletion">今日完成 0/6项</div>
     </div>
     <div class="health-record-entry-list" id="healthRecordManagementList"></div>`;
-    ['chartCard','weightCard','weeklyReportCard'].forEach(cardId=>{
-      const node=document.getElementById(cardId);
-      if(!node) return;
-      node.hidden=false;
-      node.style.display='';
-      node.removeAttribute('aria-hidden');
-      healthGrid.appendChild(node);
-    });
-    // smartRecipeCard is created when first entering health page (not on boot).
-    healthGrid.appendChild(managementSection);
-    el.appendChild(healthGrid);
-    const oldDashboard=document.querySelector('.app > .dashboard');
-    if(oldDashboard&&oldDashboard.children.length===0) oldDashboard.remove();
-  }else if(id==='growth'){
-    el.innerHTML='<div class="growth-page" id="growthPageContent"></div>';
-  }else if(id==='couple'){
-    el.innerHTML=`
+
+  moveExistingNode('todayHealthCard',pageHome);
+  pageHome.appendChild(ensureHomeNutritionCard());
+  pageHome.appendChild(ensureHomeInsights());
+  // Health page v2 structure — real DOM order (do not use CSS order)
+  // chartCard → weightCard(身体指标) → weeklyReportCard → smartRecipeCard → healthRecordManagement
+  // Do not restore removed legacy cards:
+  // dietManagementCard, waterCard, exerciseCard, healthProfileCard, healthOverviewCard
+  ['chartCard','weightCard','weeklyReportCard'].forEach(id=>{
+    const node=document.getElementById(id);
+    if(node) healthGrid.appendChild(node);
+  });
+  ensureSmartRecipeCard(healthGrid,managementSection);
+  ['dietManagementCard','waterCard','exerciseCard','healthOverviewCard','healthProfileCard'].forEach(id=>document.getElementById(id)?.remove());
+  healthGrid.appendChild(managementSection);
+  pageHealth.appendChild(healthGrid);
+
+  pageGrowth.innerHTML='<div class="growth-page" id="growthPageContent"></div>';
+  pageCouple.innerHTML=`
     <section class="card">
       <div class="card-title"><span class="title-label">${icon('users')} 我们的健康空间</span> <span class="accent">共同健康空间</span></div>
       <div id="coupleSpaceContent"></div>
     </section>`;
-  }else if(id==='settings'){
-    el.innerHTML=`
+  pageSettings.innerHTML=`
     <section class="card">
       <div class="card-title">设置 <span class="accent">当前设备</span></div>
       <div id="settingsPageContent"></div>
     </section>`;
-  }
-  pages.appendChild(el);
-  if(!pageScrollPositions.hasOwnProperty(id)) pageScrollPositions[id]=0;
-  hydrateIconsIn(el);
-  return el;
-}
-const DETAIL_PAGE_TITLES={
-  'health-analysis':'今日健康分析',
-  'daily-tasks':'今日任务',
-  'daily-advice':'今日建议',
-  'trend-detail':'健康趋势',
-  'health-compare':'健康对比',
-  'couple-ledger':'共同账本',
-  'smart-recipe':'智能食谱',
-  'smart-recipe-detail':'菜谱详情'
-};
-function ensureDetailAppPage(id){
-  let el=document.querySelector(`.app-page[data-app-page="${id}"]`);
-  if(el) return el;
-  if(!DETAIL_PAGE_TITLES[id]) return null;
-  const pages=document.getElementById('appPages');
-  if(!pages) return null;
-  el=createAppPage(id,DETAIL_PAGE_TITLES[id]);
-  el.innerHTML=`<div class="sub-page-content" id="subPage_${id.replace(/-/g,'_')}"></div>`;
-  pages.appendChild(el);
-  if(!pageScrollPositions.hasOwnProperty(id)) pageScrollPositions[id]=0;
-  hydrateIconsIn(el);
-  return el;
+
+  [pageHome,pageHealth,pageGrowth,pageCouple,pageSettings].forEach(page=>pages.appendChild(page));
+  // Create detail sub-pages (not shown in bottom nav)
+  const detailPageIds=['health-analysis','daily-tasks','daily-advice','trend-detail','health-compare','couple-ledger','smart-recipe','smart-recipe-detail'];
+  detailPageIds.forEach(id=>{
+    const titles={'health-analysis':'今日健康分析','daily-tasks':'今日任务','daily-advice':'今日建议','trend-detail':'健康趋势','health-compare':'健康对比','couple-ledger':'共同账本','smart-recipe':'智能食谱','smart-recipe-detail':'菜谱详情'};
+    const p=createAppPage(id,titles[id]);
+    p.innerHTML=`<div class="sub-page-content" id="subPage_${id.replace(/-/g,'_')}"></div>`;
+    pages.appendChild(p);
+  });
+  app.insertBefore(pages,dateNav?.nextSibling||app.firstChild?.nextSibling||null);
+  const oldDashboard=app.querySelector(':scope > .dashboard');
+  if(oldDashboard&&oldDashboard.children.length===0) oldDashboard.remove();
+  syncModeNavigation();
 }
 function switchAppPage(page,{scrollTop=true}={}){
   page=resolveAppRoute(page);
-  ensureDeferredEventsBound();
-  if(DETAIL_PAGE_TITLES[page]) ensureDetailAppPage(page);
-  else if(PRIMARY_PAGE_TITLES[page]&&page!=='home') ensurePrimaryAppPage(page);
   let target=document.querySelector(`.app-page[data-app-page="${page}"]`);
   if(!target){
     page=isSingleMode()?'growth':'couple';
-    ensurePrimaryAppPage(page);
     target=document.querySelector(`.app-page[data-app-page="${page}"]`)||document.querySelector('.app-page[data-app-page="home"]');
   }
   if(!target) return false;
@@ -4776,11 +5611,13 @@ function switchAppPage(page,{scrollTop=true}={}){
     requestAnimationFrame(()=>{window.scrollTo({top:savedPos,left:0,behavior:'instant'});});
   }
   if(page==='health'){
-    // Enter health page: render health modules + chart (Chart.js may still be loading)
-    const p=getActiveProfile();
-    renderHealthPageModules(p,currentViewDate);
+    // 性能优化：进入健康页面才渲染 Chart（首次会等待 defer 加载的 Chart.js）
     renderChart();
     if(chartInstance) setTimeout(()=>chartInstance.resize(),60);
+    const p=getActiveProfile();
+    renderWeeklyReportCard(p,currentViewDate);
+    try{renderSmartRecipeCard(p,currentViewDate)}catch(err){console.error('[Render] renderSmartRecipeCard failed:',err)}
+    if(!isFutureDate(currentViewDate)) triggerWeeklyReportAuto(p,currentViewDate);
   }
   // Detail sub-pages: render on entry
   if(page==='health-analysis') renderHealthAnalysisPage(getActiveProfile(),currentViewDate);
@@ -4801,15 +5638,8 @@ function syncMobileBottomNavPosition(){
   const nav=document.getElementById('bottomTabNav');
   const headerVisible=header&&getComputedStyle(header).display!=='none';
   const navVisible=nav&&getComputedStyle(nav).display!=='none';
-  // Ignore 0×0 readings (common while boot splash hides .app via visibility:hidden).
-  if(headerVisible){
-    const h=Math.ceil(header.getBoundingClientRect().height);
-    if(h>0) root.style.setProperty('--immersive-header-height',`${h}px`);
-  }
-  if(navVisible){
-    const nh=Math.ceil(nav.getBoundingClientRect().height);
-    if(nh>0) root.style.setProperty('--immersive-bottom-nav-height',`${nh}px`);
-  }
+  if(headerVisible) root.style.setProperty('--immersive-header-height',`${Math.ceil(header.getBoundingClientRect().height)}px`);
+  if(navVisible) root.style.setProperty('--immersive-bottom-nav-height',`${Math.ceil(nav.getBoundingClientRect().height)}px`);
 }
 function queueMobileBottomNavPositionSync(){
   cancelAnimationFrame(mobileBottomNavFrame);
@@ -8224,6 +9054,704 @@ function formatMeetingDays(meeting){
 function getTextOrWaiting(text){
   return text==='记录不足'||text==='0次'?'暂无记录':text;
 }
+function renderCoupleTrendRow(title,meText,otherText,meName,otherName){
+  const mLabel=meName||'我';
+  const oLabel=otherName||'TA';
+  return `<div class="couple-compare-line">
+    <div class="metric">${escapeHTML(title)}</div>
+    <div class="couple-compare-side"><span>${escapeHTML(mLabel)}</span><strong>${escapeHTML(getTextOrWaiting(meText))}</strong></div>
+    <div class="couple-compare-side"><span>${escapeHTML(oLabel)}</span><strong>${escapeHTML(getTextOrWaiting(otherText))}</strong></div>
+  </div>`;
+}
+function getCoupleAiAdvice(meSnap,otherSnap){
+  const cs=getCoupleSpace();
+  const nextM=getNextMeeting();
+  const meetingDays=nextM?daysUntilDate(nextM.startDate):null;
+  const meAny=coupleHasAnyData(meSnap);
+  const otherAny=coupleHasAnyData(otherSnap);
+  if(Number.isFinite(meetingDays)&&meetingDays>=0&&meetingDays<=7) return `距离下一次见面还有${meetingDays}天，可以一起保持规律作息。`;
+  if(meAny&&otherAny&&meSnap.exerciseMinutes>0&&otherSnap.exerciseMinutes>0) return '今天你们都完成运动，坚持得不错。';
+  if(otherAny&&otherSnap.hasSleep&&otherSnap.sleepPct<75) return 'TA今天睡眠不足，可以提醒TA早点休息。';
+  if(meAny&&!otherAny) return 'TA今天还没有记录饮食或运动，可以提醒TA一下。';
+  if(!meAny&&otherAny) return 'TA今天已经开始记录了，你也可以补一条，保持共同节奏。';
+  if(meSnap.waterPct>=100&&otherSnap.waterPct>=100) return '你们今天都完成了饮水目标，可以继续保持。';
+  return '保持简单记录就好，饮水、运动、睡眠各补一点，会让你们的共同趋势更清晰。';
+}
+// ==================== Couple Time Center Helpers ====================
+const LUNAR_QIXI_DATES={2024:'2024-08-10',2025:'2025-08-29',2026:'2026-08-19',2027:'2027-08-08',2028:'2028-08-26',2029:'2029-08-15',2030:'2030-08-05'};
+function formatDateLocal(date){
+  const y=date.getFullYear();
+  const m=String(date.getMonth()+1).padStart(2,'0');
+  const d=String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function parseChineseLunarNumber(value){
+  const text=String(value||'').replace(/闰|月|日|初/g,'').trim();
+  const direct=Number(text.replace(/[^\d]/g,''));
+  if(Number.isFinite(direct)&&direct>0) return direct;
+  const map={一:1,二:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,冬:11,腊:12,正:1};
+  if(map[text]) return map[text];
+  if(text.startsWith('十')) return 10+(map[text.slice(1)]||0);
+  if(text.includes('十')){
+    const [tens,ones]=text.split('十');
+    return (map[tens]||1)*10+(map[ones]||0);
+  }
+  return 0;
+}
+function getChineseLunarMonthDay(date){
+  try{
+    if(!window.Intl||!Intl.DateTimeFormat) return null;
+    const parts=new Intl.DateTimeFormat('zh-u-ca-chinese',{month:'numeric',day:'numeric'}).formatToParts(date);
+    const monthPart=parts.find(p=>p.type==='month')?.value;
+    const dayPart=parts.find(p=>p.type==='day')?.value;
+    const month=parseChineseLunarNumber(monthPart);
+    const day=parseChineseLunarNumber(dayPart);
+    return month&&day?{month,day}:null;
+  }catch(e){
+    return null;
+  }
+}
+function getLunarQixiDate(year){
+  if(LUNAR_QIXI_DATES[year]) return LUNAR_QIXI_DATES[year];
+  const start=new Date(`${year}-07-15T00:00`);
+  const end=new Date(`${year}-09-15T00:00`);
+  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+    const lunar=getChineseLunarMonthDay(d);
+    if(lunar?.month===7&&lunar?.day===7) return formatDateLocal(d);
+  }
+  return null;
+}
+function getDefaultCoupleHolidays(){
+  const now=Date.now();
+  return [
+    {id:'hol_valentine',name:'情人节',month:2,day:14,isLunar:false,enabled:true,hidden:false,updatedAt:now},
+    {id:'hol_whiteday',name:'白色情人节',month:3,day:14,isLunar:false,enabled:true,hidden:false,updatedAt:now},
+    {id:'hol_520',name:'520',month:5,day:20,isLunar:false,enabled:true,hidden:false,updatedAt:now},
+    {id:'hol_qixi',name:'七夕节',month:7,day:7,isLunar:true,enabled:true,hidden:false,updatedAt:now},
+    {id:'hol_nye',name:'跨年夜',month:12,day:31,isLunar:false,enabled:true,hidden:false,updatedAt:now},
+    {id:'hol_newyear',name:'元旦',month:1,day:1,isLunar:false,enabled:true,hidden:false,updatedAt:now}
+  ];
+}
+function ensureDefaultHolidays(){
+  const cs=getCoupleSpace();
+  const defaults=getDefaultCoupleHolidays();
+  const current=Array.isArray(cs.holidays)?cs.holidays:[];
+  const existingIds=new Set(current.map(h=>h.id));
+  const missing=defaults.filter(h=>!existingIds.has(h.id));
+  if(missing.length){
+    cs.holidays=[...current,...missing];
+    cs.updatedAt=Date.now();
+  }
+  return cs.holidays;
+}
+function getHolidayNextDate(holiday,base=todayStr()){
+  if(!holiday||!holiday.month||!holiday.day) return null;
+  if(holiday.isLunar){
+    const year=Number(base.slice(0,4));
+    let solar=getLunarQixiDate(year);
+    if(solar&&solar<base) solar=getLunarQixiDate(year+1);
+    return solar;
+  }
+  const m=String(holiday.month).padStart(2,'0');
+  const d=String(holiday.day).padStart(2,'0');
+  const year=Number(base.slice(0,4));
+  let next=`${year}-${m}-${d}`;
+  if(next<base) next=`${year+1}-${m}-${d}`;
+  return next;
+}
+function formatCountdownDays(date){
+  if(!isValidDateStr(date)) return '未设置';
+  const d=daysUntilDate(date);
+  if(d===0) return '今天';
+  if(d>0) return `还有${d}天`;
+  return `已过去${Math.abs(d)}天`;
+}
+function getActiveCountdowns(){
+  const cs=getCoupleSpace();
+  const all=[];
+  const nextM=getNextMeeting();
+  if(nextM) all.push({id:'meeting',title:nextM.title||'见面',date:nextM.startDate,icon:nextM.type==='trip'?'✈️':'📍'});
+  (cs.countdowns||[]).forEach(c=>all.push(c));
+  return all.sort((a,b)=>(daysUntilDate(a.date)||9999)-(daysUntilDate(b.date)||9999));
+}
+function getNearestCountdown(){
+  const all=getActiveCountdowns();
+  const future=all.filter(c=>{const d=daysUntilDate(c.date);return d!==null&&d>=0});
+  return future[0]||all[0]||null;
+}
+function getActiveHolidays(){
+  return getDefaultCoupleHolidays();
+}
+function getNearestCoupleHoliday(base=todayStr()){
+  const holidays=getActiveHolidays();
+  const candidates=holidays.map(h=>{
+    const nextDate=getHolidayNextDate(h,base);
+    const days=nextDate?daysUntilDate(nextDate,base):null;
+    return nextDate&&days!==null&&days>=0?{...h,nextDate,days}:null;
+  }).filter(Boolean);
+  return candidates.sort((a,b)=>a.days-b.days||String(a.nextDate).localeCompare(String(b.nextDate)))[0]||null;
+}
+function formatNearestHolidayDays(holiday){
+  if(!holiday) return '';
+  if(holiday.days===0) return `今天是${holiday.name}`;
+  return `还有 ${holiday.days} 天`;
+}
+function compareAnniversaryOrder(a,b){
+  const ao=Number.isFinite(Number(a?.sortOrder))?Number(a.sortOrder):null;
+  const bo=Number.isFinite(Number(b?.sortOrder))?Number(b.sortOrder):null;
+  if(ao!==null||bo!==null){
+    if(ao===null) return 1;
+    if(bo===null) return -1;
+    if(ao!==bo) return ao-bo;
+  }
+  const ad=daysUntilDate(getNextAnnualDate(a?.date))||9999;
+  const bd=daysUntilDate(getNextAnnualDate(b?.date))||9999;
+  if(ad!==bd) return ad-bd;
+  return String(a?.date||'').localeCompare(String(b?.date||''));
+}
+function getSortedAnniversaries(){
+  const cs=getCoupleSpace();
+  const all=[];
+  if(cs.togetherDate) all.push({id:'together',name:'在一起纪念日',date:cs.togetherDate,type:'together',sortOrder:cs.togetherSortOrder,remindDays:cs.togetherRemindDays,enabled:cs.togetherReminderEnabled});
+  (cs.anniversaries||[]).forEach(a=>all.push(a));
+  return all.sort(compareAnniversaryOrder);
+}
+function getTodayMemorySnippet(owner,other){
+  const meSnap=owner?getHealthScoreData(owner,currentViewDate):null;
+  const otherSnap=other?getHealthScoreData(other,currentViewDate):null;
+  const parts=[];
+  if(meSnap){
+    if(meSnap.exerciseMinutes>0) parts.push('今日运动');
+    if(meSnap.waterPct>=100) parts.push('饮水目标');
+    if(meSnap.hasSleep) parts.push('睡眠记录');
+  }
+  if(otherSnap){
+    if(otherSnap.exerciseMinutes>0) parts.push('TA也运动了');
+    if(otherSnap.waterPct>=100) parts.push('TA完成了饮水');
+  }
+  return parts.length?parts.join('<br>'):'';
+}
+function formatCoupleTimelineDate(date){
+  const base=formatDate(date);
+  if(date===currentViewDate) return `${base} · 今天`;
+  if(date===addDays(currentViewDate,-1)) return `${base} · 昨天`;
+  const labels=['周日','周一','周二','周三','周四','周五','周六'];
+  const parsed=new Date(`${date}T00:00`);
+  return Number.isNaN(parsed.getTime())?base:`${base} · ${labels[parsed.getDay()]}`;
+}
+function getCoupleTimelineIcon(text){
+  const label=String(text||'');
+  if(label.includes('运动')) return 'activity';
+  if(label.includes('饮水')) return 'droplets';
+  if(label.includes('睡眠')) return 'moon';
+  return 'circle-check';
+}
+function renderCoupleTimeCenter(owner,other){
+  const cs=getCoupleSpace();
+  const togetherDays=cs.togetherDate?Math.max(0,daysBetweenDates(cs.togetherDate)):null;
+  const nextM=getNextMeeting();
+  const nearestCD=nextM?{id:'meeting',title:nextM.title||'见面',date:nextM.startDate,icon:nextM.type==='trip'?'✈️':'📍'}:getNearestCountdown();
+  const anniversaries=getSortedAnniversaries();
+  const nearestHoliday=getNearestCoupleHoliday();
+  const memories=(cs.memories||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const todaySnippet=getTodayMemorySnippet(owner,other);
+  const hasAnyTimeData=cs.togetherDate||nextM||anniversaries.length||cs.countdowns?.length||memories.length;
+  // Empty state
+  if(!hasAnyTimeData){
+    return `<div class="couple-section couple-time-empty">
+      <div class="couple-section-title">${icon('heart')} 我们的时光</div>
+      <div class="couple-time-main">记录属于你们的第一个重要日子</div>
+      <div class="couple-time-sub">设置在一起日期、下一次见面或纪念日后，这里会自动计算你们的时间。</div>
+      <div class="couple-actions" style="justify-content:center"><button class="btn btn-gold btn-sm" type="button" data-couple-time-action="together">开始设置</button></div>
+    </div>
+    <div class="couple-section couple-records">
+      <div class="couple-time-card-head">
+        <div class="couple-section-title">${icon('heart')} 我们的记录</div>
+        <button class="couple-link-btn" type="button" data-couple-time-action="memory">添加</button>
+      </div>
+      <div class="couple-records-empty">还没有共同记录，完成一次共同健康记录后会显示在这里。</div>
+    </div>`;
+  }
+  // Main time card: primary together duration + two nearby states
+  const meetingSet=!!nextM;
+  const today=todayStr();
+  const meetingDays=meetingSet?daysUntilDate(nextM.startDate):null;
+  let meetingStatus;
+  if(meetingSet&&meetingDays!==null){
+    const isOngoing=nextM.startDate<today&&(nextM.endDate||nextM.startDate)>=today;
+    const dateText=nextM.endDate&&nextM.endDate!==nextM.startDate
+      ?`${formatLedgerDateGroup(nextM.startDate)} - ${formatLedgerDateGroup(nextM.endDate)}`
+      :formatLedgerDateGroup(nextM.startDate);
+    if(isOngoing){
+      meetingStatus={label:'当前'+(nextM.type==='trip'?'旅行':'见面'),value:'进行中',detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }else if(meetingDays===0){
+      meetingStatus={label:'下一次见面',value:'今天',detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }else if(meetingDays>0){
+      meetingStatus={label:'下一次见面',value:`${meetingDays}天后`,detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }else{
+      meetingStatus={label:'下一次见面',value:`${Math.abs(meetingDays)}天前`,detail:`${nextM.title} · ${dateText}`,action:'meeting'};
+    }
+  }else{
+    meetingStatus={label:'下一次见面',value:'暂未安排',detail:'点击管理见面 / 旅行',action:'meeting'};
+  }
+  const holidayStatus=nearestHoliday
+    ?{label:nearestHoliday.name,value:nearestHoliday.days===0?'今天':`${nearestHoliday.days}天后`,detail:nearestHoliday.nextDate}
+    :{label:'近期节日',value:'暂无',detail:'继续记录重要日期'};
+  // Show only the nearest three important dates in the main card.
+  const visibleAnniversaries=anniversaries.slice(0,3);
+  const annListHTML=visibleAnniversaries.length?visibleAnniversaries.map(a=>{
+    const isTogether=a.id==='together';
+    const daysText=isTogether&&togetherDays!==null?`已相伴${togetherDays}天`:formatAnniversaryDistance(a.date);
+    const nextText=isTogether?formatTogetherNextAnniversary(a.date):'';
+    const metaParts=[a.date,daysText];
+    if(nextText) metaParts.push(nextText);
+    const actions=coupleAnnSortMode?`<button type="button" class="couple-ann-sort-handle" data-couple-ann-sort-handle aria-label="拖动排序">⋮⋮</button>`:(isTogether?
+      `<button type="button" class="couple-ann-edit-btn" data-couple-time-action="together" aria-label="编辑">${icon('edit')}</button>`:
+      `<button type="button" class="couple-ann-edit-btn" data-couple-ann-edit="${escapeHTML(a.id)}" aria-label="编辑">${icon('edit')}</button>`);
+    return `<div class="couple-ann-compact ${coupleAnnSortMode?'sorting':''}" data-couple-ann-sort-id="${escapeHTML(a.id)}">
+      <div class="couple-ann-compact-icon">${isTogether?'❤️':'📅'}</div>
+      <div class="couple-ann-compact-info">
+        <div class="couple-ann-compact-name">${escapeHTML(a.name)}</div>
+        <div class="couple-ann-compact-meta">${metaParts.map(p=>escapeHTML(p)).join(' · ')}</div>
+      </div>
+      <div class="couple-ann-compact-actions">${actions}</div>
+    </div>`;
+  }).join(''):'';
+  const timelineGroups=[];
+  if(todaySnippet){
+    timelineGroups.push({date:currentViewDate,rows:todaySnippet.split('<br>').filter(Boolean).map(text=>({text}))});
+  }
+  memories.slice(0,5).forEach(m=>{
+    let group=timelineGroups.find(item=>item.date===m.date);
+    if(!group){group={date:m.date,rows:[]};timelineGroups.push(group)}
+    group.rows.push({text:escapeHTML(m.content),id:m.id});
+  });
+  timelineGroups.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const timelineHTML=timelineGroups.length?timelineGroups.map(group=>`<div class="couple-timeline-group">
+    <div class="couple-timeline-date">${escapeHTML(formatCoupleTimelineDate(group.date))}</div>
+    <div class="couple-timeline-rows">${group.rows.map(row=>`<div class="couple-timeline-row"><span class="couple-timeline-icon">${icon(getCoupleTimelineIcon(row.text))}</span><span class="couple-timeline-title">${row.text}</span>${row.id?`<span class="couple-timeline-actions"><button type="button" data-couple-mem-edit="${escapeHTML(row.id)}" aria-label="编辑">${icon('edit')}</button><button type="button" data-couple-mem-delete="${escapeHTML(row.id)}" aria-label="删除">${icon('x')}</button></span>`:`<span class="couple-timeline-status">${icon('circle-check')}</span>`}</div>`).join('')}</div>
+  </div>`).join(''):'';
+  return `<div class="couple-section couple-time-overview">
+    <div class="couple-section-title">${icon('heart')} 我们的时光</div>
+    <div class="couple-time-primary" data-couple-time-action="together">
+      <div class="couple-time-primary-label">已相伴</div>
+      <div class="couple-time-primary-value"><strong>${togetherDays!==null?togetherDays:'--'}</strong><span>天</span></div>
+      <div class="couple-time-primary-date">${escapeHTML(cs.togetherDate?`${cs.togetherDate} 至今`:'点击设置在一起日期')}</div>
+    </div>
+    <div class="couple-time-status-grid">
+      <button class="couple-time-status-card" type="button" data-couple-time-action="${meetingStatus.action}"><span>${escapeHTML(meetingStatus.label)}</span><strong>${escapeHTML(meetingStatus.value)}</strong><small>${escapeHTML(meetingStatus.detail||'')}</small></button>
+      <div class="couple-time-status-card"><span>${escapeHTML(holidayStatus.label)}</span><strong>${escapeHTML(holidayStatus.value)}</strong><small>${escapeHTML(holidayStatus.detail)}</small></div>
+    </div>
+    <div class="couple-time-inline-section">
+      <div class="couple-time-inline-head">
+        <div class="couple-section-title">${icon('calendar')} 最近的重要日子</div>
+        <div class="couple-time-inline-actions">
+          ${anniversaries.length>1?`<button class="couple-link-btn" type="button" id="coupleAnnSortToggleBtn">${coupleAnnSortMode?'完成':'全部'}</button>`:''}
+          ${coupleAnnSortMode?'':`<button class="couple-link-btn" type="button" data-couple-time-action="anniversary">添加</button>`}
+        </div>
+      </div>
+      <div class="couple-time-inline-list" id="coupleAnnList">${annListHTML||'<div class="couple-records-empty">还没有自定义纪念日</div>'}</div>
+    </div>
+  </div>
+  <div class="couple-section couple-records">
+    <div class="couple-time-card-head">
+      <div class="couple-section-title">${icon('heart')} 我们的记录</div>
+      <button class="couple-link-btn" type="button" data-couple-time-action="memory">添加</button>
+    </div>
+    ${timelineHTML?`<div class="couple-timeline">${timelineHTML}</div>`:'<div class="couple-records-empty">还没有共同记录，完成一次共同健康记录后会显示在这里。</div>'}
+  </div>`;
+}
+function renderCoupleSpaceContent(owner,other){
+  if(!owner||!other){
+    return `<div class="couple-space">
+      ${renderCoupleTimeCenter(owner,other)}
+      <div class="couple-section couple-insufficient">
+        <div class="couple-insufficient-title">开始记录，解锁你们的健康故事</div>
+        <div class="couple-insufficient-sub">请先完成两位档案设置。这里会展示你们的共同时间、健康变化和重要回忆。</div>
+        <div class="couple-cta-group">
+          <button class="btn btn-gold btn-sm" type="button" id="coupleInviteBtn">邀请TA加入</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  const meSnap=getHealthScoreData(owner,currentViewDate);
+  const otherSnap=getHealthScoreData(other,currentViewDate);
+  const meAny=coupleHasAnyData(meSnap);
+  const otherAny=coupleHasAnyData(otherSnap);
+  const streak=getCoupleStreakDays(owner,other,currentViewDate);
+  const aiAdvice=getCoupleAiAdvice(meSnap,otherSnap);
+  const meName=getDisplayName(owner);
+  const otherName=getDisplayName(other);
+  return `
+    <div class="couple-space">
+      ${renderCoupleTimeCenter(owner,other)}
+
+      ${renderCoupleLedgerSummaryCard(owner,other)}
+
+      <div class="couple-section couple-companion">
+        <div class="couple-section-title">${icon('heart')} 健康同行</div>
+        <div class="couple-companion-grid">
+          <div class="couple-companion-person">
+            <div class="couple-companion-name">${escapeHTML(meName)}</div>
+            <div class="couple-companion-score">${coupleScoreDisplay(meSnap)}分</div>
+            <div class="couple-companion-note">${escapeHTML(coupleStatusLabel(meSnap))}</div>
+          </div>
+          <div class="couple-companion-person">
+            <div class="couple-companion-name">${escapeHTML(otherName)}</div>
+            <div class="couple-companion-score">${otherAny?`${coupleScoreDisplay(otherSnap)}分`:'暂无'}</div>
+            <div class="couple-companion-note">${otherAny?escapeHTML(coupleStatusLabel(otherSnap)):'等待TA加入记录'}</div>
+            ${!otherAny?`<button class="couple-companion-remind" type="button" id="coupleRemindBtn">提醒TA</button>`:''}
+          </div>
+        </div>
+        <div class="couple-companion-shared">
+          <div class="couple-companion-streak">共同坚持 <strong>${streak}天</strong></div>
+          <button class="couple-companion-cta" type="button" id="coupleHealthCompareBtn">查看健康对比 &gt;</button>
+        </div>
+      </div>
+
+      <div class="couple-section couple-change-card">
+        <div class="couple-section-title">${icon('chart')} 我们的变化</div>
+        <div class="couple-change-sub">近7天健康数据对比</div>
+        ${meAny||otherAny?`<div class="couple-compare-header"><span></span><span>${escapeHTML(meName)}</span><span>${escapeHTML(otherName)}</span></div>
+        <div class="couple-compare-compact">
+          ${renderCoupleTrendRow('体重变化',getWeightChangeText(owner),getWeightChangeText(other),meName,otherName)}
+          ${renderCoupleTrendRow('运动次数',getExerciseDaysText(owner),getExerciseDaysText(other),meName,otherName)}
+          ${renderCoupleTrendRow('睡眠变化',getSleepTrendText(owner),getSleepTrendText(other),meName,otherName)}
+        </div>`:'<div class="couple-change-empty">继续记录后可查看你们的共同变化趋势。</div>'}
+      </div>
+
+      <div class="couple-section couple-reminder-section">
+        <div class="couple-advice-card" id="coupleAdviceCard">
+          <div class="couple-advice-card-label">${icon('bot')} 今天的小提醒</div>
+          <div class="couple-advice-card-text">${escapeHTML(aiAdvice)}</div>
+        </div>
+      </div>
+
+      ${(!meAny&&!otherAny)?`<div class="couple-section couple-insufficient">
+        <div class="couple-insufficient-title">开始记录，解锁你们的健康故事</div>
+        <div class="couple-insufficient-sub">记录饮水、运动、睡眠或饮食后，这里会生成共同健康变化。</div>
+        <div class="couple-cta-group">
+          <button class="btn btn-gold btn-sm dash-page-goto" type="button" data-app-page="record">开始记录</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="coupleInviteBtn">邀请TA加入</button>
+        </div>
+      </div>`:''}
+    </div>`;
+}
+function refreshCoupleSpaceView(){
+  saveData();
+  if(activeAppPage==='couple') renderAppPageSummaries();
+}
+function saveCoupleAnniversaryOrderFromDom(){
+  const list=document.getElementById('coupleAnnList');
+  if(!list) return;
+  const ids=[...list.querySelectorAll('[data-couple-ann-sort-id]')].map(el=>el.dataset.coupleAnnSortId).filter(Boolean);
+  if(!ids.length) return;
+  const cs=touchCoupleSpace();
+  const now=Date.now();
+  ids.forEach((id,index)=>{
+    const sortOrder=index+1;
+    if(id==='together'){
+      cs.togetherSortOrder=sortOrder;
+      cs.togetherSortUpdatedAt=now;
+    }else{
+      const ann=(cs.anniversaries||[]).find(a=>a.id===id);
+      if(ann){
+        ann.sortOrder=sortOrder;
+        ann.updatedAt=now;
+      }
+    }
+  });
+  cs.updatedAt=now;
+  saveData();
+}
+function toggleCoupleAnnSortMode(){
+  if(coupleAnnSortMode){
+    saveCoupleAnniversaryOrderFromDom();
+    coupleAnnSortMode=false;
+    refreshCoupleSpaceView();
+    showToast('重要日期顺序已保存','success');
+  }else{
+    coupleAnnSortMode=true;
+    refreshCoupleSpaceView();
+    showToast('长按右侧手柄拖动排序','info');
+  }
+}
+function getCoupleAnnDragAfterElement(list,y,draggingItem){
+  const items=[...list.querySelectorAll('[data-couple-ann-sort-id]:not(.dragging)')].filter(el=>el!==draggingItem);
+  return items.reduce((closest,child)=>{
+    const box=child.getBoundingClientRect();
+    const offset=y-box.top-box.height/2;
+    if(offset<0&&offset>closest.offset) return {offset,element:child};
+    return closest;
+  },{offset:Number.NEGATIVE_INFINITY,element:null}).element;
+}
+function setupCoupleAnnSortHandlers(root){
+  const list=root?.querySelector('#coupleAnnList');
+  if(!coupleAnnSortMode||!list) return;
+  list.querySelectorAll('[data-couple-ann-sort-handle]').forEach(handle=>{
+    handle.addEventListener('pointerdown',e=>{
+      const item=handle.closest('[data-couple-ann-sort-id]');
+      if(!item) return;
+      e.preventDefault();
+      const pointerId=e.pointerId;
+      const startY=e.clientY;
+      let dragging=false;
+      const startDrag=()=>{
+        if(dragging) return;
+        dragging=true;
+        item.classList.add('dragging');
+        try{handle.setPointerCapture(pointerId)}catch(err){}
+      };
+      const timer=setTimeout(startDrag,180);
+      const onMove=ev=>{
+        if(!dragging&&Math.abs(ev.clientY-startY)>6){
+          clearTimeout(timer);
+          startDrag();
+        }
+        if(!dragging) return;
+        ev.preventDefault();
+        const after=getCoupleAnnDragAfterElement(list,ev.clientY,item);
+        if(after==null) list.appendChild(item);
+        else list.insertBefore(item,after);
+      };
+      const onEnd=()=>{
+        clearTimeout(timer);
+        document.removeEventListener('pointermove',onMove);
+        document.removeEventListener('pointerup',onEnd);
+        document.removeEventListener('pointercancel',onEnd);
+        if(dragging){
+          item.classList.remove('dragging');
+          saveCoupleAnniversaryOrderFromDom();
+        }
+      };
+      document.addEventListener('pointermove',onMove,{passive:false});
+      document.addEventListener('pointerup',onEnd,{once:true});
+      document.addEventListener('pointercancel',onEnd,{once:true});
+    });
+  });
+}
+function openCoupleTimeModal(type='together',annId=''){
+  const modal=document.getElementById('coupleTimeModal');
+  const title=document.getElementById('coupleTimeModalTitle');
+  const form=document.getElementById('coupleTimeForm');
+  if(!modal||!title||!form) return;
+  const cs=getCoupleSpace();
+  if(type==='meeting'){
+    closeModal('coupleTimeModal');
+    openMeetingManager();
+    return;
+  }else if(type==='anniversary'){
+    const ann=(cs.anniversaries||[]).find(a=>a.id===annId);
+    title.textContent=ann?'编辑纪念日':'添加纪念日';
+    const annType=ann?.type||'custom';
+    form.innerHTML=`
+      <div class="couple-time-modal-grid">
+        <div class="form-group"><label>名称</label><input class="form-input" id="coupleAnnName" maxlength="30" placeholder="例如：TA生日、第一次旅行" value="${escapeHTML(ann?.name||'')}"></div>
+        <div class="form-group"><label>类型</label><select class="form-select" id="coupleAnnType">
+          <option value="first_meet" ${annType==='first_meet'?'selected':''}>第一次见面</option>
+          <option value="first_trip" ${annType==='first_trip'?'selected':''}>第一次旅行</option>
+          <option value="birthday" ${annType==='birthday'?'selected':''}>生日</option>
+          <option value="custom" ${annType==='custom'?'selected':''}>自定义日期</option>
+        </select></div>
+        <div class="form-group"><label>日期</label><input class="form-input" id="coupleAnnDate" type="date" value="${escapeHTML(ann?.date||'')}"></div>
+        <div class="form-group"><label>提醒</label><select class="form-select" id="coupleAnnEnabled">
+          <option value="true" ${ann?.enabled===false?'':'selected'}>开启提醒</option>
+          <option value="false" ${ann?.enabled===false?'selected':''}>关闭提醒</option>
+        </select></div>
+        <div class="form-group"><label>提前提醒天数</label><input class="form-input" id="coupleAnnRemindDays" type="number" min="0" max="365" value="${escapeHTML(String(Number(ann?.remindDays)||1))}"></div>
+      </div>
+      <div class="couple-form-note">保存后，双方账号都会看到这个重要日子。</div>
+      <div class="couple-form-actions"><button class="btn btn-ghost" type="button" id="coupleTimeCancelBtn">取消</button>${ann?`<button class="btn btn-ghost" type="button" id="coupleAnnDeleteBtn" data-ann-id="${escapeHTML(annId)}" style="color:#ff6b6b;border-color:rgba(255,100,100,0.2)">删除</button>`:''}<button class="btn btn-gold" type="button" id="coupleAnnSaveBtn" data-ann-id="${escapeHTML(annId||'')}">保存</button></div>`;
+    form.querySelector('#coupleAnnSaveBtn')?.addEventListener('click',saveCoupleAnniversary);
+    form.querySelector('#coupleAnnDeleteBtn')?.addEventListener('click',()=>{
+      deleteCoupleAnniversary(annId);
+      const cs2=getCoupleSpace();
+      if(!(cs2.anniversaries||[]).find(a=>a.id===annId)){
+        closeModal('coupleTimeModal');
+      }
+    });
+  }else if(type==='countdown'){
+    const cd=(cs.countdowns||[]).find(c=>c.id===annId);
+    title.textContent=cd?'编辑倒计时':'添加倒计时';
+    form.innerHTML=`
+      <div class="couple-time-modal-grid">
+        <div class="form-group"><label>名称</label><input class="form-input" id="coupleCdTitle" maxlength="30" placeholder="例如：下一次见面、旅行、回家" value="${escapeHTML(cd?.title||'')}"></div>
+        <div class="form-group"><label>目标日期</label><input class="form-input" id="coupleCdDate" type="date" value="${escapeHTML(cd?.date||'')}"></div>
+        <div class="form-group"><label>图标（可选）</label><input class="form-input" id="coupleCdIcon" maxlength="4" placeholder="📍" value="${escapeHTML(cd?.icon||'📍')}"></div>
+      </div>
+      <div class="couple-form-note">保存后会自动计算距离目标日期的天数，并同步给 TA。</div>
+      <div class="couple-form-actions"><button class="btn btn-ghost" type="button" id="coupleTimeCancelBtn">取消</button><button class="btn btn-gold" type="button" id="coupleCdSaveBtn" data-cd-id="${escapeHTML(annId||'')}">保存</button></div>`;
+    form.querySelector('#coupleCdSaveBtn')?.addEventListener('click',saveCoupleCountdown);
+  }else if(type==='memory'){
+    const mem=(cs.memories||[]).find(m=>m.id===annId);
+    title.textContent=mem?'编辑记录':'添加记录';
+    form.innerHTML=`
+      <div class="couple-time-modal-grid">
+        <div class="form-group"><label>日期</label><input class="form-input" id="coupleMemDate" type="date" value="${escapeHTML(mem?.date||currentViewDate)}"></div>
+        <div class="form-group"><label>内容</label><textarea class="form-input" id="coupleMemContent" rows="4" maxlength="200" placeholder="例如：一起完成运动、饮水目标，或者一句想说的话">${escapeHTML(mem?.content||'')}</textarea></div>
+      </div>
+      <div class="couple-form-note">记录你们共同完成的事情或想说的话，会同步给 TA。</div>
+      <div class="couple-form-actions"><button class="btn btn-ghost" type="button" id="coupleTimeCancelBtn">取消</button><button class="btn btn-gold" type="button" id="coupleMemSaveBtn" data-mem-id="${escapeHTML(annId||'')}">保存</button></div>`;
+    form.querySelector('#coupleMemSaveBtn')?.addEventListener('click',saveCoupleMemory);
+  }else{
+    title.textContent='设置在一起纪念日';
+    form.innerHTML=`
+      <div class="couple-time-modal-grid">
+        <div class="form-group"><label>开始日期</label><input class="form-input" id="coupleTogetherDate" type="date" value="${escapeHTML(cs.togetherDate||'')}"></div>
+        <div class="form-group"><label>提醒</label><select class="form-select" id="coupleTogetherEnabled">
+          <option value="true" ${cs.togetherReminderEnabled===false?'':'selected'}>开启提醒</option>
+          <option value="false" ${cs.togetherReminderEnabled===false?'selected':''}>关闭提醒</option>
+        </select></div>
+        <div class="form-group"><label>提前提醒天数</label><input class="form-input" id="coupleTogetherRemindDays" type="number" min="0" max="365" value="${escapeHTML(String(Number(cs.togetherRemindDays)||1))}"></div>
+      </div>
+      <div class="couple-form-note">设置后会自动计算“已经一起走过”的天数，并同步给 TA。</div>
+      <div class="couple-form-actions"><button class="btn btn-ghost" type="button" id="coupleTimeCancelBtn">取消</button><button class="btn btn-gold" type="button" id="coupleTogetherSaveBtn">保存</button></div>`;
+    form.querySelector('#coupleTogetherSaveBtn')?.addEventListener('click',saveCoupleTogetherDate);
+  }
+  if(window.GlassUI) GlassUI.enhance(form);
+  form.querySelector('#coupleTimeCancelBtn')?.addEventListener('click',()=>closeModal('coupleTimeModal'));
+  modal.classList.add('show');
+  GlassScrollLock.lock('modal:coupleTimeModal');
+}
+function saveCoupleTogetherDate(){
+  const date=document.getElementById('coupleTogetherDate')?.value||'';
+  if(!isValidDateStr(date)){showToast('请选择开始日期','error');return}
+  const cs=touchCoupleSpace();
+  const now=Date.now();
+  cs.togetherDate=date;
+  cs.togetherDateUpdatedAt=now;
+  cs.togetherRemindDays=Math.max(0,Math.min(365,Number(document.getElementById('coupleTogetherRemindDays')?.value)||0));
+  cs.togetherReminderEnabled=(document.getElementById('coupleTogetherEnabled')?.value||'true')==='true';
+  cs.updatedAt=now;
+  closeModal('coupleTimeModal');
+  refreshCoupleSpaceView();
+  showToast('在一起纪念日已保存','success');
+}
+function saveCoupleMeeting(){
+  const title=(document.getElementById('coupleMeetingTitle')?.value||'').trim();
+  if(!title){showToast('请输入名称','error');return}
+  const type=document.getElementById('coupleMeetingType')?.value||'meeting';
+  const date=document.getElementById('coupleMeetingDate')?.value||'';
+  if(!isValidDateStr(date)){showToast('请选择开始日期','error');return}
+  const endDate=document.getElementById('coupleMeetingEnd')?.value||'';
+  const place=(document.getElementById('coupleMeetingPlace')?.value||'').trim().slice(0,40);
+  const note=(document.getElementById('coupleMeetingNote')?.value||'').trim().slice(0,120);
+  const btn=document.getElementById('coupleMeetingSaveBtn');
+  const existingId=btn?.dataset.meetingId||'';
+  if(existingId){
+    updateMeeting(existingId,{title,type,startDate:date,endDate,place,note});
+  }else{
+    createMeeting({title,type,startDate:date,endDate,place,note});
+  }
+  saveData();
+  closeModal('coupleTimeModal');
+  refreshCoupleSpaceView();
+  showToast(existingId?'已更新':'已保存','success');
+}
+function saveCoupleAnniversary(){
+  const btn=document.getElementById('coupleAnnSaveBtn');
+  const id=btn?.dataset.annId||'';
+  const name=(document.getElementById('coupleAnnName')?.value||'').trim();
+  const date=document.getElementById('coupleAnnDate')?.value||'';
+  const annType=document.getElementById('coupleAnnType')?.value||'custom';
+  const remindDays=Math.max(0,Math.min(365,Number(document.getElementById('coupleAnnRemindDays')?.value)||0));
+  const enabled=(document.getElementById('coupleAnnEnabled')?.value||'true')==='true';
+  if(!name){showToast('请填写纪念日名称','error');return}
+  if(!isValidDateStr(date)){showToast('请选择纪念日日期','error');return}
+  const cs=touchCoupleSpace();
+  const now=Date.now();
+  const annId=id||`ann${now}_${Math.random().toString(36).slice(2,7)}`;
+  const idx=(cs.anniversaries||[]).findIndex(a=>a.id===annId);
+  const existing=idx>=0?cs.anniversaries[idx]:null;
+  const orderValues=[
+    Number.isFinite(Number(cs.togetherSortOrder))?Number(cs.togetherSortOrder):null,
+    ...(cs.anniversaries||[]).map(a=>Number.isFinite(Number(a.sortOrder))?Number(a.sortOrder):null)
+  ].filter(v=>v!==null);
+  const sortOrder=existing&&Number.isFinite(Number(existing.sortOrder))?Number(existing.sortOrder):(orderValues.length?Math.max(...orderValues)+1:(cs.anniversaries||[]).length+(cs.togetherDate?2:1));
+  const ann={id:annId,name:name.slice(0,30),date,type:annType,sortOrder,remindDays,enabled,updatedAt:now};
+  if(idx>=0) cs.anniversaries[idx]=ann;
+  else cs.anniversaries=[...(cs.anniversaries||[]),ann];
+  cs.deletedAnniversaries=(cs.deletedAnniversaries||[]).filter(t=>t.id!==ann.id);
+  cs.updatedAt=now;
+  closeModal('coupleTimeModal');
+  refreshCoupleSpaceView();
+  showToast('纪念日已保存','success');
+}
+function deleteCoupleAnniversary(id){
+  const cs=touchCoupleSpace();
+  const target=(cs.anniversaries||[]).find(a=>a.id===id);
+  if(!target) return;
+  if(!confirm(`删除“${target.name}”？`)) return;
+  const now=Date.now();
+  cs.anniversaries=(cs.anniversaries||[]).filter(a=>a.id!==id);
+  cs.deletedAnniversaries=[...(cs.deletedAnniversaries||[]).filter(t=>t.id!==id),{id,deletedAt:now}];
+  cs.updatedAt=now;
+  refreshCoupleSpaceView();
+  showToast('纪念日已删除','success');
+}
+function saveCoupleCountdown(){
+  const btn=document.getElementById('coupleCdSaveBtn');
+  const id=btn?.dataset.cdId||'';
+  const title=(document.getElementById('coupleCdTitle')?.value||'').trim();
+  const date=document.getElementById('coupleCdDate')?.value||'';
+  if(!title){showToast('请填写倒计时名称','error');return}
+  if(!isValidDateStr(date)){showToast('请选择目标日期','error');return}
+  const cs=touchCoupleSpace();
+  const now=Date.now();
+  const iconVal=(document.getElementById('coupleCdIcon')?.value||'📍').trim().slice(0,4)||'📍';
+  const cd={id:id||`cd${now}_${Math.random().toString(36).slice(2,7)}`,title:title.slice(0,30),date,icon:iconVal,updatedAt:now};
+  const idx=(cs.countdowns||[]).findIndex(c=>c.id===cd.id);
+  if(idx>=0) cs.countdowns[idx]=cd;
+  else cs.countdowns=[...(cs.countdowns||[]),cd];
+  cs.deletedCountdowns=(cs.deletedCountdowns||[]).filter(t=>t.id!==cd.id);
+  cs.updatedAt=now;
+  closeModal('coupleTimeModal');
+  refreshCoupleSpaceView();
+  showToast('倒计时已保存','success');
+}
+function deleteCoupleCountdown(id){
+  const cs=touchCoupleSpace();
+  const target=(cs.countdowns||[]).find(c=>c.id===id);
+  if(!target) return;
+  if(!confirm(`删除“${target.title}”？`)) return;
+  const now=Date.now();
+  cs.countdowns=(cs.countdowns||[]).filter(c=>c.id!==id);
+  cs.deletedCountdowns=[...(cs.deletedCountdowns||[]).filter(t=>t.id!==id),{id,deletedAt:now}];
+  cs.updatedAt=now;
+  refreshCoupleSpaceView();
+  showToast('倒计时已删除','success');
+}
+function saveCoupleMemory(){
+  const btn=document.getElementById('coupleMemSaveBtn');
+  const id=btn?.dataset.memId||'';
+  const date=document.getElementById('coupleMemDate')?.value||currentViewDate;
+  const content=(document.getElementById('coupleMemContent')?.value||'').trim();
+  if(!content){showToast('请填写记录内容','error');return}
+  if(!isValidDateStr(date)){showToast('请选择日期','error');return}
+  const cs=touchCoupleSpace();
+  const now=Date.now();
+  const mem={id:id||`mem${now}_${Math.random().toString(36).slice(2,7)}`,date,content:content.slice(0,200),updatedAt:now};
+  const idx=(cs.memories||[]).findIndex(m=>m.id===mem.id);
+  if(idx>=0) cs.memories[idx]=mem;
+  else cs.memories=[...(cs.memories||[]),mem];
+  cs.deletedMemories=(cs.deletedMemories||[]).filter(t=>t.id!==mem.id);
+  cs.updatedAt=now;
+  closeModal('coupleTimeModal');
+  refreshCoupleSpaceView();
+  showToast('记录已保存','success');
+}
+function deleteCoupleMemory(id){
+  const cs=touchCoupleSpace();
+  const target=(cs.memories||[]).find(m=>m.id===id);
+  if(!target) return;
+  if(!confirm('删除这条记录？')) return;
+  const now=Date.now();
+  cs.memories=(cs.memories||[]).filter(m=>m.id!==id);
+  cs.deletedMemories=[...(cs.deletedMemories||[]).filter(t=>t.id!==id),{id,deletedAt:now}];
+  cs.updatedAt=now;
+  refreshCoupleSpaceView();
+  showToast('记录已删除','success');
+}
 function renderGoalMiniMetric(label,value){
   return `<div class="settings-row"><span>${escapeHTML(label)}</span><strong>${escapeHTML(value)}</strong></div>`;
 }
@@ -8379,7 +9907,1710 @@ function _subPageHeader(title,dateStr,options={}){
     `</div>`;
 }
 
+/* ==================== SMART RECIPE (P1 UI — no AI) ==================== */
+/*
+ * Future recipe object shape (all features share this):
+ * { id, title, mealType, calories, protein, carbs, fat, fiber, servings, cookTime,
+ *   difficulty, tags, ingredients:[{name,amount,unit,calories,protein,carbs,fat}],
+ *   steps, reason, adjustment, missingIngredients, source }
+ */
+function normalizeRecipePreferences(raw){
+  const src={...SMART_RECIPE_DEFAULT_PREFERENCES,...(raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{})};
+  const effort=SMART_RECIPE_EFFORT_OPTIONS.find(o=>o.id===src.cookingEffort)||SMART_RECIPE_EFFORT_OPTIONS[0];
+  const cleanList=(arr)=>[...new Set((Array.isArray(arr)?arr:[]).map(v=>String(v||'').trim()).filter(Boolean))];
+  return {
+    allergies:cleanList(src.allergies),
+    dislikes:cleanList(src.dislikes),
+    dietStyle:SMART_RECIPE_DIET_STYLES.some(o=>o.id===src.dietStyle)?src.dietStyle:'any',
+    cookingEffort:effort.id,
+    maxCookTime:Number.isFinite(Number(src.maxCookTime))?Number(src.maxCookTime):effort.maxCookTime,
+    kitchenAppliances:cleanList(src.kitchenAppliances),
+    mealPattern:SMART_RECIPE_MEAL_PATTERN_OPTIONS.some(o=>o.id===src.mealPattern)?src.mealPattern:'3_meals_snack'
+  };
+}
+function getRecipePreferences(profile){
+  return normalizeRecipePreferences(profile?.recipePreferences);
+}
+function setRecipePreferences(profile,patch){
+  if(!profile) return null;
+  profile.recipePreferences=normalizeRecipePreferences({...getRecipePreferences(profile),...(patch||{})});
+  return profile.recipePreferences;
+}
+function getSmartRecipeNutrition(recipe){
+  const nutrition=recipe?.nutrition&&typeof recipe.nutrition==='object'?recipe.nutrition:recipe||{};
+  return {
+    calories:Math.max(0,Math.round(Number(nutrition.calories??recipe?.calories)||0)),
+    protein:Math.max(0,Number(nutrition.protein??recipe?.protein)||0),
+    carbs:Math.max(0,Number(nutrition.carbs??recipe?.carbs)||0),
+    fat:Math.max(0,Number(nutrition.fat??recipe?.fat)||0),
+    fiber:Math.max(0,Number(nutrition.fiber??recipe?.fiber)||0)
+  };
+}
+function normalizeSmartRecipeForUI(raw,source='local'){
+  if(!raw||typeof raw!=='object') return null;
+  const nutrition=getSmartRecipeNutrition(raw);
+  const ingredients=(Array.isArray(raw.ingredients)?raw.ingredients:[]).map(item=>{
+    if(typeof item==='string') return {name:item,amount:'',unit:''};
+    return {name:String(item?.name||item?.food||'').trim(),amount:item?.amount??'',unit:String(item?.unit||'')};
+  }).filter(item=>item.name);
+  if(!String(raw.title||'').trim()) return null;
+  return {
+    id:raw.id||`${source}_${Date.now().toString(36)}`,
+    title:String(raw.title||'').trim(),
+    mealType:MEAL_KEYS.includes(raw.mealType)?raw.mealType:getSmartRecipeCurrentMeal(),
+    reason:String(raw.reason||'').trim(),
+    calories:nutrition.calories,
+    protein:nutrition.protein,
+    carbs:nutrition.carbs,
+    fat:nutrition.fat,
+    fiber:nutrition.fiber,
+    nutrition,
+    ingredients,
+    steps:(Array.isArray(raw.steps)?raw.steps:[]).map(step=>String(step||'').trim()).filter(Boolean),
+    cookTime:Math.max(0,Math.round(Number(raw.cookTime)||0)),
+    difficulty:String(raw.difficulty||'简单').trim()||'简单',
+    tags:Array.isArray(raw.tags)?raw.tags.map(tag=>String(tag||'').trim()).filter(Boolean):[],
+    noCook:!!raw.noCook,
+    adjustment:String(raw.adjustment||'').trim(),
+    source:raw.source||source
+  };
+}
+function getSmartRecipeLinkContext(profile,date=currentViewDate,snap,cs){
+  if(!profile) return null;
+  const healthSnap=snap||getHealthScoreData(profile,date);
+  const calorieStatus=cs||getDailyCalorieStatus(profile,date);
+  if(!calorieStatus?.hasTarget) return null;
+  const gaps=getSmartRecipeMacroGaps(healthSnap,calorieStatus);
+  const proteinGap=Math.max(0,Number(gaps.protein)||0);
+  const carbsGap=Math.max(0,Number(gaps.carbs)||0);
+  const fatGap=Math.max(0,Number(gaps.fat)||0);
+  const caloriesGap=Math.max(0,Number(gaps.calories)||0);
+  if(proteinGap>SMART_RECIPE_GAP_THRESHOLDS.protein&&caloriesGap>0){
+    return {mode:'protein-gap',target:'protein',hint:`蛋白质还差 ${Math.round(proteinGap)}g`};
+  }
+  const hasMacroGap=proteinGap>SMART_RECIPE_GAP_THRESHOLDS.protein||carbsGap>SMART_RECIPE_GAP_THRESHOLDS.carbs||fatGap>SMART_RECIPE_GAP_THRESHOLDS.fat;
+  if(healthSnap?.hasFood&&hasMacroGap&&caloriesGap>0){
+    const target=proteinGap>=carbsGap&&proteinGap>=fatGap?'protein':(carbsGap>=fatGap?'carbs':'fat');
+    return {mode:'nutrition-gap',target,hint:'今天还有营养缺口'};
+  }
+  return null;
+}
+function getSmartRecipeHealthContext(profile,date=currentViewDate){
+  const snap=getHealthScoreData(profile,date);
+  const cs=getDailyCalorieStatus(profile,date);
+  const goal=getHealthGoal(profile);
+  const gaps=getSmartRecipeMacroGaps(snap,cs);
+  return {
+    date,
+    meal:getSmartRecipeCurrentMeal(),
+    goalType:goal?.type||'maintain',
+    goalTitle:goal?.title||'',
+    remainingKcal:cs?.hasTarget?Math.max(0,Math.round(Number(cs.intakeRemainingKcal)||0)):null,
+    proteinGap:gaps.protein,
+    carbsGap:gaps.carbs,
+    fatGap:gaps.fat,
+    hasFood:!!snap?.hasFood,
+    hasTarget:!!cs?.hasTarget
+  };
+}
+function getSmartRecipeRemainingCalorieBucket(remaining){
+  if(remaining==null||!Number.isFinite(Number(remaining))) return 'na';
+  const val=Math.max(0,Math.round(Number(remaining)));
+  if(val<=0) return '0';
+  if(val<=200) return '1-200';
+  if(val<=500) return '201-500';
+  if(val<=800) return '501-800';
+  return '801+';
+}
+function buildSmartRecipeSourceSignature(profile,date=currentViewDate){
+  const pkey=getProfileDataId(profile)||profile?.id||'';
+  const hc=getSmartRecipeHealthContext(profile,date);
+  const prefs=getRecipePreferences(profile);
+  return [pkey,date,hc.meal,hc.goalType,getSmartRecipeRemainingCalorieBucket(hc.remainingKcal),JSON.stringify(prefs)].join('|');
+}
+function getSmartRecipeAICache(){
+  try{return JSON.parse(localStorage.getItem(AI_SMART_RECIPE_CACHE_KEY)||'{}')||{}}
+  catch(e){return {}}
+}
+function saveSmartRecipeAICache(cache){
+  try{localStorage.setItem(AI_SMART_RECIPE_CACHE_KEY,JSON.stringify(cache||{}))}catch(e){}
+}
+function getSmartRecipeCacheInputKey(kind,input){
+  return `${kind}:${normalizeSupplementText(input)}`;
+}
+function readSmartRecipeAICache(profile,date,kind,input){
+  const pkey=getProfileDataId(profile)||profile?.id||'';
+  if(!pkey||!date||!kind||!input) return null;
+  const entry=getSmartRecipeAICache()?.[pkey]?.[date]?.[kind];
+  const signature=buildSmartRecipeSourceSignature(profile,date);
+  if(!entry||entry.inputKey!==getSmartRecipeCacheInputKey(kind,input)||!entry.recipe) return null;
+  if(entry.source_signature&&entry.source_signature!==signature) return null;
+  if(!entry.source_signature) return null;
+  return entry.recipe;
+}
+function writeSmartRecipeAICache(profile,date,kind,input,recipe){
+  const pkey=getProfileDataId(profile)||profile?.id||'';
+  if(!pkey||!date||!kind||!recipe) return;
+  const cache=getSmartRecipeAICache();
+  cache[pkey]=cache[pkey]||{};
+  cache[pkey][date]=cache[pkey][date]||{};
+  cache[pkey][date][kind]={
+    inputKey:getSmartRecipeCacheInputKey(kind,input),
+    recipe,
+    source_signature:buildSmartRecipeSourceSignature(profile,date),
+    updatedAt:Date.now()
+  };
+  saveSmartRecipeAICache(cache);
+}
+function normalizeFavoriteRecipe(raw){
+  if(!raw||typeof raw!=='object') return null;
+  const nutrition=getSmartRecipeNutrition(raw);
+  const title=String(raw.title||'').trim();
+  if(!title) return null;
+  const ingredients=(Array.isArray(raw.ingredients)?raw.ingredients:[]).map(item=>{
+    if(typeof item==='string') return {name:item,amount:'',unit:''};
+    return {name:String(item?.name||item?.food||'').trim(),amount:item?.amount??'',unit:String(item?.unit||'')};
+  }).filter(item=>item.name);
+  return {
+    id:raw.id||`fav_${Date.now().toString(36)}`,
+    title,
+    mealType:MEAL_KEYS.includes(raw.mealType)?raw.mealType:'lunch',
+    calories:nutrition.calories,
+    protein:nutrition.protein,
+    carbs:nutrition.carbs,
+    fat:nutrition.fat,
+    fiber:nutrition.fiber,
+    nutrition,
+    ingredients,
+    steps:Array.isArray(raw.steps)?raw.steps.map(step=>String(step||'').trim()).filter(Boolean):[],
+    tags:Array.isArray(raw.tags)?raw.tags.map(tag=>String(tag||'').trim()).filter(Boolean):[],
+    reason:String(raw.reason||'').trim(),
+    adjustment:String(raw.adjustment||'').trim(),
+    cookTime:Math.max(0,Math.round(Number(raw.cookTime)||0)),
+    difficulty:String(raw.difficulty||'简单').trim()||'简单',
+    createdAt:Number(raw.createdAt)||Date.now(),
+    source:'favorite'
+  };
+}
+function getFavoriteRecipes(profile){
+  if(!profile) return [];
+  if(!Array.isArray(profile.favoriteRecipes)) profile.favoriteRecipes=[];
+  return profile.favoriteRecipes.map(item=>normalizeFavoriteRecipe(item)).filter(Boolean);
+}
+function isFavoriteRecipe(profile,recipe){
+  const id=recipe?.id||'';
+  const title=String(recipe?.title||'').trim();
+  return getFavoriteRecipes(profile).some(item=>item.id===id||(title&&item.title===title));
+}
+function toggleFavoriteRecipe(profile,recipe){
+  if(!profile||!recipe) return false;
+  const normalized=normalizeSmartRecipeForUI(recipe,recipe?.source||'favorite');
+  if(!normalized) return false;
+  const list=Array.isArray(profile.favoriteRecipes)?profile.favoriteRecipes:[];
+  const idx=list.findIndex(item=>item.id===normalized.id||item.title===normalized.title);
+  if(idx>=0){
+    list.splice(idx,1);
+    profile.favoriteRecipes=list;
+    saveData();
+    return false;
+  }
+  list.unshift({
+    id:normalized.id,
+    title:normalized.title,
+    mealType:normalized.mealType,
+    calories:normalized.calories,
+    protein:normalized.protein,
+    carbs:normalized.carbs,
+    fat:normalized.fat,
+    fiber:normalized.fiber,
+    ingredients:normalized.ingredients,
+    steps:normalized.steps,
+    tags:normalized.tags,
+    reason:normalized.reason||'',
+    adjustment:normalized.adjustment||'',
+    cookTime:normalized.cookTime||0,
+    difficulty:normalized.difficulty||'简单',
+    createdAt:Date.now()
+  });
+  profile.favoriteRecipes=list.slice(0,40);
+  saveData();
+  return true;
+}
+function estimateRecipeIngredientGrams(item){
+  const name=String(item?.name||'').trim();
+  const amount=Number(item?.amount);
+  const unit=String(item?.unit||'').trim().toLowerCase();
+  const local=findLocalFoodByName(name);
+  const base=local?getFoodBaseAmount(local):0;
+  if(['g','克'].includes(unit)&&Number.isFinite(amount)&&amount>0) return amount;
+  if(['ml','毫升'].includes(unit)&&Number.isFinite(amount)&&amount>0) return amount;
+  if(Number.isFinite(amount)&&amount>0&&['个','根','片','碗','份','袋','盒','条'].includes(unit)){
+    return Math.max(10,(base||50)*amount);
+  }
+  if(Number.isFinite(amount)&&amount>=20) return amount;
+  if(Number.isFinite(amount)&&amount>0) return Math.max(10,(base||40)*amount);
+  return base||80;
+}
+function recipeIngredientsToFoodDraft(recipe){
+  const normalized=normalizeSmartRecipeForUI(recipe,recipe?.source||'recipe');
+  if(!normalized) return [];
+  const ingredients=normalized.ingredients.length?normalized.ingredients:[{name:normalized.title,amount:normalized.calories?Math.max(80,normalized.calories/1.2):150,unit:'g'}];
+  const nutrition=normalized.nutrition;
+  const gramsList=ingredients.map(estimateRecipeIngredientGrams);
+  const totalGrams=gramsList.reduce((sum,g)=>sum+g,0)||ingredients.length;
+  return ingredients.map((item,index)=>{
+    const name=item.name;
+    const grams=gramsList[index]||80;
+    const local=findLocalFoodByName(name);
+    if(local){
+      return prepareFoodPortion({
+        ...local,
+        name,
+        amount:grams,
+        source:'recipe',
+        source_unit:local.unit||`${grams}g`
+      });
+    }
+    const share=grams/totalGrams;
+    return prepareFoodPortion({
+      name,
+      cat:'其他',
+      unit:'g',
+      source:'recipe',
+      base_amount:grams,
+      amount:grams,
+      cal:roundFoodValue((nutrition.calories||0)*share,1),
+      pro:roundFoodValue((nutrition.protein||0)*share,1),
+      fat:roundFoodValue((nutrition.fat||0)*share,1),
+      carb:roundFoodValue((nutrition.carbs||0)*share,1),
+      fib:roundFoodValue((nutrition.fiber||0)*share,1),
+      source_unit:`${grams}g`
+    });
+  });
+}
+function openFoodDraftFromRecipe(recipe){
+  if(!recipe) return;
+  if(typeof requireCurrentDeviceOwnerForHealthWrite==='function'&&!requireCurrentDeviceOwnerForHealthWrite()) return;
+  const foods=recipeIngredientsToFoodDraft(recipe).map(prepareFoodPortion);
+  if(!foods.length){
+    showToast('这道菜暂无可记录的食材','error');
+    return;
+  }
+  foodDraft=foods;
+  foodDraftSession={mode:'search',phase:'review',editingIndex:null,pendingFood:null,recordDate:currentViewDate,fromRecipe:true};
+  mealSelectionTouched=true;
+  currentMeal=MEAL_KEYS.includes(recipe.mealType)?recipe.mealType:getSmartRecipeCurrentMeal();
+  const modal=document.getElementById('quickActionModal');
+  const titleEl=document.getElementById('quickActionTitle');
+  if(!modal||!titleEl){
+    showToast('无法打开记录确认页','error');
+    return;
+  }
+  modal.dataset.quickAction='food-search';
+  titleEl.textContent='记录这餐';
+  openQuickActionModal();
+  renderFoodDraftShell();
+}
+window.openFoodDraftFromRecipe=openFoodDraftFromRecipe;
+function ensureSmartRecipeCard(healthGrid,managementSection){
+  if(!healthGrid) return null;
+  let card=document.getElementById('smartRecipeCard');
+  if(!card){
+    card=document.createElement('div');
+    card.className='card c-chart smart-recipe-card';
+    card.id='smartRecipeCard';
+    card.innerHTML='<div id="smartRecipeContent"></div>';
+  }
+  if(healthGrid){
+    if(managementSection&&managementSection.parentNode===healthGrid){
+      healthGrid.insertBefore(card,managementSection);
+    }else if(card.parentNode!==healthGrid){
+      healthGrid.appendChild(card);
+    }
+  }
+  return card;
+}
+function renderSmartRecipeCard(profile,date=currentViewDate){
+  const wrap=document.getElementById('smartRecipeContent');
+  if(!wrap||!profile) return;
+  wrap.innerHTML=`
+    <section class="smart-recipe-entry" id="smartRecipeEntryMain">
+      <div class="smart-recipe-entry-head">
+        <div class="smart-recipe-entry-title">${icon('utensils')}<span>智能食谱</span></div>
+        <span class="smart-recipe-entry-arrow">›</span>
+      </div>
+      <div class="smart-recipe-entry-desc">根据今日状态，帮你决定怎么吃</div>
+      <div class="smart-recipe-chips" id="smartRecipeQuickChips">
+        <button type="button" class="ds-chip ds-chip--sm" data-sr-tab="today">今日推荐</button>
+        <button type="button" class="ds-chip ds-chip--sm" data-sr-tab="ingredients">拍食材</button>
+        <button type="button" class="ds-chip ds-chip--sm" data-sr-tab="search">搜菜品</button>
+      </div>
+    </section>`;
+  renderIcons(wrap);
+  bindSmartRecipeCard();
+}
+function bindSmartRecipeCard(){
+  document.getElementById('smartRecipeEntryMain')?.addEventListener('click',()=>openSmartRecipePage('today'));
+  document.querySelectorAll('#smartRecipeQuickChips [data-sr-tab]').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      openSmartRecipePage(btn.dataset.srTab||'today');
+    });
+  });
+}
+function openSmartRecipePage(tab='today',context=null){
+  if(context&&typeof context==='object') smartRecipeContext=context;
+  else if(context==null&&tab==='today'){ /* keep existing context */ }
+  smartRecipeActiveTab=['today','ingredients','search','favorites'].includes(tab)?tab:'today';
+  if(smartRecipeContext?.mode==='protein-gap') smartRecipePickIndex=0;
+  switchAppPage('smart-recipe');
+}
+window.openSmartRecipePage=openSmartRecipePage;
+function openSmartRecipeDetail(recipe,{source='today',returnPage='smart-recipe',returnTab=null}={}){
+  if(!recipe?.id&&!recipe?.title) return;
+  smartRecipeDetailState={
+    source:source||'today',
+    recipeId:recipe.id||null,
+    returnPage:returnPage||'smart-recipe',
+    returnTab:returnTab??smartRecipeActiveTab
+  };
+  switchAppPage('smart-recipe-detail');
+}
+window.openSmartRecipeDetail=openSmartRecipeDetail;
+function closeSmartRecipeDetail(){
+  const tab=smartRecipeDetailState?.returnTab||'today';
+  const returnPage=smartRecipeDetailState?.returnPage||'smart-recipe';
+  smartRecipeDetailState=null;
+  if(returnPage==='smart-recipe'){
+    smartRecipeActiveTab=['today','ingredients','search','favorites'].includes(tab)?tab:'today';
+    switchAppPage('smart-recipe');
+  }else{
+    switchAppPage(returnPage);
+  }
+}
+window.closeSmartRecipeDetail=closeSmartRecipeDetail;
+function resolveSmartRecipeDetailRecipe(){
+  const state=smartRecipeDetailState;
+  if(!state) return null;
+  const p=getActiveProfile();
+  if(state.source==='search') return smartRecipeSearchResult?normalizeSmartRecipeForUI(smartRecipeSearchResult,'search'):null;
+  if(state.source==='ingredients') return smartRecipeIngredientResult?normalizeSmartRecipeForUI(smartRecipeIngredientResult,'ingredients'):null;
+  if(state.source==='favorite'&&state.recipeId&&p){
+    const fav=(p.favoriteRecipes||[]).find(item=>item.id===state.recipeId);
+    return fav?normalizeSmartRecipeForUI(normalizeFavoriteRecipe(fav),'favorite'):null;
+  }
+  if(p){
+    try{
+      const pick=getSmartRecipeRecommendationPick(buildSmartRecipeRecommendations(p,currentViewDate));
+      if(pick&&(!state.recipeId||pick.id===state.recipeId)) return normalizeSmartRecipeForUI(pick,'local');
+    }catch(e){}
+  }
+  return null;
+}
+function getSmartRecipeMealStatus(profile,date=currentViewDate){
+  const foods=getDailyRecord(profile,date).food||[];
+  const recordedByMeal={};
+  foods.forEach(record=>{
+    const meal=record?.meal;
+    if(!MEAL_KEYS.includes(meal)) return;
+    recordedByMeal[meal]=recordedByMeal[meal]||new Set();
+    (record.foods||[]).forEach(food=>{
+      const name=String(food?.food_name||food?.name||'').trim();
+      if(name) recordedByMeal[meal].add(name);
+    });
+  });
+  return MEAL_KEYS.map(key=>({
+    key,
+    label:MEAL_LABELS[key],
+    recorded:!!recordedByMeal[key],
+    status:recordedByMeal[key]?'已记录':(key==='snack'?'可安排':'未记录'),
+    foodsPreview:recordedByMeal[key]?[...recordedByMeal[key]].slice(0,2).join('、'):''
+  }));
+}
+function getSmartRecipeMacroGaps(snap,cs){
+  const targets=snap?.targets||{};
+  const intake=snap?.intake||{};
+  const round1=v=>Math.max(0,Math.round(Number(v)*10)/10);
+  return {
+    calories:cs?.hasTarget?Math.max(0,Math.round(Number(cs.intakeRemainingKcal)||0)):null,
+    protein:targets.protein?round1(Number(targets.protein)-Number(intake.protein||0)):null,
+    carbs:targets.carbs?round1(Number(targets.carbs)-Number(intake.carbs||0)):null,
+    fat:targets.fat?round1(Number(targets.fat)-Number(intake.fat||0)):null
+  };
+}
+function getSmartRecipeTodaySectionTitle(mealStatus){
+  const main=['breakfast','lunch','dinner'];
+  const recordedMain=main.filter(k=>mealStatus.find(m=>m.key===k)?.recorded);
+  if(!recordedMain.length) return '今天这样吃';
+  if(recordedMain.length<3) return '今天这样吃';
+  return '今日饮食建议';
+}
+function buildSmartRecipeGapLines(gaps){
+  const lines=[];
+  if(gaps.calories!=null){
+    if(gaps.calories<=0) lines.push('今日热量目标已基本达成');
+    else lines.push(`剩余热量 ${gaps.calories} kcal`);
+  }
+  if(gaps.protein!=null){
+    if(gaps.protein<=1) lines.push('蛋白质已基本达标');
+    else lines.push(`蛋白质还差 ${Math.round(gaps.protein)}g`);
+  }
+  if(gaps.carbs!=null){
+    if(gaps.carbs<=1) lines.push('碳水已基本达标');
+    else lines.push(`碳水还差 ${Math.round(gaps.carbs)}g`);
+  }
+  if(gaps.fat!=null){
+    if(gaps.fat<=1) lines.push('脂肪已基本达标');
+    else lines.push(`脂肪还差 ${Math.round(gaps.fat)}g`);
+  }
+  return lines.length?lines:['今日营养状态较为均衡'];
+}
+function getSmartRecipeLibrary(){
+  return Array.isArray(SMART_RECIPE_LIBRARY)?SMART_RECIPE_LIBRARY.slice():[];
+}
+function getSmartRecipeCurrentMeal(){
+  return getMealTypeByDateTime(currentViewDateTime());
+}
+function getSmartRecipeIngredientNames(recipe){
+  return (recipe?.ingredients||[]).map(item=>typeof item==='string'?item:String(item?.name||'')).filter(Boolean);
+}
+function getSmartRecipeHaystack(recipe){
+  return [recipe?.title,...getSmartRecipeIngredientNames(recipe),...(recipe?.tags||[]),recipe?.reason].map(v=>normalizeSupplementText(v)).join(' ');
+}
+function recipeHitsAllergy(recipe,allergies){
+  if(!allergies.length) return false;
+  const allergens=(recipe?.allergens||[]).map(String);
+  const haystack=getSmartRecipeHaystack(recipe);
+  return allergies.some(item=>{
+    const key=String(item||'').trim();
+    if(!key) return false;
+    return allergens.includes(key)||haystack.includes(normalizeSupplementText(key));
+  });
+}
+function recipeHitsDislike(recipe,dislikes){
+  if(!dislikes.length) return false;
+  const haystack=getSmartRecipeHaystack(recipe);
+  return dislikes.some(item=>{
+    const key=normalizeSupplementText(item);
+    return key&&haystack.includes(key);
+  });
+}
+function recipePassesEffort(recipe,preferences){
+  const cookTime=Number(recipe?.cookTime)||0;
+  const effort=preferences?.cookingEffort||'easy';
+  const maxCook=Number(preferences?.maxCookTime);
+  if(effort==='easy') return cookTime<=15;
+  if(effort==='15min') return cookTime<=15;
+  if(effort==='30min') return cookTime<=30;
+  if(Number.isFinite(maxCook)&&maxCook>0) return cookTime<=maxCook;
+  return true;
+}
+function recipePassesKitchen(recipe,preferences){
+  const apps=preferences?.kitchenAppliances||[];
+  if(apps.includes('无厨房')) return !!(recipe?.noCook||(Number(recipe?.cookTime)||0)<=5);
+  return true;
+}
+function getSmartRecipeMacroHint(gaps){
+  const proteinGap=Math.max(0,Number(gaps?.protein)||0);
+  const carbsGap=Math.max(0,Number(gaps?.carbs)||0);
+  const fatGap=Math.max(0,Number(gaps?.fat)||0);
+  if(proteinGap<=SMART_RECIPE_GAP_THRESHOLDS.protein&&carbsGap<=SMART_RECIPE_GAP_THRESHOLDS.carbs&&fatGap<=SMART_RECIPE_GAP_THRESHOLDS.fat) return 'balanced';
+  if(proteinGap>=carbsGap&&proteinGap>=fatGap) return 'protein';
+  if(carbsGap>=fatGap) return 'carbs';
+  return 'fat';
+}
+function buildSmartRecipeRecommendationReason(recipe,ctx){
+  const parts=[];
+  if(ctx.mealMatch) parts.push(`适合现在的${MEAL_LABELS[ctx.meal]||'这顿'}`);
+  if(ctx.calFit) parts.push('热量刚好落在剩余空间里');
+  if(ctx.macroHint==='protein') parts.push('有助于补蛋白质');
+  else if(ctx.macroHint==='carbs') parts.push('有助于补碳水');
+  else if(ctx.macroHint==='fat') parts.push('有助于补脂肪');
+  if(ctx.easy) parts.push('准备比较省事');
+  if(parts.length) return parts.join(' · ');
+  return recipe?.reason||'简单健康，适合当前状态';
+}
+function buildSmartRecipeRecommendationReasons(recipe,profile,date=currentViewDate){
+  if(!recipe||!profile) return [recipe?.reason||'简单健康，适合当前状态'];
+  const snap=getHealthScoreData(profile,date);
+  const cs=getDailyCalorieStatus(profile,date);
+  const goal=getHealthGoal(profile);
+  const preferences=getRecipePreferences(profile);
+  const gaps=getSmartRecipeMacroGaps(snap,cs);
+  const meal=getSmartRecipeCurrentMeal();
+  const reasons=[];
+  const proteinGap=Math.max(0,Number(gaps.protein)||0);
+  const carbsGap=Math.max(0,Number(gaps.carbs)||0);
+  const fatGap=Math.max(0,Number(gaps.fat)||0);
+  if(proteinGap>SMART_RECIPE_GAP_THRESHOLDS.protein) reasons.push('今天蛋白质不足，有助于补充');
+  else if(carbsGap>SMART_RECIPE_GAP_THRESHOLDS.carbs) reasons.push('今天碳水还有缺口');
+  else if(fatGap>SMART_RECIPE_GAP_THRESHOLDS.fat) reasons.push('今天脂肪还有缺口');
+  if(goal?.type==='fat_loss') reasons.push('符合当前减脂目标');
+  else if(goal?.type==='muscle_gain') reasons.push('符合当前增肌目标');
+  if(preferences.dietStyle==='high_protein'&&recipe.tags?.includes('high_protein')) reasons.push('符合高蛋白饮食偏好');
+  else if(preferences.dietStyle==='light'&&(recipe.tags?.includes('light')||recipe.tags?.includes('low_fat'))) reasons.push('符合清淡饮食偏好');
+  else if(preferences.dietStyle==='vegetarian'&&recipe.tags?.includes('vegetarian')) reasons.push('符合素食偏好');
+  if(recipe.mealType===meal) reasons.push(`适合现在的${MEAL_LABELS[meal]||'这顿'}`);
+  if(recipe.noCook||Number(recipe.cookTime||0)<=10) reasons.push('制作时间短');
+  if(!reasons.length&&recipe.reason) reasons.push(recipe.reason);
+  if(!reasons.length) reasons.push('简单健康，适合当前状态');
+  return reasons.slice(0,5);
+}
+function scoreSmartRecipeCandidate(recipe,ctx){
+  const calories=Number(recipe.calories)||0;
+  const remaining=ctx.remaining;
+  if(ctx.hasTarget&&remaining>0&&calories>remaining*1.2) return {score:-Infinity};
+  if(ctx.hasTarget&&remaining<=0&&calories>130) return {score:-Infinity};
+  let score=0;
+  const mealMatch=recipe.mealType===ctx.meal;
+  const unrecordedMatch=ctx.unrecordedMeals.includes(recipe.mealType);
+  if(mealMatch) score+=42;
+  else if(unrecordedMatch) score+=16;
+  else if(recipe.mealType==='snack'&&ctx.meal!=='snack') score+=2;
+  else score-=10;
+  let calFit=false;
+  if(ctx.hasTarget){
+    if(remaining<=0){
+      if(calories<=130){score+=10;calFit=true;}
+    }else{
+      const ratio=calories/remaining;
+      if(ratio>=0.35&&ratio<=0.85){score+=32;calFit=true;}
+      else if(ratio>=0.2&&ratio<=1){score+=18;calFit=true;}
+      else if(ratio<0.2) score+=4;
+      else score-=8;
+    }
+  }
+  const proteinGap=Math.max(0,Number(ctx.gaps.protein)||0);
+  const carbsGap=Math.max(0,Number(ctx.gaps.carbs)||0);
+  const fatGap=Math.max(0,Number(ctx.gaps.fat)||0);
+  score+=Math.min(Number(recipe.protein)||0,proteinGap)*2.2;
+  score+=Math.min(Number(recipe.carbs)||0,carbsGap)*1.1;
+  score+=Math.min(Number(recipe.fat)||0,fatGap)*1.3;
+  if(ctx.macroHint==='protein'&&recipe.tags?.includes('high_protein')) score+=10;
+  if(ctx.macroHint==='carbs'&&(recipe.tags?.includes('carb')||Number(recipe.carbs)>=20)) score+=6;
+  if(ctx.goalType==='fat_loss'&&(recipe.tags?.includes('light')||recipe.tags?.includes('high_protein'))) score+=8;
+  if(ctx.goalType==='muscle_gain'&&recipe.tags?.includes('high_protein')) score+=10;
+  if(ctx.dietStyle==='high_protein'&&recipe.tags?.includes('high_protein')) score+=10;
+  if(ctx.dietStyle==='light'&&(recipe.tags?.includes('light')||recipe.tags?.includes('low_fat'))) score+=8;
+  if(ctx.dietStyle==='chinese_home'&&recipe.tags?.includes('chinese_home')) score+=8;
+  if(smartRecipeContext?.mode==='protein-gap'&&(recipe.tags?.includes('high_protein')||Number(recipe.protein)>=18)) score+=28;
+  const cookTime=Number(recipe.cookTime)||0;
+  const easy=!!(recipe.noCook||cookTime<=10||ctx.effort==='easy');
+  if(recipe.noCook) score+=10;
+  score-=cookTime*0.12;
+  if(ctx.effort==='easy'&&cookTime<=10) score+=8;
+  const apps=ctx.appliances||[];
+  const recipeApps=recipe.appliances||[];
+  if(apps.length&&recipeApps.length&&recipeApps.some(item=>apps.includes(item))) score+=6;
+  if(ctx.mealPattern==='3_meals'&&recipe.mealType==='snack') score-=18;
+  return {score,mealMatch,calFit,easy};
+}
+function buildSmartRecipeRecommendations(profile,date=currentViewDate,snap,cs){
+  if(!profile) return [];
+  const healthSnap=snap||getHealthScoreData(profile,date);
+  const calorieStatus=cs||getDailyCalorieStatus(profile,date);
+  const preferences=getRecipePreferences(profile);
+  const goal=getHealthGoal(profile);
+  const meal=getSmartRecipeCurrentMeal();
+  const mealStatus=getSmartRecipeMealStatus(profile,date);
+  const gaps=getSmartRecipeMacroGaps(healthSnap,calorieStatus);
+  const allergies=(preferences.allergies||[]).map(String);
+  const dislikes=(preferences.dislikes||[]).map(String);
+  const unrecordedMeals=mealStatus.filter(item=>!item.recorded).map(item=>item.key);
+  const ctx={
+    meal,
+    unrecordedMeals,
+    gaps,
+    remaining:calorieStatus?.hasTarget?Math.max(0,Math.round(Number(calorieStatus.intakeRemainingKcal)||0)):null,
+    hasTarget:!!calorieStatus?.hasTarget,
+    goalType:goal?.type||'maintain',
+    dietStyle:preferences.dietStyle||'any',
+    effort:preferences.cookingEffort||'easy',
+    appliances:preferences.kitchenAppliances||[],
+    mealPattern:preferences.mealPattern||'3_meals_snack',
+    macroHint:getSmartRecipeMacroHint(gaps)
+  };
+  const ranked=[];
+  getSmartRecipeLibrary().forEach(recipe=>{
+    if(!recipe||!recipe.id) return;
+    if(recipeHitsAllergy(recipe,allergies)) return;
+    if(recipeHitsDislike(recipe,dislikes)) return;
+    if(preferences.dietStyle==='vegetarian'&&!recipe.tags?.includes('vegetarian')) return;
+    if(!recipePassesEffort(recipe,preferences)) return;
+    if(!recipePassesKitchen(recipe,preferences)) return;
+    const scored=scoreSmartRecipeCandidate(recipe,ctx);
+    if(!Number.isFinite(scored.score)) return;
+    ranked.push({
+      ...recipe,
+      score:scored.score,
+      reason:buildSmartRecipeRecommendationReason(recipe,{...ctx,...scored})
+    });
+  });
+  ranked.sort((a,b)=>b.score-a.score||a.calories-b.calories);
+  return ranked.slice(0,8);
+}
+function getSmartRecipeRecommendationPick(recommendations){
+  const list=Array.isArray(recommendations)?recommendations:[];
+  if(!list.length) return null;
+  const index=Math.abs(Number(smartRecipePickIndex)||0)%list.length;
+  return list[index]||null;
+}
+function formatSmartRecipeIngredients(recipe){
+  return getSmartRecipeIngredientNames(recipe).map((name,idx)=>{
+    const item=recipe.ingredients[idx];
+    if(!item||typeof item==='string') return name;
+    const amount=item.amount==null||item.amount===''?'':item.amount;
+    const unit=item.unit||'';
+    return `${name}${amount!==''?` ${amount}${unit}`:''}`;
+  }).join(' · ');
+}
+function renderSmartRecipeRecommendationCard(pick,total,options={}){
+  if(!pick) return '';
+  const recipe=normalizeSmartRecipeForUI(pick,pick.source||'local');
+  if(!recipe) return '';
+  const p=getActiveProfile();
+  const mealLabel=MEAL_LABELS[recipe.mealType]||'这顿';
+  const cookLabel=recipe.noCook||(Number(recipe.cookTime)||0)<=0?'无需准备':`${recipe.cookTime}分钟`;
+  const canSwap=options.swap!==false&&Number(total)>1;
+  const showSwap=options.swap!==false;
+  const showRegen=!!options.regenerate;
+  const fav=p?isFavoriteRecipe(p,recipe):false;
+  const sourceAttr=escapeHTML(options.source||recipe.source||'local');
+  const reasons=p?buildSmartRecipeRecommendationReasons(recipe,p,currentViewDate):[recipe.reason||'简单健康，适合当前状态'];
+  const reasonHtml=reasons.length?`<div class="sr-recipe-section-label">推荐理由</div><div class="sr-reason-list">${reasons.map(r=>`<div class="sr-reason-item">${escapeHTML(r)}</div>`).join('')}</div>`:'';
+  return `<div class="sr-recipe-card" data-sr-recipe-source="${sourceAttr}">
+      <div class="sr-recipe-meta">
+        <span class="ds-chip ds-chip--sm active">${escapeHTML(mealLabel)}</span>
+        <span class="ds-chip ds-chip--sm">${escapeHTML(cookLabel)}</span>
+        <span class="ds-chip ds-chip--sm">${escapeHTML(recipe.difficulty||'简单')}</span>
+      </div>
+      <div class="sr-recipe-section-label">菜谱信息</div>
+      <div class="sr-recipe-title">${escapeHTML(recipe.title)}</div>
+      <div class="sr-recipe-kcal">${Math.round(recipe.calories||0)}<small>kcal</small></div>
+      <div class="sr-recipe-macros">
+        <span>蛋白质 ${Math.round(recipe.protein||0)}g</span>
+        <span>碳水 ${Math.round(recipe.carbs||0)}g</span>
+        <span>脂肪 ${Math.round(recipe.fat||0)}g</span>
+      </div>
+      ${reasonHtml}
+      <div class="sr-recipe-actions">
+        <button type="button" class="da-action-btn" data-sr-record="${sourceAttr}">${icon('utensils')} 记录这餐</button>
+        ${showSwap?`<button type="button" class="da-action-btn ghost" id="smartRecipeSwapBtn">${icon('sparkles')} 换一道</button>`:''}
+        <button type="button" class="da-action-btn ghost" data-sr-fav="${sourceAttr}">${fav?'已收藏':'收藏'}</button>
+        <button type="button" class="da-action-btn ghost" data-sr-detail="${sourceAttr}">查看详情</button>
+        ${showRegen?`<button type="button" class="da-action-btn ghost" data-sr-regen="${sourceAttr}">重新生成</button>`:''}
+      </div>
+      ${showSwap&&!canSwap?'<div class="sr-supp-note">当前偏好下暂时只有这一道合适的本地菜谱。</div>':''}
+    </div>`;
+}
+function renderSmartRecipeFavoriteTab(profile){
+  if(!profile) return '';
+  const list=getFavoriteRecipes(profile);
+  if(!list.length){
+    return `<section class="sub-page-section">
+      <div class="sub-page-section-title">${icon('star')} 我的收藏菜谱</div>
+      <div class="empty-state"><div class="empty-state__title">还没有收藏菜谱</div><div class="empty-state__desc">在今日推荐、搜菜品或拍食材结果中收藏，方便下次快速查看。</div></div>
+    </section>`;
+  }
+  return `<section class="sub-page-section">
+    <div class="sub-page-section-title">${icon('star')} 我的收藏菜谱</div>
+    <div class="sr-fav-list">${list.map(item=>{
+      const tags=(item.tags||[]).slice(0,3);
+      return `<div class="sr-fav-row" data-sr-fav-id="${escapeHTML(item.id)}">
+        <div class="sr-fav-main">
+          <div class="sr-fav-title">${escapeHTML(item.title)}</div>
+          <div class="sr-fav-meta">${Math.round(item.calories||item.nutrition?.calories||0)} kcal · 蛋白质 ${Math.round(item.protein||item.nutrition?.protein||0)}g · 碳水 ${Math.round(item.carbs||item.nutrition?.carbs||0)}g</div>
+          ${tags.length?`<div class="sr-fav-tags">${tags.map(tag=>`<span class="sr-fav-tag">${escapeHTML(tag)}</span>`).join('')}</div>`:''}
+        </div>
+        <div class="sr-fav-actions">
+          <button type="button" class="ds-chip ds-chip--sm" data-sr-fav-detail="${escapeHTML(item.id)}">查看详情</button>
+          <button type="button" class="ds-chip ds-chip--sm" data-sr-fav-remove="${escapeHTML(item.id)}">取消收藏</button>
+        </div>
+      </div>`;
+    }).join('')}</div>
+  </section>`;
+}
+function getSupplementFoods(){
+  return SUPPLEMENT_FOODS.slice();
+}
+function normalizeSupplementText(value){
+  return String(value||'').trim().toLowerCase();
+}
+function getSupplementVariant(food,factor=1,label=''){
+  const scale=Number(factor)||1;
+  const amount=Math.round((food.servingAmount||0)*scale);
+  return {
+    ...food,
+    portionFactor:scale,
+    portionLabel:label||food.servingLabel,
+    servingAmount:amount,
+    calories:Math.round((food.calories||0)*scale),
+    protein:+((food.protein||0)*scale).toFixed(1),
+    carbs:+((food.carbs||0)*scale).toFixed(1),
+    fat:+((food.fat||0)*scale).toFixed(1),
+    fiber:+((food.fiber||0)*scale).toFixed(1)
+  };
+}
+function getSupplementVariants(food){
+  const base=[getSupplementVariant(food,1,food.servingLabel)];
+  (food.portionOptions||[]).forEach(opt=>{
+    if(opt&&opt.factor>0) base.push(getSupplementVariant(food,opt.factor,opt.label||food.servingLabel));
+  });
+  return base;
+}
+function supplementMatchesDislike(food,preferences){
+  const dislikes=(preferences?.dislikes||[]).map(normalizeSupplementText).filter(Boolean);
+  if(!dislikes.length) return false;
+  const haystack=[food.name,...(food.keywords||[])].map(normalizeSupplementText).join(' ');
+  return dislikes.some(item=>haystack.includes(item));
+}
+function passesSupplementEffort(food,preferences){
+  const effort=preferences?.cookingEffort||'easy';
+  if(effort==='15min') return Number(food.prepMinutes||0)<=15;
+  if(effort==='30min') return Number(food.prepMinutes||0)<=30;
+  return true;
+}
+function getSmartRecipeSupplementState(profile,date,snap,cs){
+  const preferences=getRecipePreferences(profile);
+  const gaps=getSmartRecipeMacroGaps(snap,cs);
+  const targets=snap?.targets||null;
+  if(!profile||!targets||!cs?.hasTarget||!snap?.hasFood){
+    return {status:'insufficient',gaps,preferences,suggestions:[]};
+  }
+  const proteinGap=Math.max(0,Number(gaps.protein)||0);
+  const carbsGap=Math.max(0,Number(gaps.carbs)||0);
+  const fatGap=Math.max(0,Number(gaps.fat)||0);
+  const caloriesGap=Math.max(0,Number(gaps.calories)||0);
+  const basicallyEnough=proteinGap<=SMART_RECIPE_GAP_THRESHOLDS.protein&&carbsGap<=SMART_RECIPE_GAP_THRESHOLDS.carbs&&fatGap<=SMART_RECIPE_GAP_THRESHOLDS.fat;
+  if(basicallyEnough){
+    return {status:'balanced',gaps,preferences,suggestions:[]};
+  }
+  if(caloriesGap<=0){
+    return {status:'no_calorie_space',gaps,preferences,suggestions:[]};
+  }
+  const suggestions=buildSupplementSuggestions(gaps,preferences);
+  return {status:suggestions.length?'ready':'limited',gaps,preferences,suggestions};
+}
+function scoreSupplementFood(variant,gaps,preferences){
+  const calorieSpace=Math.max(0,Number(gaps.calories)||0);
+  const calorieCap=calorieSpace>0?calorieSpace*1.15:0;
+  if(calorieSpace>0&&variant.calories>calorieCap) return -Infinity;
+  let score=0;
+  const proteinGap=Math.max(0,Number(gaps.protein)||0);
+  const carbsGap=Math.max(0,Number(gaps.carbs)||0);
+  const fatGap=Math.max(0,Number(gaps.fat)||0);
+  score+=Math.min(variant.protein,proteinGap)*3.2;
+  score+=Math.min(variant.carbs,carbsGap)*1.8;
+  score+=Math.min(variant.fat,fatGap)*2.1;
+  if(proteinGap<=SMART_RECIPE_GAP_THRESHOLDS.protein) score-=variant.protein*0.35;
+  if(carbsGap<=SMART_RECIPE_GAP_THRESHOLDS.carbs) score-=variant.carbs*0.25;
+  if(fatGap<=SMART_RECIPE_GAP_THRESHOLDS.fat) score-=variant.fat*0.45;
+  const effort=preferences?.cookingEffort||'easy';
+  if(variant.noCook) score+=8;
+  score+=Number(variant.convenience||0)*1.7;
+  score-=Number(variant.prepMinutes||0)*0.22;
+  if(effort==='easy'){
+    if(variant.noCook) score+=8;
+    else if((variant.prepMinutes||0)<=5) score+=2;
+    else score-=6;
+  }else if(effort==='15min'){
+    if((variant.prepMinutes||0)<=5) score+=2;
+  }else if(effort==='30min'){
+    if((variant.prepMinutes||0)<=10) score+=1;
+  }
+  if(preferences?.dietStyle==='high_protein'&&variant.tags?.includes('high_protein')) score+=4;
+  if(preferences?.dietStyle==='light'&&(variant.tags?.includes('light')||variant.tags?.includes('low_fat'))) score+=3;
+  if(preferences?.dietStyle==='vegetarian'&&!variant.tags?.includes('vegetarian')) score-=100;
+  if(calorieSpace>0){
+    const ratio=variant.calories/calorieSpace;
+    if(ratio>0.6&&ratio<=1.05) score+=4;
+    else if(ratio<0.35) score-=1.5;
+  }
+  return score;
+}
+function buildSupplementSuggestion(items,gaps){
+  const total=items.reduce((acc,item)=>{
+    acc.calories+=item.calories||0;
+    acc.protein+=item.protein||0;
+    acc.carbs+=item.carbs||0;
+    acc.fat+=item.fat||0;
+    return acc;
+  },{calories:0,protein:0,carbs:0,fat:0});
+  const proteinGap=Math.max(0,Number(gaps.protein)||0);
+  const carbsGap=Math.max(0,Number(gaps.carbs)||0);
+  const fatGap=Math.max(0,Number(gaps.fat)||0);
+  const dominant=proteinGap>=carbsGap&&proteinGap>=fatGap?'protein':(carbsGap>=fatGap?'carbs':'fat');
+  let reason='热量合适，适合简单补一下';
+  if(dominant==='protein') reason=`${items.every(item=>item.noCook)?'开袋即吃':'准备简单'} · 适合补蛋白`;
+  else if(dominant==='carbs') reason=`${items.every(item=>item.noCook)?'拿起就能吃':'准备不复杂'} · 适合补碳水`;
+  else if(dominant==='fat') reason=`${items.every(item=>item.noCook)?'无需准备':'操作简单'} · 适合补脂肪`;
+  if(items.length===2){
+    if(dominant==='protein'&&carbsGap>SMART_RECIPE_GAP_THRESHOLDS.carbs) reason='一份蛋白 + 一份碳水，更适合当前缺口';
+    else reason='两样搭配更接近你现在的缺口';
+  }
+  const maxPrep=Math.max(...items.map(item=>Number(item.prepMinutes)||0),0);
+  const prepLabel=items.every(item=>item.noCook)?'无需准备':(maxPrep<=5?'简单处理':(maxPrep<=15?'15分钟内':'30分钟内'));
+  return {
+    items,
+    calories:Math.round(total.calories),
+    protein:+total.protein.toFixed(1),
+    carbs:+total.carbs.toFixed(1),
+    fat:+total.fat.toFixed(1),
+    prepLabel,
+    reason
+  };
+}
+function buildSupplementSuggestions(gaps,preferences){
+  const allergies=(preferences?.allergies||[]).map(String);
+  const singles=[];
+  getSupplementFoods()
+    .filter(food=>passesSupplementEffort(food,preferences))
+    .filter(food=>!food.allergens.some(allergen=>allergies.includes(allergen)))
+    .filter(food=>!supplementMatchesDislike(food,preferences))
+    .forEach(food=>{
+      let best=null;
+      getSupplementVariants(food).forEach(variant=>{
+        const score=scoreSupplementFood(variant,gaps,preferences);
+        if(!Number.isFinite(score)) return;
+        if(!best||score>best.score) best={...variant,score};
+      });
+      if(best) singles.push(best);
+    });
+  singles.sort((a,b)=>b.score-a.score);
+  const suggestions=singles.slice(0,6).map(item=>({score:item.score,...buildSupplementSuggestion([item],gaps)}));
+  for(let i=0;i<Math.min(6,singles.length);i++){
+    for(let j=i+1;j<Math.min(6,singles.length);j++){
+      const a=singles[i],b=singles[j];
+      const calorieCap=Math.max(0,Number(gaps.calories)||0)*1.15;
+      const combinedCalories=(a.calories||0)+(b.calories||0);
+      if(calorieCap>0&&combinedCalories>calorieCap) continue;
+      const comboSuggestion=buildSupplementSuggestion([a,b],gaps);
+      const comboScore=scoreSupplementFood({
+        calories:comboSuggestion.calories,
+        protein:comboSuggestion.protein,
+        carbs:comboSuggestion.carbs,
+        fat:comboSuggestion.fat,
+        prepMinutes:Math.max(a.prepMinutes||0,b.prepMinutes||0),
+        noCook:!!(a.noCook&&b.noCook),
+        convenience:Math.min(a.convenience||0,b.convenience||0),
+        tags:[...(a.tags||[]),...(b.tags||[])]
+      },gaps,preferences)-4;
+      if(!Number.isFinite(comboScore)) continue;
+      suggestions.push({score:comboScore,...comboSuggestion});
+    }
+  }
+  const unique=[];
+  const seen=new Set();
+  suggestions.sort((a,b)=>b.score-a.score).forEach(suggestion=>{
+    const key=suggestion.items.map(item=>item.id+':'+item.portionLabel).sort().join('+');
+    if(seen.has(key)) return;
+    seen.add(key);
+    unique.push(suggestion);
+  });
+  const sliced=unique.slice(0,4);
+  if(!sliced.length) return sliced;
+  const offset=Math.abs(Number(smartRecipeSupplementShuffle)||0)%sliced.length;
+  if(offset===0) return sliced;
+  return sliced.slice(offset).concat(sliced.slice(0,offset));
+}
+function getSmartRecipeSupplementTitle(date,mealStatus){
+  if(date===todayStr()){
+    const hour=new Date().getHours();
+    if(hour>=14&&hour<18) return '下午可以简单补一点';
+  }
+  const recordedMain=['breakfast','lunch','dinner'].filter(key=>mealStatus.find(item=>item.key===key)?.recorded).length;
+  if(recordedMain>=3) return '今天还差一点';
+  return '省事补一下';
+}
+function getSmartRecipeSupplementBadges(suggestion,gaps){
+  const badges=[];
+  const proteinGap=Math.max(0,Number(gaps.protein)||0);
+  const carbsGap=Math.max(0,Number(gaps.carbs)||0);
+  const fatGap=Math.max(0,Number(gaps.fat)||0);
+  const dominant=proteinGap>=carbsGap&&proteinGap>=fatGap?'protein':(carbsGap>=fatGap?'carbs':'fat');
+  if(dominant==='protein') badges.push('补蛋白');
+  else if(dominant==='carbs') badges.push('补碳水');
+  else badges.push('补脂肪');
+  if(suggestion.items.every(item=>item.noCook)) badges.push('无需烹饪');
+  else if((suggestion.items.every(item=>(item.prepMinutes||0)<=5))) badges.push('准备简单');
+  if(suggestion.items.some(item=>item.tags?.includes('low_fat')||item.tags?.includes('light'))) badges.push('适合减脂');
+  return badges.slice(0,3);
+}
+function renderSmartRecipeSupplementSection(state,date,mealStatus){
+  if(state.status==='insufficient'){
+    return `<section class="sub-page-section"><div class="empty-state"><div class="empty-state__title">今天的数据还不足以生成补缺建议</div><div class="empty-state__desc">补缺建议需要先有可计算的热量目标和当天饮食数据。</div></div></section>`;
+  }
+  if(state.status==='balanced'){
+    return `<section class="sub-page-section"><div class="sub-page-section-title">${icon('sparkles')} ${getSmartRecipeSupplementTitle(date,mealStatus)}</div><div class="empty-state"><div class="empty-state__title">今天营养已经基本够了</div><div class="empty-state__desc">不需要为了凑数字额外加餐。</div></div></section>`;
+  }
+  if(state.status==='no_calorie_space'){
+    return `<section class="sub-page-section"><div class="sub-page-section-title">${icon('sparkles')} ${getSmartRecipeSupplementTitle(date,mealStatus)}</div><div class="empty-state"><div class="empty-state__title">今天的热量空间已经用完</div><div class="empty-state__desc">部分营养还有缺口，不建议为了补齐数字继续吃。明天可以优先调整正餐搭配。</div></div></section>`;
+  }
+  if(state.status==='limited'){
+    return `<section class="sub-page-section"><div class="sub-page-section-title">${icon('sparkles')} ${getSmartRecipeSupplementTitle(date,mealStatus)}</div><div class="sub-page-empty">剩余热量空间比较有限，暂时没有找到足够合适的省事补充组合。</div></section>`;
+  }
+  return `<section class="sub-page-section">
+    <div class="sub-page-section-title"><span>${icon('sparkles')} ${getSmartRecipeSupplementTitle(date,mealStatus)}</span><button type="button" class="ds-chip ds-chip--sm" id="smartRecipeRefreshSuppBtn">换一批</button></div>
+    <div class="sr-supp-list">${state.suggestions.map(suggestion=>`
+      <div class="sr-supp-card">
+        <div class="sr-supp-head">
+          <div class="sr-supp-title">${escapeHTML(suggestion.items.map(item=>item.name).join(' + '))}</div>
+          <div class="sr-supp-prep">${escapeHTML(suggestion.prepLabel)}</div>
+        </div>
+        <div class="sr-supp-serving">${escapeHTML(suggestion.items.map(item=>`${item.portionLabel}`).join(' + '))}</div>
+        <div class="sr-supp-metrics">
+          <span>约 ${Math.round(suggestion.calories)} kcal</span>
+          <span>蛋白质 ${Math.round(suggestion.protein)}g</span>
+          <span>碳水 ${Math.round(suggestion.carbs)}g</span>
+          <span>脂肪 ${Math.round(suggestion.fat)}g</span>
+        </div>
+        <div class="sr-supp-tags">${getSmartRecipeSupplementBadges(suggestion,state.gaps).map(tag=>`<span class="sr-supp-tag">${escapeHTML(tag)}</span>`).join('')}</div>
+        <div class="sr-supp-reason">${escapeHTML(suggestion.reason)}</div>
+      </div>`).join('')}</div>
+    ${state.preferences.allergies.length||state.preferences.dislikes.length?'<div class="sr-supp-note">已避开你的过敏原和忌口设置。</div>':''}
+  </section>`;
+}
+function renderSmartRecipeTabSeg(activeTab){
+  const tabs=[
+    {id:'today',label:'今日推荐'},
+    {id:'ingredients',label:'拍食材'},
+    {id:'search',label:'搜菜品'},
+    {id:'favorites',label:'收藏'}
+  ];
+  return `<div class="meal-seg sr-tab-seg" id="smartRecipeTabSeg">`+
+    tabs.map(t=>`<button type="button" class="meal-seg-btn${t.id===activeTab?' active':''}" data-sr-tab="${t.id}">${t.label}</button>`).join('')+
+    `</div>`;
+}
+function renderSmartRecipeTodayPanel(profile,date,snap,cs){
+  if(!profile||!snap||!cs) return '';
+  const goal=getHealthGoal(profile);
+  const mealStatus=getSmartRecipeMealStatus(profile,date);
+  const supplementState=getSmartRecipeSupplementState(profile,date,snap,cs);
+  const currentMeal=getSmartRecipeCurrentMeal();
+  const mealLabel=MEAL_LABELS[currentMeal]||'这顿';
+  let recommendations=[];
+  try{recommendations=buildSmartRecipeRecommendations(profile,date,snap,cs)}
+  catch(err){console.error('[Render] buildSmartRecipeRecommendations failed:',err);recommendations=[]}
+  const pick=getSmartRecipeRecommendationPick(recommendations);
+  const remaining=cs.hasTarget?Math.max(0,Math.round(cs.intakeRemainingKcal||0)):'—';
+  const emptyTitle=cs.hasTarget&&Number(cs.intakeRemainingKcal||0)<=0?'今天的热量空间已经用完':'当前偏好下暂时没有合适的本地菜谱';
+  const emptyDesc=cs.hasTarget&&Number(cs.intakeRemainingKcal||0)<=0?'不建议为了凑一餐继续加码。可以先看看加餐，或明天再调整正餐。':'试试放宽忌口、做饭省事程度，或先记录一餐后再来看推荐。';
+  const linkCtx=smartRecipeContext||getSmartRecipeLinkContext(profile,date,snap,cs);
+  const contextHint=linkCtx?.mode==='protein-gap'?'优先看高蛋白推荐':(linkCtx?.mode==='nutrition-gap'?'优先看适合补营养缺口的推荐':'');
+  const contextBanner=linkCtx?.hint?`<div class="sr-goal-pill" style="margin-bottom:10px">${icon('target')} 来自今日建议 · ${escapeHTML(linkCtx.hint)}${contextHint?` · ${escapeHTML(contextHint)}`:''}</div>`:'';
+  return `
+    <section class="sub-page-section">
+      <div class="sub-page-section-title">${icon('sparkles')} 今日推荐</div>
+      ${contextBanner}
+      <div class="sr-goal-pill">${icon('target')} 围绕「${escapeHTML(goal.title||'健康目标')}」 · 现在是${escapeHTML(mealLabel)}</div>
+      <div class="sr-core-card">
+        <div class="sr-core-title">这顿可以这样吃</div>
+        <div class="sr-core-desc">今天还可以吃</div>
+        <div class="sr-cal-hero">${remaining}<small>kcal</small></div>
+      </div>
+      ${pick?renderSmartRecipeRecommendationCard(pick,recommendations.length,{source:'today',swap:true}):`<div class="empty-state"><div class="empty-state__title">${escapeHTML(emptyTitle)}</div><div class="empty-state__desc">${escapeHTML(emptyDesc)}</div></div>`}
+    </section>
+    <section class="sub-page-section">
+      <div class="sub-page-section-title">${icon('clock')} 今日餐次</div>
+      <div class="sr-meal-list">${mealStatus.map(m=>`
+        <div class="sr-meal-row"><span class="sr-meal-main"><span class="sr-meal-indicator${m.recorded?' done':''}">${m.recorded?'✓':'○'}</span><span class="sr-meal-name">${escapeHTML(m.label)}</span></span><span class="sr-meal-status${m.recorded?' done':''}">${escapeHTML(m.status)}</span>${m.foodsPreview?`<div class="sr-meal-foods">${escapeHTML(m.foodsPreview)}</div>`:''}</div>`).join('')}</div>
+    </section>
+    ${renderSmartRecipeSupplementSection(supplementState,date,mealStatus)}`;
+}
+function renderSmartRecipeIngredientsPanel(){
+  const photo=smartRecipeIngredientPhoto;
+  const ingredients=smartRecipeIdentifiedIngredients;
+  const recipe=smartRecipeIngredientResult?normalizeSmartRecipeForUI(smartRecipeIngredientResult,'ingredients'):null;
+  let body='';
+  if(smartRecipeIngredientLoading){
+    body=`<div class="sr-status">${photo?'正在识别食材…':'正在根据食材生成菜谱…'}</div>`;
+  }else if(recipe){
+    body=renderSmartRecipeRecommendationCard(recipe,1,{source:'ingredients',swap:false,regenerate:true});
+  }else if(ingredients.length){
+    body=`<div class="sr-recipe-reason">确认一下识别到的食材，不需要的可以删掉。</div>
+      <div class="sr-ing-chips">${ingredients.map((item,idx)=>`<span class="ds-chip ds-chip--sm sr-ing-chip">${escapeHTML(item.name)}${item.amount?` ${escapeHTML(String(item.amount)+item.unit)}`:''}<button type="button" data-sr-ing-del="${idx}" aria-label="删除食材">×</button></span>`).join('')}</div>
+      <div class="sr-prefs-add" style="margin-top:12px"><input type="text" id="srIngredientCustom" placeholder="补充食材，如：鸡蛋"><button type="button" class="btn btn-ghost btn-sm" id="srIngredientAddBtn">添加</button></div>
+      ${smartRecipeIngredientError?`<div class="sr-status">${escapeHTML(smartRecipeIngredientError)}</div>`:''}
+      <button type="button" class="da-action-btn" id="srGenerateFromIngredientsBtn">${icon('sparkles')} 生成菜谱</button>`;
+  }else{
+    body=`<div class="empty-state">
+        <div class="empty-state__title">拍下家里现有的食材</div>
+        <div class="empty-state__desc">拍下家里现有的食材，帮你看看能做什么。</div>
+        <div class="sr-photo-actions">
+          <button type="button" class="ds-chip" id="srIngredientCameraBtn">${icon('camera')} 拍照</button>
+          <button type="button" class="ds-chip" id="srIngredientGalleryBtn">${icon('image')} 从相册选择</button>
+        </div>
+        <input type="file" id="srIngredientCamera" class="photo-input-native" accept="image/*" capture="environment" aria-label="拍照食材">
+        <input type="file" id="srIngredientGallery" class="photo-input-native" accept="image/*" aria-label="从相册选择食材">
+        ${photo?`<img src="${photo}" alt="食材照片" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-top:12px">`:''}
+        ${smartRecipeIngredientError?`<div class="sr-status">${escapeHTML(smartRecipeIngredientError)}</div>`:'<div class="sub-page-empty" style="margin-top:12px">会先识别食材，由你确认后再推荐菜品。</div>'}
+      </div>`;
+  }
+  return `<section class="sub-page-section">${body}</section>`;
+}
+function renderSmartRecipeSearchPanel(){
+  const recipe=smartRecipeSearchResult?normalizeSmartRecipeForUI(smartRecipeSearchResult,'search'):null;
+  return `
+    <section class="sub-page-section">
+      <input type="search" class="sr-search-input" id="smartRecipeSearchInput" placeholder="搜索菜名、食材或条件" autocomplete="off" enterkeyhint="search" value="${escapeHTML(smartRecipeSearchQuery)}">
+      <div class="sr-search-hint">例如：番茄牛腩、高蛋白早餐、空气炸锅鸡胸、快手早餐</div>
+      <button type="button" class="da-action-btn" id="smartRecipeSearchBtn">${icon('sparkles')} 搜索菜谱</button>
+      ${smartRecipeSearchLoading?'<div class="sr-status">正在根据你的目标和偏好生成菜谱…</div>':''}
+      ${!smartRecipeSearchLoading&&smartRecipeSearchError?`<div class="sr-status">${escapeHTML(smartRecipeSearchError)}</div>`:''}
+      ${!smartRecipeSearchLoading&&recipe?renderSmartRecipeRecommendationCard(recipe,1,{source:'search',swap:false,regenerate:true}):''}
+      ${!smartRecipeSearchLoading&&!recipe&&!smartRecipeSearchError?'<div class="sub-page-empty" id="smartRecipeSearchNotice" style="margin-top:14px">输入菜名或条件后，才会调用 AI 生成菜谱。</div>':''}
+    </section>`;
+}
+function renderSmartRecipePage(profile,date=currentViewDate){
+  const wrap=document.getElementById('subPage_smart_recipe');
+  if(!wrap||!profile) return;
+  const tab=['today','ingredients','search','favorites'].includes(smartRecipeActiveTab)?smartRecipeActiveTab:'today';
+  const snap=getHealthScoreData(profile,date);
+  const cs=getDailyCalorieStatus(profile,date);
+  let body='';
+  if(tab==='today') body=renderSmartRecipeTodayPanel(profile,date,snap,cs);
+  else if(tab==='ingredients') body=renderSmartRecipeIngredientsPanel();
+  else if(tab==='favorites') body=renderSmartRecipeFavoriteTab(profile);
+  else body=renderSmartRecipeSearchPanel();
+  wrap.innerHTML=_subPageHeader('智能食谱','',{backPage:'health',backLabel:'返回健康页',rightAction:'openSmartRecipePrefsModal()',rightActionHTML:icon('settings'),rightActionAriaLabel:'饮食偏好设置'})+
+    `<div class="sub-page-content">`+
+    renderSmartRecipeTabSeg(tab)+
+    body+
+    `</div>`;
+  renderIcons(wrap);
+  bindSmartRecipePage();
+}
+function getSmartRecipeResultBySource(source){
+  if(source==='search') return smartRecipeSearchResult?normalizeSmartRecipeForUI(smartRecipeSearchResult,'search'):null;
+  if(source==='ingredients') return smartRecipeIngredientResult?normalizeSmartRecipeForUI(smartRecipeIngredientResult,'ingredients'):null;
+  const p=getActiveProfile();
+  if(!p) return null;
+  try{
+    const pick=getSmartRecipeRecommendationPick(buildSmartRecipeRecommendations(p,currentViewDate));
+    return pick?normalizeSmartRecipeForUI(pick,'local'):null;
+  }catch(e){
+    return null;
+  }
+}
+function rerenderSmartRecipeUI(){
+  const p=getActiveProfile();
+  if(!p) return;
+  if(activeAppPage==='smart-recipe-detail') renderSmartRecipeDetailPage(p,currentViewDate);
+  else if(activeAppPage==='smart-recipe') renderSmartRecipePage(p,currentViewDate);
+}
+function renderSmartRecipeDetailPage(profile,date=currentViewDate){
+  const wrap=document.getElementById('subPage_smart_recipe_detail');
+  if(!wrap) return;
+  const recipe=resolveSmartRecipeDetailRecipe();
+  const state=smartRecipeDetailState||{};
+  const source=state.source||'today';
+  if(!recipe){
+    wrap.innerHTML=`<div class="sub-page-header">`+
+      `<button class="sub-page-back" type="button" aria-label="返回" onclick="closeSmartRecipeDetail()">${icon('arrow-left')}</button>`+
+      `<span class="sub-page-title">菜谱详情</span></div>`+
+      `<div class="sub-page-content"><div class="empty-state"><div class="empty-state__title">菜谱不存在或已失效</div><div class="empty-state__desc">可能已被删除或来源已变化，请返回重新选择。</div></div></div>`;
+    renderIcons(wrap);
+    return;
+  }
+  const mealLabel=MEAL_LABELS[recipe.mealType]||'这顿';
+  const cookLabel=recipe.noCook||(Number(recipe.cookTime)||0)<=0?'无需准备':`${recipe.cookTime}分钟`;
+  const fav=profile?isFavoriteRecipe(profile,recipe):false;
+  const reasons=profile&&source==='today'?buildSmartRecipeRecommendationReasons(recipe,profile,date):[recipe.reason].filter(Boolean);
+  const ingItems=(recipe.ingredients||[]).map(item=>{
+    if(typeof item==='string') return item;
+    const amount=item.amount==null||item.amount===''?'':`${item.amount}${item.unit||''}`;
+    return amount?`${item.name} ${amount}`:item.name;
+  }).filter(Boolean);
+  wrap.innerHTML=`<div class="sub-page-header">`+
+    `<button class="sub-page-back" type="button" aria-label="返回" onclick="closeSmartRecipeDetail()">${icon('arrow-left')}</button>`+
+    `<span class="sub-page-title">菜谱详情</span></div>`+
+    `<div class="sub-page-content">`+
+    `<section class="sub-page-section">`+
+    `<div class="sr-detail-title">${escapeHTML(recipe.title)}</div>`+
+    `<div class="sr-recipe-meta" style="margin-top:8px">`+
+    `<span class="ds-chip ds-chip--sm active">${escapeHTML(mealLabel)}</span>`+
+    `<span class="ds-chip ds-chip--sm">${escapeHTML(cookLabel)}</span>`+
+    `<span class="ds-chip ds-chip--sm">${escapeHTML(recipe.difficulty||'简单')}</span>`+
+    `</div></section>`+
+    `<section class="sub-page-section"><div class="sub-page-section-title">${icon('flame')} 营养</div>`+
+    `<div class="sr-detail-nutri-grid">`+
+    `<div class="sr-detail-nutri-item"><div class="sr-detail-nutri-label">热量</div><div class="sr-detail-nutri-val">${Math.round(recipe.calories||0)}<span class="unit">kcal</span></div></div>`+
+    `<div class="sr-detail-nutri-item"><div class="sr-detail-nutri-label">蛋白质</div><div class="sr-detail-nutri-val">${Math.round(recipe.protein||0)}<span class="unit">g</span></div></div>`+
+    `<div class="sr-detail-nutri-item"><div class="sr-detail-nutri-label">碳水</div><div class="sr-detail-nutri-val">${Math.round(recipe.carbs||0)}<span class="unit">g</span></div></div>`+
+    `<div class="sr-detail-nutri-item"><div class="sr-detail-nutri-label">脂肪</div><div class="sr-detail-nutri-val">${Math.round(recipe.fat||0)}<span class="unit">g</span></div></div>`+
+    `<div class="sr-detail-nutri-item"><div class="sr-detail-nutri-label">纤维</div><div class="sr-detail-nutri-val">${Math.round(recipe.fiber||0)}<span class="unit">g</span></div></div>`+
+    `</div></section>`+
+    (ingItems.length?`<section class="sub-page-section"><div class="sub-page-section-title">${icon('list')} 食材</div><ul class="sr-detail-list">${ingItems.map(name=>`<li>${escapeHTML(name)}</li>`).join('')}</ul></section>`:'')+
+    ((recipe.steps||[]).length?`<section class="sub-page-section"><div class="sub-page-section-title">${icon('book-open')} 制作步骤</div><ol class="sr-detail-steps">${recipe.steps.map(step=>`<li>${escapeHTML(step)}</li>`).join('')}</ol></section>`:'')+
+    (reasons.length?`<section class="sub-page-section"><div class="sub-page-section-title">${icon('sparkles')} 推荐原因</div><div class="sr-reason-list">${reasons.map(r=>`<div class="sr-reason-item">${escapeHTML(r)}</div>`).join('')}</div></section>`:'')+
+    (recipe.adjustment?`<section class="sub-page-section"><div class="sub-page-section-title">${icon('lightbulb')} 调整建议</div><div class="sr-detail-note">${escapeHTML(recipe.adjustment)}</div></section>`:'')+
+    `<section class="sub-page-section"><div class="sr-detail-actions">`+
+    `<button type="button" class="da-action-btn" id="srDetailRecordBtn">${icon('utensils')} 记录这餐</button>`+
+    `<button type="button" class="da-action-btn ghost" id="srDetailFavBtn">${fav?'已收藏':'收藏'}</button>`+
+    `</div></section>`+
+    `</div>`;
+  renderIcons(wrap);
+  bindSmartRecipeDetailPage(recipe,source);
+}
+function bindSmartRecipeDetailPage(recipe,source){
+  document.getElementById('srDetailRecordBtn')?.addEventListener('click',()=>{
+    if(!recipe) return;
+    openFoodDraftFromRecipe(recipe);
+  });
+  document.getElementById('srDetailFavBtn')?.addEventListener('click',()=>{
+    const p=getActiveProfile();
+    if(!p||!recipe) return;
+    const added=toggleFavoriteRecipe(p,recipe);
+    showToast(added?'已收藏菜谱':'已取消收藏','success');
+    if(!added&&source==='favorite'){
+      closeSmartRecipeDetail();
+      return;
+    }
+    rerenderSmartRecipeUI();
+  });
+}
+async function requestSmartRecipeSearch(query,{force=false}={}){
+  const p=getActiveProfile();
+  if(!p) return null;
+  const q=String(query||'').trim();
+  if(!q) throw new Error('请输入要搜索的菜品或条件');
+  if(!force){
+    const cached=readSmartRecipeAICache(p,currentViewDate,'search',q);
+    if(cached) return normalizeSmartRecipeForUI(cached,'search');
+  }
+  const response=await fetch(getApiUrl('/api/recipe-search'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      query:q,
+      healthContext:getSmartRecipeHealthContext(p,currentViewDate),
+      preferences:getRecipePreferences(p)
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.error||data.message||'菜谱搜索失败');
+  const recipe=normalizeSmartRecipeForUI(data,'search');
+  if(!recipe) throw new Error('菜谱结果不完整');
+  writeSmartRecipeAICache(p,currentViewDate,'search',q,recipe);
+  return recipe;
+}
+async function requestSmartRecipeIngredientsPhoto(image){
+  const response=await fetch(getApiUrl('/api/recipe-ingredients-photo'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({image})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.error||data.message||'食材识别失败');
+  const ingredients=Array.isArray(data.ingredients)?data.ingredients:[];
+  if(!ingredients.length) throw new Error('没有识别到可用食材');
+  return ingredients.map(item=>({
+    name:String(item.name||item.food||'').trim(),
+    amount:item.amount??'',
+    unit:String(item.unit||'')
+  })).filter(item=>item.name);
+}
+async function requestSmartRecipeFromIngredients(ingredients,{force=false}={}){
+  const p=getActiveProfile();
+  if(!p) return null;
+  const list=(ingredients||[]).map(item=>({
+    name:String(item.name||'').trim(),
+    amount:item.amount??'',
+    unit:String(item.unit||'')
+  })).filter(item=>item.name);
+  if(!list.length) throw new Error('请先确认食材');
+  const inputKey=list.map(item=>item.name).sort().join('+');
+  if(!force){
+    const cached=readSmartRecipeAICache(p,currentViewDate,'ingredients',inputKey);
+    if(cached) return normalizeSmartRecipeForUI(cached,'ingredients');
+  }
+  const response=await fetch(getApiUrl('/api/recipe-from-ingredients'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      ingredients:list,
+      healthContext:getSmartRecipeHealthContext(p,currentViewDate),
+      preferences:getRecipePreferences(p)
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.error||data.message||'根据食材生成菜谱失败');
+  const recipe=normalizeSmartRecipeForUI(data,'ingredients');
+  if(!recipe) throw new Error('菜谱结果不完整');
+  writeSmartRecipeAICache(p,currentViewDate,'ingredients',inputKey,recipe);
+  return recipe;
+}
+async function handleSmartRecipeSearch({force=false}={}){
+  const input=document.getElementById('smartRecipeSearchInput');
+  const query=String(input?.value||smartRecipeSearchQuery||'').trim();
+  smartRecipeSearchQuery=query;
+  if(!query){
+    showToast('请输入要搜索的菜品或条件','info');
+    return;
+  }
+  smartRecipeSearchLoading=true;
+  smartRecipeSearchError='';
+  renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  try{
+    smartRecipeSearchResult=await requestSmartRecipeSearch(query,{force});
+  }catch(err){
+    smartRecipeSearchResult=null;
+    smartRecipeSearchError=err?.message||'菜谱搜索失败';
+  }finally{
+    smartRecipeSearchLoading=false;
+    renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  }
+}
+async function handleSmartRecipeIngredientFile(file){
+  if(!file) return;
+  smartRecipeIngredientLoading=true;
+  smartRecipeIngredientError='';
+  smartRecipeIngredientResult=null;
+  smartRecipeIdentifiedIngredients=[];
+  smartRecipeIngredientPhase='recognizing';
+  renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  try{
+    const compressed=await compressFoodImage(file);
+    smartRecipeIngredientPhoto=compressed.url;
+    smartRecipeIdentifiedIngredients=await requestSmartRecipeIngredientsPhoto(compressed.url);
+    smartRecipeIngredientPhase='confirm';
+  }catch(err){
+    smartRecipeIngredientError=err?.message||'食材识别失败';
+    smartRecipeIngredientPhase='idle';
+  }finally{
+    smartRecipeIngredientLoading=false;
+    renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  }
+}
+async function handleSmartRecipeGenerateFromIngredients({force=false}={}){
+  if(!smartRecipeIdentifiedIngredients.length){
+    showToast('请先确认食材','info');
+    return;
+  }
+  smartRecipeIngredientLoading=true;
+  smartRecipeIngredientError='';
+  smartRecipeIngredientPhase='generating';
+  renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  try{
+    smartRecipeIngredientResult=await requestSmartRecipeFromIngredients(smartRecipeIdentifiedIngredients,{force});
+    smartRecipeIngredientPhase='result';
+  }catch(err){
+    smartRecipeIngredientResult=null;
+    smartRecipeIngredientError=err?.message||'生成菜谱失败';
+    smartRecipeIngredientPhase='confirm';
+  }finally{
+    smartRecipeIngredientLoading=false;
+    renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  }
+}
+function bindSmartRecipeRecipeActions(){
+  document.querySelectorAll('[data-sr-record]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const source=btn.dataset.srRecord||'today';
+      const recipe=getSmartRecipeResultBySource(source);
+      if(!recipe) return showToast('暂无可记录的菜谱','info');
+      openFoodDraftFromRecipe(recipe);
+    });
+  });
+  document.querySelectorAll('[data-sr-detail]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const source=btn.dataset.srDetail||'today';
+      const recipe=getSmartRecipeResultBySource(source);
+      if(!recipe) return showToast('暂无可查看的菜谱','info');
+      openSmartRecipeDetail(recipe,{source,returnTab:smartRecipeActiveTab});
+    });
+  });
+  document.querySelectorAll('[data-sr-fav]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const p=getActiveProfile();
+      const recipe=getSmartRecipeResultBySource(btn.dataset.srFav||'today');
+      if(!p||!recipe) return;
+      const added=toggleFavoriteRecipe(p,recipe);
+      showToast(added?'已收藏菜谱':'已取消收藏','success');
+      rerenderSmartRecipeUI();
+    });
+  });
+  document.querySelectorAll('[data-sr-regen]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const source=btn.dataset.srRegen;
+      if(source==='search') handleSmartRecipeSearch({force:true});
+      else if(source==='ingredients') handleSmartRecipeGenerateFromIngredients({force:true});
+    });
+  });
+  document.querySelectorAll('[data-sr-fav-detail]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const p=getActiveProfile();
+      if(!p) return;
+      const raw=(p.favoriteRecipes||[]).find(item=>item.id===btn.dataset.srFavDetail);
+      const recipe=raw?normalizeFavoriteRecipe(raw):null;
+      if(!recipe) return;
+      openSmartRecipeDetail(recipe,{source:'favorite',returnTab:'favorites'});
+    });
+  });
+  document.querySelectorAll('[data-sr-fav-remove]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const p=getActiveProfile();
+      if(!p) return;
+      const raw=(p.favoriteRecipes||[]).find(item=>item.id===btn.dataset.srFavRemove);
+      if(!raw) return;
+      toggleFavoriteRecipe(p,normalizeFavoriteRecipe(raw));
+      showToast('已取消收藏','success');
+      rerenderSmartRecipeUI();
+    });
+  });
+}
+function bindSmartRecipePage(){
+  document.getElementById('smartRecipeTabSeg')?.querySelectorAll('[data-sr-tab]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      smartRecipeActiveTab=btn.dataset.srTab||'today';
+      renderSmartRecipePage(getActiveProfile(),currentViewDate);
+    });
+  });
+  document.getElementById('smartRecipeSearchInput')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      handleSmartRecipeSearch();
+    }
+  });
+  document.getElementById('smartRecipeSearchBtn')?.addEventListener('click',()=>handleSmartRecipeSearch());
+  document.getElementById('smartRecipeRefreshSuppBtn')?.addEventListener('click',()=>{
+    smartRecipeSupplementShuffle+=1;
+    renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  });
+  document.getElementById('smartRecipeSwapBtn')?.addEventListener('click',()=>{
+    const p=getActiveProfile();
+    if(!p) return;
+    let recs=[];
+    try{recs=buildSmartRecipeRecommendations(p,currentViewDate)}
+    catch(err){console.error('[Render] smartRecipeSwap failed:',err);return}
+    if(recs.length<=1){
+      showToast(recs.length?'暂时只有这一道合适的本地菜谱':'暂时没有合适的本地菜谱','info');
+      return;
+    }
+    smartRecipePickIndex+=1;
+    renderSmartRecipePage(p,currentViewDate);
+  });
+  document.getElementById('srIngredientCameraBtn')?.addEventListener('click',()=>document.getElementById('srIngredientCamera')?.click());
+  document.getElementById('srIngredientGalleryBtn')?.addEventListener('click',()=>document.getElementById('srIngredientGallery')?.click());
+  document.getElementById('srIngredientCamera')?.addEventListener('change',e=>{
+    const file=e.target.files?.[0];
+    e.target.value='';
+    handleSmartRecipeIngredientFile(file);
+  });
+  document.getElementById('srIngredientGallery')?.addEventListener('change',e=>{
+    const file=e.target.files?.[0];
+    e.target.value='';
+    handleSmartRecipeIngredientFile(file);
+  });
+  document.getElementById('srIngredientAddBtn')?.addEventListener('click',()=>{
+    const input=document.getElementById('srIngredientCustom');
+    const name=String(input?.value||'').trim();
+    if(!name) return;
+    smartRecipeIdentifiedIngredients.push({name,amount:'',unit:''});
+    if(input) input.value='';
+    renderSmartRecipePage(getActiveProfile(),currentViewDate);
+  });
+  document.querySelectorAll('[data-sr-ing-del]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=Number(btn.dataset.srIngDel);
+      if(!Number.isFinite(idx)) return;
+      smartRecipeIdentifiedIngredients.splice(idx,1);
+      renderSmartRecipePage(getActiveProfile(),currentViewDate);
+    });
+  });
+  document.getElementById('srGenerateFromIngredientsBtn')?.addEventListener('click',()=>handleSmartRecipeGenerateFromIngredients());
+  bindSmartRecipeRecipeActions();
+}
+function openSmartRecipePrefsModal(){
+  const p=getActiveProfile();
+  if(!p) return;
+  smartRecipePrefsAddField=null;
+  smartRecipePrefsDraft=JSON.parse(JSON.stringify(getRecipePreferences(p)));
+  renderSmartRecipePrefsModal();
+  const modal=document.getElementById('smartRecipePrefsModal');
+  modal?.classList.add('show');
+  if(typeof GlassScrollLock!=='undefined') GlassScrollLock.lock('modal:smartRecipePrefsModal');
+  renderIcons(modal);
+}
+window.openSmartRecipePrefsModal=openSmartRecipePrefsModal;
+function closeSmartRecipePrefsModal(){
+  document.getElementById('smartRecipePrefsModal')?.classList.remove('show');
+  if(typeof GlassScrollLock!=='undefined') GlassScrollLock.unlock('modal:smartRecipePrefsModal');
+  smartRecipePrefsDraft=null;
+  smartRecipePrefsAddField=null;
+}
+function addSmartRecipePrefListItem(field,value){
+  const draft=smartRecipePrefsDraft;
+  const val=String(value||'').trim();
+  if(!draft||!field||!val) return false;
+  const list=Array.isArray(draft[field])?[...draft[field]]:[];
+  if(list.includes(val)) return false;
+  draft[field]=[...list,val];
+  return true;
+}
+function commitSmartRecipePrefCustom(field){
+  const inputId=field==='allergies'?'srAllergyCustom':'srDislikeCustom';
+  const input=document.getElementById(inputId);
+  const val=input?.value.trim();
+  if(val) addSmartRecipePrefListItem(field,val);
+  smartRecipePrefsAddField=null;
+  renderSmartRecipePrefsModal();
+}
+function renderSmartRecipePrefsModal(){
+  const wrap=document.getElementById('smartRecipePrefsContent');
+  const draft=smartRecipePrefsDraft||normalizeRecipePreferences({});
+  if(!wrap) return;
+  const chip=(list,field)=>list.map(item=>{
+    const active=(draft[field]||[]).includes(item);
+    return `<button type="button" class="ds-chip ds-chip--sm${active?' active':''}" data-sr-pref-toggle="${field}" data-sr-pref-value="${escapeHTML(item)}">${escapeHTML(item)}</button>`;
+  }).join('');
+  const segBtn=(options,field)=>{
+    const cur=draft[field];
+    return options.map(o=>`<button type="button" class="td-filter-btn${o.id===cur?' active':''}" data-sr-pref-field="${field}" data-sr-pref-id="${o.id}">${escapeHTML(o.label)}</button>`).join('');
+  };
+  const customAllergies=(draft.allergies||[]).filter(a=>!SMART_RECIPE_ALLERGY_PRESETS.includes(a));
+  const allergyAddBlock=smartRecipePrefsAddField==='allergies'
+    ? `<div class="sr-prefs-add-input-wrap"><input type="text" id="srAllergyCustom" class="sr-prefs-add-input" placeholder="输入过敏原，如：芝麻" autocomplete="off" enterkeyhint="done"></div>`
+    : `<button type="button" class="sr-prefs-add-entry" id="srAllergyAddEntry">+ 添加其他过敏原</button>`;
+  const dislikeAddBlock=smartRecipePrefsAddField==='dislikes'
+    ? `<div class="sr-prefs-add-input-wrap"><input type="text" id="srDislikeCustom" class="sr-prefs-add-input" placeholder="输入不喜欢的食物，如：香菜" autocomplete="off" enterkeyhint="done"></div>`
+    : `<button type="button" class="sr-prefs-add-entry" id="srDislikeAddEntry">+ 添加不喜欢的食物</button>`;
+  wrap.innerHTML=`
+    <div class="sr-prefs-section">
+      <div class="sr-prefs-label hard">过敏原</div>
+      <div class="sr-prefs-chips">${chip(SMART_RECIPE_ALLERGY_PRESETS,'allergies')}${chip(customAllergies,'allergies')}</div>
+      ${allergyAddBlock}
+    </div>
+    <div class="sr-prefs-section">
+      <div class="sr-prefs-label soft">不喜欢</div>
+      <div class="sr-prefs-chips" id="srDislikeChips">${chip(draft.dislikes||[],'dislikes')}</div>
+      ${dislikeAddBlock}
+    </div>
+    <div class="sr-prefs-section">
+      <div class="sr-prefs-label">饮食风格</div>
+      <div class="sr-prefs-seg">${segBtn(SMART_RECIPE_DIET_STYLES,'dietStyle')}</div>
+    </div>
+    <div class="sr-prefs-section">
+      <div class="sr-prefs-label">省事程度</div>
+      <div class="sr-prefs-seg">${segBtn(SMART_RECIPE_EFFORT_OPTIONS,'cookingEffort')}</div>
+    </div>
+    <div class="sr-prefs-section">
+      <div class="sr-prefs-label">厨房设备</div>
+      <div class="sr-prefs-chips">${chip(SMART_RECIPE_APPLIANCE_OPTIONS,'kitchenAppliances')}</div>
+    </div>
+    <div class="sr-prefs-section">
+      <div class="sr-prefs-label">餐次习惯</div>
+      <div class="sr-prefs-seg">${segBtn(SMART_RECIPE_MEAL_PATTERN_OPTIONS,'mealPattern')}</div>
+    </div>`;
+  renderIcons(wrap);
+  bindSmartRecipePrefsModal();
+  if(smartRecipePrefsAddField==='allergies'){
+    requestAnimationFrame(()=>document.getElementById('srAllergyCustom')?.focus());
+  }else if(smartRecipePrefsAddField==='dislikes'){
+    requestAnimationFrame(()=>document.getElementById('srDislikeCustom')?.focus());
+  }
+}
+function bindSmartRecipePrefsModal(){
+  const draft=smartRecipePrefsDraft;
+  if(!draft) return;
+  document.querySelectorAll('[data-sr-pref-toggle]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const field=btn.dataset.srPrefToggle;
+      const value=btn.dataset.srPrefValue;
+      if(!field||!value) return;
+      const list=Array.isArray(draft[field])?[...draft[field]]:[];
+      const idx=list.indexOf(value);
+      if(idx>=0) list.splice(idx,1); else list.push(value);
+      draft[field]=list;
+      renderSmartRecipePrefsModal();
+    });
+  });
+  document.querySelectorAll('[data-sr-pref-field]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const field=btn.dataset.srPrefField;
+      const id=btn.dataset.srPrefId;
+      if(!field||!id) return;
+      draft[field]=id;
+      if(field==='cookingEffort'){
+        const opt=SMART_RECIPE_EFFORT_OPTIONS.find(o=>o.id===id);
+        if(opt) draft.maxCookTime=opt.maxCookTime;
+      }
+      renderSmartRecipePrefsModal();
+    });
+  });
+  document.getElementById('srAllergyAddEntry')?.addEventListener('click',()=>{
+    smartRecipePrefsAddField='allergies';
+    renderSmartRecipePrefsModal();
+  });
+  document.getElementById('srDislikeAddEntry')?.addEventListener('click',()=>{
+    smartRecipePrefsAddField='dislikes';
+    renderSmartRecipePrefsModal();
+  });
+  const bindCustomPrefInput=(inputId,field)=>{
+    const input=document.getElementById(inputId);
+    if(!input) return;
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        commitSmartRecipePrefCustom(field);
+      }else if(e.key==='Escape'){
+        e.preventDefault();
+        smartRecipePrefsAddField=null;
+        renderSmartRecipePrefsModal();
+      }
+    });
+    input.addEventListener('blur',()=>{
+      window.setTimeout(()=>{
+        if(smartRecipePrefsAddField!==field) return;
+        const active=document.activeElement;
+        if(active&&active.closest('#smartRecipePrefsModal')&&(active.id==='srAllergyCustom'||active.id==='srDislikeCustom')) return;
+        commitSmartRecipePrefCustom(field);
+      },0);
+    });
+  };
+  bindCustomPrefInput('srAllergyCustom','allergies');
+  bindCustomPrefInput('srDislikeCustom','dislikes');
+  document.getElementById('smartRecipePrefsSave')?.addEventListener('click',saveSmartRecipePrefsFromModal);
+  document.getElementById('smartRecipePrefsCancel')?.addEventListener('click',closeSmartRecipePrefsModal);
+  document.getElementById('smartRecipePrefsClose')?.addEventListener('click',closeSmartRecipePrefsModal);
+}
+function saveSmartRecipePrefsFromModal(){
+  const p=getActiveProfile();
+  if(!p||!smartRecipePrefsDraft) return;
+  setRecipePreferences(p,smartRecipePrefsDraft);
+  saveData();
+  smartRecipePickIndex=0;
+  closeSmartRecipePrefsModal();
+  showToast('饮食偏好已保存','success');
+  if(activeAppPage==='smart-recipe') renderSmartRecipePage(p,currentViewDate);
+}
+function initSmartRecipePrefsModal(){
+  document.getElementById('smartRecipePrefsModal')?.addEventListener('click',e=>{
+    if(e.target.id==='smartRecipePrefsModal') closeSmartRecipePrefsModal();
+  });
+}
 
+let healthComparePeriod=7;
+let healthCompareMetric='weight';
+let healthCompareChart=null;
+function openHealthCompare(){
+  if(!isCoupleMode()) return false;
+  return switchAppPage('health-compare');
+}
+window.openHealthCompare=openHealthCompare;
+function getHealthCompareProfiles(){
+  const owner=getDeviceOwnerProfile();
+  const other=getPartnerProfile(owner);
+  return {owner,other};
+}
+function getHealthCompareScoreChange(profile,date,days=7){
+  if(!profile) return '';
+  const current=getHealthScoreData(profile,date);
+  const previous=getHealthScoreData(profile,addDays(date,-days+1));
+  if(!coupleHasAnyData(current)||!coupleHasAnyData(previous)) return '';
+  const currentScore=current.healthScore?.score;
+  const previousScore=previous.healthScore?.score;
+  if(currentScore===null||currentScore===undefined||previousScore===null||previousScore===undefined) return '';
+  const diff=Math.round(currentScore-previousScore);
+  return diff===0?'近7天基本稳定':`近7天变化 ${diff>0?'+':''}${diff}`;
+}
+function getHealthCompareMetric(profile,snap,type){
+  if(!profile||!snap) return {value:'暂无数据',note:'',empty:true};
+  if(type==='weight'){
+    const value=snap.latestWeight?Number(snap.latestWeight.weight):null;
+    return Number.isFinite(value)?{value:`${value.toFixed(1)}kg`,note:'当前体重',empty:false}:{value:'暂无数据',note:'',empty:true};
+  }
+  if(type==='diet') return snap.hasFood?{value:`${Math.round(snap.intakeCalories)}kcal`,note:`目标完成 ${Math.round(snap.dietPct)}%`,empty:false}:{value:'暂无数据',note:'',empty:true};
+  if(type==='exercise') return snap.hasExercise?{value:`${Math.round(snap.exerciseMinutes)}min`,note:`目标完成 ${Math.round(snap.exercisePct)}%`,empty:false}:{value:'暂无数据',note:'',empty:true};
+  if(type==='sleep') return snap.hasSleep?{value:formatShortSleep(snap.sleepMinutes),note:`目标完成 ${Math.round(snap.sleepPct)}%`,empty:false}:{value:'暂无数据',note:'',empty:true};
+  return {value:'暂无数据',note:'',empty:true};
+}
+function renderHealthCompareMetricCard(title,type,owner,other,ownerSnap,otherSnap){
+  const ownerData=getHealthCompareMetric(owner,ownerSnap,type);
+  const otherData=getHealthCompareMetric(other,otherSnap,type);
+  const person=(profile,data)=>`<div class="health-compare-metric-person"><div class="health-compare-metric-name">${escapeHTML(getDisplayName(profile)||'暂无')}</div><div class="health-compare-metric-value ${data.empty?'empty':''}">${escapeHTML(data.value)}</div>${data.note?`<div class="health-compare-metric-note">${escapeHTML(data.note)}</div>`:''}</div>`;
+  return `<div class="health-compare-metric"><div class="health-compare-metric-title">${escapeHTML(title)}</div><div class="health-compare-metric-people">${person(owner,ownerData)}${person(other,otherData)}</div></div>`;
+}
+function renderHealthComparePage(date=currentViewDate){
+  const wrap=document.getElementById('subPage_health_compare');
+  if(!wrap) return;
+  const {owner,other}=getHealthCompareProfiles();
+  if(!owner||!other){
+    wrap.innerHTML=_subPageHeader('健康对比','',{backPage:'couple',backLabel:'返回我们页',rightText:''})+
+      `<div class="sub-page-content"><section class="sub-page-section"><div class="couple-insufficient-title">等待TA完成健康档案</div><div class="couple-insufficient-sub">完成两位档案设置后，这里会展示健康评分、核心指标和双人趋势。</div></section></div>`;
+    renderIcons(wrap);
+    return;
+  }
+  const ownerSnap=getHealthScoreData(owner,date);
+  const otherSnap=getHealthScoreData(other,date);
+  const streak=getCoupleStreakDays(owner,other,date);
+  const scorePerson=(profile,snap)=>{
+    const hasAny=coupleHasAnyData(snap);
+    const score=hasAny?coupleScoreDisplay(snap):'--';
+    const change=getHealthCompareScoreChange(profile,date,7);
+    return `<div class="health-compare-person"><div class="health-compare-name">${escapeHTML(getDisplayName(profile))}</div><div class="health-compare-score">${score==='--'?'暂无数据':`${score}分`}</div><div class="health-compare-status">${hasAny?escapeHTML(coupleStatusLabel(snap)):'等待记录'}</div><div class="health-compare-change">${change?escapeHTML(change):'暂无历史评分变化'}</div></div>`;
+  };
+  wrap.innerHTML=_subPageHeader('健康对比','',{backPage:'couple',backLabel:'返回我们页',rightText:`近${healthComparePeriod}天`})+
+    `<div class="sub-page-content">`+
+    `<section class="sub-page-section"><div class="health-compare-score-grid">${scorePerson(owner,ownerSnap)}${scorePerson(other,otherSnap)}</div><div class="health-compare-shared">共同坚持 <strong>${streak}天</strong></div></section>`+
+    `<section class="sub-page-section"><div class="sub-page-section-title">${icon('heart')} 核心健康指标</div><div class="health-compare-metrics">`+
+      renderHealthCompareMetricCard('体重','weight',owner,other,ownerSnap,otherSnap)+
+      renderHealthCompareMetricCard('饮食','diet',owner,other,ownerSnap,otherSnap)+
+      renderHealthCompareMetricCard('运动','exercise',owner,other,ownerSnap,otherSnap)+
+      renderHealthCompareMetricCard('睡眠','sleep',owner,other,ownerSnap,otherSnap)+
+    `</div></section>`+
+    `<section class="sub-page-section"><div class="sub-page-section-title">${icon('chart')} 双人健康趋势</div>`+
+      `<div class="health-compare-controls"><div class="td-filter-row"><button class="td-filter-btn ${healthComparePeriod===7?'active':''}" data-health-compare-period="7">7天</button><button class="td-filter-btn ${healthComparePeriod===30?'active':''}" data-health-compare-period="30">30天</button></div>`+
+      `<div class="td-metric-row"><button class="td-metric-btn ${healthCompareMetric==='weight'?'active':''}" data-health-compare-metric="weight">体重</button><button class="td-metric-btn ${healthCompareMetric==='bmi'?'active':''}" data-health-compare-metric="bmi">BMI</button><button class="td-metric-btn ${healthCompareMetric==='bodyFat'?'active':''}" data-health-compare-metric="bodyFat">体脂</button></div></div>`+
+      `<div class="health-compare-chart-wrap" id="healthCompareChartWrap"><canvas id="healthCompareChart"></canvas></div></section>`+
+    `</div>`;
+  renderIcons(wrap);
+  wrap.querySelectorAll('[data-health-compare-period]').forEach(btn=>btn.addEventListener('click',()=>{healthComparePeriod=Number(btn.dataset.healthComparePeriod);renderHealthComparePage(date)}));
+  wrap.querySelectorAll('[data-health-compare-metric]').forEach(btn=>btn.addEventListener('click',()=>{healthCompareMetric=btn.dataset.healthCompareMetric;renderHealthComparePage(date)}));
+  renderHealthCompareTrendChart(owner,other);
+}
+function renderHealthCompareTrendChart(ownerArg=null,otherArg=null){
+  if(activeAppPage!=='health-compare') return;
+  const wrap=document.getElementById('healthCompareChartWrap');
+  if(!wrap) return;
+  const profiles=getHealthCompareProfiles();
+  const owner=ownerArg||profiles.owner;
+  const other=otherArg||profiles.other;
+  if(!owner||!other) return;
+  if(typeof Chart==='undefined'){
+    wrap.innerHTML='<div class="chart-empty">图表加载中…</div>';
+    return;
+  }
+  const dates=getTrendData(owner,healthComparePeriod).dates;
+  const series=[owner,other].map(profile=>({profile,values:getHealthMetricTrendSeries(profile,healthCompareMetric,healthComparePeriod,dates).values}));
+  if(!series.some(item=>item.values.some(value=>value!==null&&value!==undefined))){
+    if(healthCompareChart){healthCompareChart.destroy();healthCompareChart=null}
+    wrap.innerHTML='<div class="chart-empty">暂无趋势数据</div>';
+    return;
+  }
+  const css=getComputedStyle(document.documentElement);
+  const theme=document.documentElement.getAttribute('data-theme')||'dark';
+  const text=css.getPropertyValue('--txt').trim();
+  const muted=css.getPropertyValue('--txt3').trim();
+  const gold=css.getPropertyValue('--gold').trim();
+  const goldLight=css.getPropertyValue('--gold-l').trim();
+  const purple=css.getPropertyValue('--purple').trim();
+  const grid=theme==='light'?'rgba(120,92,18,0.11)':'rgba(212,175,55,0.04)';
+  const tooltipBg=theme==='light'?'rgba(255,253,247,0.96)':'rgba(14,14,20,0.95)';
+  if(healthCompareChart) healthCompareChart.destroy();
+  const canvas=document.getElementById('healthCompareChart');
+  if(!canvas) return;
+  const colors=[gold,purple];
+  const values=series.flatMap(item=>item.values.filter(value=>Number.isFinite(value)));
+  const minValue=values.length?Math.min(...values):0;
+  const maxValue=values.length?Math.max(...values):1;
+  const padding=(maxValue-minValue||1)*.15;
+  healthCompareChart=new Chart(canvas.getContext('2d'),{
+    type:'line',
+    data:{labels:dates.map(formatDateShort),datasets:series.map((item,index)=>({label:getDisplayName(item.profile),data:item.values,borderColor:colors[index],backgroundColor:'transparent',borderWidth:2.5,fill:false,tension:.35,pointRadius:2.5,pointHoverRadius:4,pointBackgroundColor:colors[index],pointBorderWidth:0,spanGaps:true}))},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'bottom',labels:{color:muted,font:{size:11},boxWidth:16,boxHeight:2,padding:8}},tooltip:{backgroundColor:tooltipBg,titleColor:goldLight,bodyColor:text,borderColor:theme==='light'?'rgba(120,92,18,.22)':'rgba(212,175,55,.3)',borderWidth:1,padding:10,cornerRadius:10,callbacks:{label:ctx=>{const value=ctx.parsed.y;if(value===null)return null;if(healthCompareMetric==='bodyFat')return `${ctx.dataset.label}: ${value}%`;if(healthCompareMetric==='bmi')return `${ctx.dataset.label}: ${value}`;return `${ctx.dataset.label}: ${value} kg`;}}}},scales:{x:{grid:{color:grid,drawBorder:false},ticks:{color:muted,font:{size:9},maxRotation:0,maxTicksLimit:7}},y:{grid:{color:grid,drawBorder:false},ticks:{color:muted,font:{size:9},maxTicksLimit:6},min:minValue-padding,max:maxValue+padding}}}
+  });
+}
 
 function renderHealthAnalysisPage(profile,date){
   const wrap=document.getElementById('subPage_health_analysis');
@@ -8520,24 +11751,20 @@ function renderDailyAdvicePage(profile,date){
   const snap=getHealthScoreData(profile,date);
   const summary=buildTodayHealthAiSummary(profile,snap);
   const cs=getDailyCalorieStatus(profile,date);
-  const calDisplay=getDailyCalorieDisplayContext(profile,date);
   const dayCache=getHealthCoachDayCache(profile,date);
   const latest=getLatestHealthCoachAdvice(dayCache);
-  const rawAdvice=latest?.advice;
-  const aiAdvice=rawAdvice?liveHealthCoachAdvice(rawAdvice,profile,date):null;
+  const aiAdvice=latest?.advice;
   const useAiAdvice=!!(aiAdvice&&!aiAdvice.fallback);
   const aiSlot=latest?.slot||aiAdvice?.slot||'morning';
-  // Focus headline ALWAYS uses live intakeRemainingKcal — never stale AI summary kcal
-  const focusCalorieText=buildDeterministicCalorieSummary(calDisplay);
 
   // Build reason list (system-calculated data — always shown)
   const reasons=[];
   if(cs.hasFood){
-    reasons.push({label:'今日摄入',value:`${calDisplay.intakeCalories} kcal`});
-    if(cs.hasTarget) reasons.push({label:'动态目标',value:`${calDisplay.targetCalories} kcal`});
+    reasons.push({label:'今日摄入',value:`${cs.intakeKcal} kcal`});
+    if(cs.hasTarget) reasons.push({label:'动态目标',value:`${cs.dynamicCalorieTarget} kcal`});
     if(cs.exerciseCalories>0) reasons.push({label:'基础 + 运动',value:`${cs.baseCalorieTarget} + ${cs.exerciseCalories} kcal`});
-    if(calDisplay.overCalories>0) reasons.push({label:'超出',value:`${calDisplay.overCalories} kcal`});
-    else if(calDisplay.remainingCalories!=null) reasons.push({label:'还可摄入',value:`${calDisplay.remainingCalories} kcal`});
+    if(cs.intakeOverTargetKcal>0) reasons.push({label:'超出',value:`${cs.intakeOverTargetKcal} kcal`});
+    else if(cs.intakeRemainingKcal>0) reasons.push({label:'还可摄入',value:`${cs.intakeRemainingKcal} kcal`});
   }
   if(snap.hasWater){
     reasons.push({label:'今日饮水',value:`${snap.waterTotal} / ${snap.waterGoal||0} ml`});
@@ -8555,10 +11782,11 @@ function renderDailyAdvicePage(profile,date){
   let actionsSection='';
 
   if(useAiAdvice){
-    focusSection=`<section class="sub-page-section"><div class="da-focus">${escapeHTML(focusCalorieText)}</div>`+
+    const focusText=String(aiAdvice.summary||summary.advice||'保持稳定记录比追求单日完美更重要。').trim();
+    focusSection=`<section class="sub-page-section"><div class="da-focus">${escapeHTML(focusText)}</div>`+
       `<div style="font-size:12px;color:var(--txt3);text-align:center;margin-top:8px">${escapeHTML(getHealthCoachSlotLabel(aiSlot))} · AI生成</div></section>`;
     dimensionSection=`<section class="sub-page-section"><div class="coach-advice-grid">`+
-      `<div class="coach-advice-item"><b>饮食</b>${escapeHTML(sanitizeHealthCoachAdviceText(aiAdvice.diet_advice||'',cs))}</div>`+
+      `<div class="coach-advice-item"><b>饮食</b>${escapeHTML(aiAdvice.diet_advice||'')}</div>`+
       `<div class="coach-advice-item"><b>运动</b>${escapeHTML(aiAdvice.exercise_advice||'')}</div>`+
       `<div class="coach-advice-item"><b>饮水</b>${escapeHTML(aiAdvice.water_advice||'')}</div>`+
       `<div class="coach-advice-item"><b>睡眠</b>${escapeHTML(aiAdvice.sleep_advice||'')}</div>`+
@@ -8577,8 +11805,10 @@ function renderDailyAdvicePage(profile,date){
         `</div></section>`;
     }
   }else{
+    const focus=summary.advice||'保持稳定记录比追求单日完美更重要。';
+    const focusShort=focus.split(/[，,。！？!?]/)[0].slice(0,20).trim();
     const actions=[];
-    if(calDisplay.overCalories>0){
+    if(cs.intakeOverTargetKcal>0){
       actions.push('下一餐控制在 400-500 kcal');
       actions.push('优先蔬菜 + 瘦肉');
       actions.push('减少高油高糖食品');
@@ -8593,7 +11823,7 @@ function renderDailyAdvicePage(profile,date){
       actions.push('安排 15-30 分钟运动');
     }
     if(actions.length===0) actions.push('保持当前健康习惯');
-    focusSection=`<section class="sub-page-section"><div class="da-focus">${escapeHTML(focusCalorieText)}</div>`+
+    focusSection=`<section class="sub-page-section"><div class="da-focus">${escapeHTML(focusShort)}</div>`+
       `<div style="font-size:13px;color:var(--txt2);line-height:1.7;margin-top:10px">${escapeHTML(summary.lead)}</div></section>`;
     actionsSection=`<section class="sub-page-section"><div class="sub-page-section-title">${icon('lightbulb')} 建议你这样做</div><div class="da-action-list">`+
       actions.slice(0,4).map((a,i)=>`<div class="da-action-item"><span class="da-action-num">${i+1}</span><span>${escapeHTML(a)}</span></div>`).join('')+
@@ -8609,7 +11839,7 @@ function renderDailyAdvicePage(profile,date){
   const smartRecipeLink=getSmartRecipeLinkContext(profile,date,snap,cs);
   if(smartRecipeLink){
     actionBtn=`<button type="button" class="da-action-btn" id="dailyAdviceSmartRecipeBtn">${icon('utensils')} 去智能食谱补充</button>`;
-  }else if(calDisplay.overCalories>0||!snap.hasFood){
+  }else if(cs.intakeOverTargetKcal>0||!snap.hasFood){
     actionBtn=`<button class="da-action-btn" data-task-action="food">${icon('utensils')} 记录饮食</button>`;
   }else if(snap.hasWater&&snap.waterPct<60){
     actionBtn=`<button class="da-action-btn" data-task-action="water">${icon('droplets')} 记录饮水</button>`;
@@ -8751,7 +11981,6 @@ function renderAppPageSummaries(){
       settingsContent.querySelector('#settingsPageThemeBtn')?.addEventListener('click',()=>{toggleTheme();renderAppPageSummaries()});
       settingsContent.querySelector('#settingsPageModeBtn')?.addEventListener('click',openModeSettingsDialog);
       settingsContent.querySelector('#settingsPageRebindBtn')?.addEventListener('click',openRebindDeviceOwnerModal);
-      hydrateIconsIn(settingsContent);
     }
   }
   if(activeAppPage==='health'){
@@ -8816,7 +12045,7 @@ function renderAppPageSummaries(){
     setupCoupleAnnSortHandlers(coupleContent);
   }
 }
-function renderAll({includeTrend=true,boot=false}={}){
+function renderAll({includeTrend=true}={}){
   console.log('[Render] renderAll start');
   const renderStep=(label,fn)=>{
     try{return fn()}
@@ -8826,10 +12055,8 @@ function renderAll({includeTrend=true,boot=false}={}){
   renderStep('renderDailyView',renderDailyView);
   // 性能优化：renderAll 默认不渲染 Chart，只在健康页面时由 switchAppPage 触发
   if(includeTrend&&activeAppPage==='health') renderStep('renderChart',renderChart);
-  if(!boot){
-    renderStep('checkBirthdayReminder',checkBirthdayReminder);
-    renderStep('renderAppPageSummaries',renderAppPageSummaries);
-  }
+  renderStep('checkBirthdayReminder',checkBirthdayReminder);
+  renderStep('renderAppPageSummaries',renderAppPageSummaries);
 }
 // ── 性能优化：模块化局部刷新 ──
 // 只刷新首页和记录页需要的模块，不触发 renderChart、renderAppPageSummaries 等无关渲染。
@@ -8843,8 +12070,6 @@ function renderDashboard(){
   renderStep('renderProfileTabs',renderProfileTabs);
   renderStep('renderDailyView',renderDailyView);
   if(isSingleMode()&&activeAppPage==='growth') renderStep('renderGrowthPage',()=>renderGrowthPage(currentViewDate));
-  const pages=document.getElementById('appPages');
-  if(pages) hydrateIconsIn(pages);
 }
 function updateAINote(){
   const note=document.getElementById('aiNote');
@@ -8861,10 +12086,9 @@ function updateAINote(){
 
 function getProfileAvatarHtml(profile){
   if(!profile) return '';
-  // 优先显示自定义头像（大图可能在侧存 key，按需 resolve）
-  const avatarSrc=resolveProfileAvatar(profile);
-  if(avatarSrc){
-    return `<img src="${avatarSrc}" alt="${escapeHTML(getDisplayName(profile))}" class="avatar-img" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+  // 优先显示自定义头像
+  if(profile.avatar){
+    return `<img src="${profile.avatar}" alt="${escapeHTML(getDisplayName(profile))}" class="avatar-img" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
       <span class="avatar-icon-fallback" style="display:none;background:${profile.gender==='male'?'rgba(96,165,250,0.2)':profile.gender==='female'?'rgba(167,139,250,0.2)':'rgba(212,175,55,0.2)'};color:${profile.gender==='male'?'var(--blue)':profile.gender==='female'?'var(--purple)':'var(--gold)'}">${getGenderIcon(profile.gender)||'·'}</span>`;
   }
   // 无自定义头像：使用性别默认图标
@@ -8905,6 +12129,16 @@ function renderProfileTabs(){
 }
 
 // ==================== AI SMART RECORD ====================
+async function parseHealthText(text){
+  const response=await fetch(getApiUrl('/api/health-parse'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text,baseDate:currentViewDate,currentDateTime:toLocalDateTimeValue()})
+  });
+  const data=await response.json().catch(()=>({events:[]}));
+  if(!response.ok) throw new Error(data?.error||'AI解析暂时不可用');
+  return Array.isArray(data.events)?data.events:[];
+}
 function shouldUseAIFoodEstimate(name){
   const q=String(name||'').trim().toLowerCase();
   return !!q&&COMPLEX_AI_FOOD_KEYWORDS.some(keyword=>q.includes(keyword.toLowerCase()));
@@ -8920,17 +12154,17 @@ function findLocalFoodByName(name){
   if(!q) return null;
   if(shouldUseAIFoodEstimate(q)) return null;
   // 精确匹配原名
-  let match=getFoodDB().find(f=>f.name.toLowerCase()===q);
+  let match=FOOD_DB.find(f=>f.name.toLowerCase()===q);
   if(match) return match;
   // 别名标准化后精确匹配（如"西红柿"→"番茄"）
   const canonical=normalizeFoodName(name);
   if(canonical.toLowerCase()!==q){
-    match=getFoodDB().find(f=>f.name.toLowerCase()===canonical.toLowerCase());
+    match=FOOD_DB.find(f=>f.name.toLowerCase()===canonical.toLowerCase());
     if(match) return match;
   }
   // 模糊/包含匹配（原名和标准名都尝试）
-  return getFoodDB().find(f=>f.name.toLowerCase().includes(q)||q.includes(f.name.toLowerCase()))
-    ||(canonical.toLowerCase()!==q&&getFoodDB().find(f=>f.name.toLowerCase().includes(canonical.toLowerCase())||canonical.toLowerCase().includes(f.name.toLowerCase())))
+  return FOOD_DB.find(f=>f.name.toLowerCase().includes(q)||q.includes(f.name.toLowerCase()))
+    ||(canonical.toLowerCase()!==q&&FOOD_DB.find(f=>f.name.toLowerCase().includes(canonical.toLowerCase())||canonical.toLowerCase().includes(f.name.toLowerCase())))
     ||null;
 }
 function getUnitGram(unit){
@@ -9537,7 +12771,7 @@ async function resolveDraftFood(item){
 function findLocalExerciseByName(name){
   const q=String(name||'').trim().toLowerCase();
   if(!q) return null;
-  return getExerciseDB().find(e=>e.name.toLowerCase()===q)||getExerciseDB().find(e=>e.name.toLowerCase().includes(q)||q.includes(e.name.toLowerCase()))||null;
+  return EXERCISE_DB.find(e=>e.name.toLowerCase()===q)||EXERCISE_DB.find(e=>e.name.toLowerCase().includes(q)||q.includes(e.name.toLowerCase()))||null;
 }
 async function resolveDraftExercise(event){
   const rawName=String(event.name||'').trim();
@@ -9856,9 +13090,700 @@ function renderWeightCard(){
   if(historyWrap) historyWrap.innerHTML='';
 }
 
+function renderNutritionCard(){
+  const p=getActiveProfile();
+  const nameEl=document.getElementById('nutritionProfileName');
+  if(!nameEl) return;
+  nameEl.textContent=getDisplayName(p);
+  const intake=calcTodayIntake(p);
+  const targets=calcNutrientTargets(p);
+  const calorieStatus=getDailyCalorieStatus(p,currentViewDate);
+  const burned=calorieStatus.recordedExerciseCalories;
+  const intakeCalories=Math.round(intake.calories);
+  const netCalories=calorieStatus.netCalories;
+  const dynamicTarget=calorieStatus.dynamicCalorieTarget;
+  const summaryDate=document.getElementById('dietSummaryDate');
+  if(summaryDate) summaryDate.textContent=formatDate(currentViewDate);
+  const summaryGrid=document.getElementById('dietSummaryGrid');
+  if(summaryGrid){
+    const summaryItems=[
+      {label:'摄入热量',value:intakeCalories,unit:'kcal'},
+      {label:'蛋白质',value:intake.protein,unit:'g'},
+      {label:'碳水',value:intake.carbs,unit:'g'},
+      {label:'脂肪',value:intake.fat,unit:'g'}
+    ];
+    summaryGrid.innerHTML=summaryItems.map(item=>`<div class="diet-summary-stat">
+      <div class="ds-val">${item.value}</div>
+      <div class="ds-label">${item.label} ${item.unit}</div>
+    </div>`).join('');
+  }
 
+  // Calorie ring with gap target ring
+  const ringWrap=document.getElementById('calorieRing');
+  // 首页已经使用同一份 intake/targets 渲染紧凑概览；健康页不再保留重复圆环。
+  if(!ringWrap) return;
+  if(targets&&dynamicTarget>0){
+    const pct=Math.min(intakeCalories/dynamicTarget,1);
+    const r=48,circum=2*Math.PI*r;
+    const offset=circum*(1-pct);
 
+    // Gap target follows the unified dynamic calorie budget.
+    const gapCalories=Math.max(0,calorieStatus.remainingCalories);
+    const gapPct=Math.min(gapCalories/dynamicTarget,1);
+    const gapR=38,gapCircum=2*Math.PI*gapR;
+    const gapOffset=gapCircum*(1-gapPct);
 
+    ringWrap.innerHTML=`
+      <svg class="calorie-ring-svg" width="120" height="120" viewBox="0 0 120 120" aria-label="摄入热量 ${intakeCalories} kcal">
+        <defs>
+          <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#d4af37"/>
+            <stop offset="100%" stop-color="#ffd700"/>
+          </linearGradient>
+          <linearGradient id="gapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#4ade80" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#22c55e" stop-opacity="0.3"/>
+          </linearGradient>
+        </defs>
+        <g transform="rotate(-90 60 60)">
+          <!-- Outer track -->
+          <circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="7"/>
+          <!-- Outer ring: food intake / daily calorie target -->
+          <circle cx="60" cy="60" r="${r}" fill="none" stroke="url(#goldGrad)" stroke-width="7"
+            stroke-dasharray="${circum}" stroke-dashoffset="${offset}" stroke-linecap="round"
+            style="transition:stroke-dashoffset .8s ease"/>
+          <!-- Inner track -->
+          <circle cx="60" cy="60" r="${gapR}" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="5"/>
+          <!-- Inner ring: gap target recommendation -->
+          <circle cx="60" cy="60" r="${gapR}" fill="none" stroke="url(#gapGrad)" stroke-width="5"
+            stroke-dasharray="${gapCircum}" stroke-dashoffset="${gapOffset}" stroke-linecap="round"
+            style="transition:stroke-dashoffset .8s ease"/>
+        </g>
+        <text class="calorie-svg-main" x="60" y="63.5">
+          <tspan class="calorie-svg-num">${intakeCalories}</tspan><tspan class="calorie-svg-unit" dx="3">kcal</tspan>
+        </text>
+        <text class="calorie-svg-caption" x="60" y="83">摄入</text>
+      </svg>`;
+    // Sub-text below the ring (outside the SVG, no overlap)
+    const subEl=ringWrap.parentElement.querySelector('.nutrition-sub');
+    if(subEl){
+      const pctRound=Math.round(pct*100);
+      const budgetParts=calorieStatus.exerciseCalories>0?`基础${calorieStatus.baseCalorieTarget} + 运动${calorieStatus.exerciseCalories}`:`基础目标${calorieStatus.baseCalorieTarget}`;
+      subEl.textContent=`动态目标${dynamicTarget} (${budgetParts}) · 完成度${pctRound}% · 运动记录${burned}kcal · 净摄入${netCalories}kcal`;
+    }
+  }else{
+    // targets=null（资料不完整导致 TDEE 算不出）。
+    // 即使如此，也要如实显示已摄入热量，不要让用户看到 "--" 误以为没记录。
+    if(intakeCalories>0){
+      ringWrap.innerHTML=`<svg class="calorie-ring-svg" width="120" height="120" viewBox="0 0 120 120" aria-label="摄入热量 ${intakeCalories} kcal">
+        <defs>
+          <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#d4af37"/>
+            <stop offset="100%" stop-color="#ffd700"/>
+          </linearGradient>
+        </defs>
+        <g transform="rotate(-90 60 60)">
+          <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="7"/>
+          <circle cx="60" cy="60" r="48" fill="none" stroke="url(#goldGrad)" stroke-width="7"
+            stroke-dasharray="${2*Math.PI*48}" stroke-dashoffset="0" stroke-linecap="round"/>
+        </g>
+        <text class="calorie-svg-main" x="60" y="63.5">
+          <tspan class="calorie-svg-num">${intakeCalories}</tspan><tspan class="calorie-svg-unit" dx="3">kcal</tspan>
+        </text>
+        <text class="calorie-svg-caption" x="60" y="83">已摄入</text>
+      </svg>`;
+    }else{
+      ringWrap.innerHTML=`<svg class="calorie-ring-svg" width="120" height="120" viewBox="0 0 120 120"><text class="calorie-svg-main" x="60" y="63.5"><tspan class="calorie-svg-num" style="opacity:.35">--</tspan></text><text class="calorie-svg-caption" x="60" y="83">暂无记录</text></svg>`;
+    }
+    const subEl=ringWrap.parentElement.querySelector('.nutrition-sub');
+    if(subEl){
+      const missing=getMissingNutrientCalcFields(p);
+      if(missing.length){
+        subEl.innerHTML=`<span style="color:var(--amber)">未设置资料：${missing.join('、')}</span> · <a href="#" id="openSettingsFromHint" style="color:var(--gold-l);text-decoration:underline">去设置</a>`;
+        const openBtn=subEl.querySelector('#openSettingsFromHint');
+        if(openBtn) openBtn.addEventListener('click',(e)=>{e.preventDefault();openProfileSettings()});
+      }else{
+        subEl.textContent='';
+      }
+    }
+  }
+
+  // Nutrient bars
+  const barsWrap=document.getElementById('nutritionBars');
+  if(targets){
+    const nutrients=[
+      {key:'carbs',label:'碳水',val:intake.carbs,tgt:targets.carbs,unit:'g',cls:'carbs'},
+      {key:'protein',label:'蛋白质',val:intake.protein,tgt:targets.protein,unit:'g',cls:'protein'},
+      {key:'fat',label:'脂肪',val:intake.fat,tgt:targets.fat,unit:'g',cls:'fat'},
+      {key:'fiber',label:'纤维',val:intake.fiber,tgt:targets.fiber,unit:'g',cls:'fiber'},
+    ];
+    const barsHTML=nutrients.map(n=>{
+      const pct=Math.min(n.val/n.tgt*100,100);
+      return `<div class="nbar ${n.cls}">
+        <div class="nlabel">${n.label}</div>
+        <div class="ntrack"><div class="nfill" style="width:${pct}%"></div></div>
+        <div class="nval">${n.val}/${n.tgt}${n.unit}<br><span class="pct">${Math.round(pct)}%</span></div>
+      </div>`;
+    }).join('');
+    barsWrap.innerHTML=barsHTML;
+  }else{
+    // 即便 targets=null，也要如实显示实际摄入，不要让进度条消失
+    const hasAnyIntake=(intake.carbs||0)+(intake.protein||0)+(intake.fat||0)+(intake.fiber||0)>0;
+    if(hasAnyIntake){
+      const nutrients=[
+        {label:'碳水',val:intake.carbs,unit:'g',cls:'carbs'},
+        {label:'蛋白质',val:intake.protein,unit:'g',cls:'protein'},
+        {label:'脂肪',val:intake.fat,unit:'g',cls:'fat'},
+        {label:'纤维',val:intake.fiber,unit:'g',cls:'fiber'},
+      ];
+      barsWrap.innerHTML=nutrients.map(n=>`<div class="nbar ${n.cls}">
+        <div class="nlabel">${n.label}</div>
+        <div class="ntrack"><div class="nfill" style="width:0%"></div></div>
+        <div class="nval">${n.val}${n.unit}<br><span class="pct" style="color:var(--txt3)">未设目标</span></div>
+      </div>`).join('');
+    }else{
+      const missing=getMissingNutrientCalcFields(p);
+      const hint=missing.length?`请先在 设置 → 个人资料 中填写：${missing.join('、')}`:'请在 设置 → 个人资料 中填写资料';
+      barsWrap.innerHTML=`<div style="color:var(--txt3);font-size:12px;text-align:center;padding:20px 0"><a href="#" id="openSettingsFromBars" style="color:var(--gold-l);text-decoration:underline">${escapeHTML(hint)}</a></div>`;
+      const openBtn=barsWrap.querySelector('#openSettingsFromBars');
+      if(openBtn) openBtn.addEventListener('click',(e)=>{e.preventDefault();openProfileSettings()});
+    }
+  }
+
+  // Calorie gap/surplus recommendation belongs to Today's Nutrition Overview
+  const adviceWrap=document.getElementById('nutritionAdvice');
+  if(adviceWrap){
+    const calorieAdvice=calcCalorieGapRecommendation(p);
+    if(calorieAdvice){
+      adviceWrap.innerHTML=`<div class="advice-title">
+        <span>${calorieAdvice.label}</span><span>${calorieAdvice.range}</span>
+      </div>
+      <div class="advice-note">${calorieAdvice.note}</div>`;
+    }else{
+      adviceWrap.innerHTML='';
+    }
+  }
+}
+
+function renderFoodLog(){
+  const p=getActiveProfile();
+  const dateEl=document.getElementById('foodLogDate');
+  const listWrap=document.getElementById('foodLogList');
+  if(!dateEl||!listWrap) return;
+  dateEl.textContent=formatDate(currentViewDate);
+  const foods=getTodayFoods(p);
+
+  if(foods.length===0){
+    listWrap.innerHTML='<div class="log-empty">所选日期暂无饮食记录</div>';
+    return;
+  }
+
+  const mealNames={breakfast:'早餐',lunch:'午餐',dinner:'晚餐',snack:'加餐'};
+  const mealOrder=['breakfast','lunch','dinner','snack'];
+  let html='';
+  let totalCal=0;
+
+  mealOrder.forEach(meal=>{
+    const mealFoods=foods.filter(f=>f.meal===meal);
+    if(mealFoods.length===0) return;
+    let mealCal=0;
+    let itemsHTML=mealFoods.map(r=>{
+      let rCal=0,rCarb=0,rPro=0,rFat=0;
+      r.foods.forEach(f=>{
+        const n=getFoodActualNutrition(f);
+        rCal+=n.calories;
+        rCarb+=n.carbs;
+        rPro+=n.protein;
+        rFat+=n.fat;
+      });
+      mealCal+=rCal;
+      totalCal+=rCal;
+      return `<div class="log-item">
+        <div class="li-left">
+          <div class="li-name">${r.foods.map(f=>f.amount!==undefined?`${f.name} ${roundFoodValue(f.amount,1)}g`:`${f.name}×${f.quantity||1}`).join(', ')}</div>
+          <div class="li-nutri">碳水${rCarb.toFixed(0)}g · 蛋白${rPro.toFixed(0)}g · 脂肪${rFat.toFixed(0)}g · ${formatDateTime(r.dateTime||`${r.date}T00:00`)}</div>
+        </div>
+        <div class="li-right">
+          <div class="li-cal">${Math.round(rCal)} kcal</div>
+          <button class="li-edit" data-rid="${r.id}" title="编辑这条饮食记录">${icon('edit')}</button>
+          <button class="li-del health-record-delete" data-rid="${r.id}" type="button" aria-label="删除">${icon('x')}</button>
+        </div>
+      </div>`;
+    }).join('');
+    html+=`<div class="meal-group">
+      <div class="meal-group-header">${mealNames[meal]} <span class="meal-cal">${Math.round(mealCal)} kcal</span></div>
+      ${itemsHTML}
+    </div>`;
+  });
+
+  html+=`<div class="log-total">
+    <span class="lt-label">所选日期总计</span>
+    <span class="lt-val">${Math.round(totalCal)} kcal</span>
+  </div>`;
+  listWrap.innerHTML=html;
+
+  listWrap.querySelectorAll('.li-edit').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      const rid=btn.dataset.rid;
+      const record=(p.foodRecords||[]).find(r=>r.id===rid);
+      if(!record) return;
+      openFoodEditor(e.currentTarget,p,record);
+    });
+  });
+
+  listWrap.querySelectorAll('.li-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!requireEditableHealthProfile(p)) return;
+      if(!confirm('确定删除这条饮食记录吗？')) return;
+      const rid=btn.dataset.rid;
+      const record=(p.foodRecords||[]).find(r=>r.id===rid);
+      const recDate=record?getRecordDate(record):currentViewDate;
+      addDeletedRecord('food',rid);
+      p.foodRecords=p.foodRecords.filter(r=>r.id!==rid);
+      saveData();
+      invalidateHealthCoachDayCache(p, recDate);
+      renderDashboard();
+      showToast('已删除一条记录','info');
+    });
+  });
+}
+
+function renderExerciseCard(){
+  const p=getActiveProfile();
+  const nameEl=document.getElementById('exerciseProfileName');
+  if(nameEl) nameEl.textContent=getDisplayName(p);
+  const content=document.getElementById('exerciseContent');
+  if(!content) return;
+  const exercises=getTodayExercises(p);
+  const burned=calcTodayBurnedCalories(p);
+  const tdee=calcTDEE(p);
+
+  const managementHTML=`
+    <div class="exercise-summary">
+      <div class="ex-summary-info" style="width:100%">
+        <div class="si-row"><span class="si-label">所选日期消耗</span><span class="si-val">${burned} kcal</span></div>
+        <div class="si-row"><span class="si-label">运动次数</span><span class="si-val">${exercises.length} 次</span></div>
+        <div class="si-row"><span class="si-label">每日热量目标</span><span class="si-val">${tdee||'--'} kcal</span></div>
+      </div>
+    </div>
+    <div class="record-management-list-head"><span>所选日期记录</span><span>${formatDate(currentViewDate)}</span></div>
+    <div class="ex-list">
+      ${exercises.length?exercises.map(e=>`<div class="ex-item">
+        <div>
+          <div class="exi-name">${escapeHTML(e.name)}</div>
+          <div class="exi-detail">${escapeHTML(e.detail)} · ${formatDateTime(e.dateTime||`${e.date}T00:00`)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="exi-cal">-${Number(e.calories)||0} kcal</span>
+          <button class="exi-edit" data-id="${escapeHTML(e.id)}" title="编辑这条运动记录">${icon('edit')}</button>
+          <button class="exi-del health-record-delete" data-id="${escapeHTML(e.id)}" type="button" title="删除这条运动记录" aria-label="删除">${icon('x')}</button>
+        </div>
+      </div>`).join(''):'<div class="ex-empty">所选日期暂无运动记录</div>'}
+    </div>`;
+  content.innerHTML=managementHTML;
+  content.querySelectorAll('.exi-edit').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      const record=(p.exerciseRecords||[]).find(item=>item.id===btn.dataset.id);
+      if(record) openExerciseEditor(e.currentTarget,p,record);
+    });
+  });
+  content.querySelectorAll('.exi-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!requireEditableHealthProfile(p)||!confirm('确定删除这条运动记录吗？')) return;
+      addDeletedRecord('exercise',btn.dataset.id);
+      p.exerciseRecords=(p.exerciseRecords||[]).filter(item=>item.id!==btn.dataset.id);
+      saveData();renderDashboard();showToast('已删除一条运动记录','info');
+    });
+  });
+  return;
+
+  // Calorie ring
+  const ringMax=tdee||2000;
+  const pct=Math.min(burned/ringMax,1);
+  const r=30,circum=2*Math.PI*r;
+  const offset=circum*(1-pct);
+
+  let html=`
+    <div class="exercise-summary">
+      <div class="ex-cal-ring">
+        <svg width="70" height="70">
+          <circle cx="35" cy="35" r="${r}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="5"/>
+          <circle cx="35" cy="35" r="${r}" fill="none" stroke="#4ade80" stroke-width="5"
+            stroke-dasharray="${circum}" stroke-dashoffset="${offset}" stroke-linecap="round"
+            style="transition:stroke-dashoffset .8s ease"/>
+        </svg>
+        <div class="ex-cal-center">
+          <div class="num">${burned}</div>
+          <div class="lbl">kcal</div>
+        </div>
+      </div>
+      <div class="ex-summary-info">
+        <div class="si-row"><span class="si-label">所选日期消耗</span><span class="si-val">${burned} kcal</span></div>
+        <div class="si-row"><span class="si-label">每日热量目标</span><span class="si-val">${tdee||'--'} kcal</span></div>
+        <div class="si-row"><span class="si-label">运动次数</span><span class="si-val">${exercises.length} 次</span></div>
+      </div>
+    </div>
+    <div class="ex-input-group">
+      <div class="ex-custom-select" id="exCustomSelect">
+        <span class="ecs-label" id="exLabel">步行</span>
+        <span class="ecs-arrow">▼</span>
+        <div class="ex-dropdown" id="exDropdown">
+          <div class="ex-search-wrap">
+            <input type="text" class="ex-search-input" id="exerciseSearch" placeholder="搜索运动名称…">
+          </div>
+          <div id="exOptions">
+            ${EXERCISE_DB.map((e,i)=>`<div class="ex-option" data-source="local" data-idx="${i}" data-name="${e.name}">
+              <span>${e.name}</span>
+              <span class="eo-met">${e.inputType==='steps'?'按步数':'MET '+e.met}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <input type="number" class="ex-num-input" id="exDuration" placeholder="30" min="1" value="30">
+      <span class="ex-unit-label" id="exUnit">分钟</span>
+      <button class="ex-add-btn" id="addExBtn">${editingExerciseId?'保存':'添加'}</button>
+    </div>
+    <div class="time-picker" id="exerciseTimePicker" aria-label="运动记录时间"></div>
+    <div class="ex-est" id="exEst"></div>
+    <div class="ex-list">`;
+
+  if(exercises.length===0){
+    html+='<div class="ex-empty">所选日期暂无运动记录</div>';
+  }else{
+    exercises.forEach(e=>{
+      html+=`<div class="ex-item">
+        <div>
+          <div class="exi-name">${e.name}</div>
+          <div class="exi-detail">${e.detail} · ${formatDateTime(e.dateTime||`${e.date}T00:00`)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="exi-cal">-${e.calories} kcal</span>
+          <button class="exi-edit" data-id="${e.id}" title="编辑这条运动记录">${icon('edit')}</button>
+          <button class="exi-del health-record-delete" data-id="${e.id}" type="button" aria-label="删除">${icon('x')}</button>
+        </div>
+      </div>`;
+    });
+  }
+  html+='</div>';
+  content.innerHTML=html;
+  setupTimePicker('exerciseTime',currentViewDateTime());
+
+  // Custom dropdown logic
+  const exSelect=document.getElementById('exCustomSelect');
+  const exDropdown=document.getElementById('exDropdown');
+  const exOptions=document.getElementById('exOptions');
+  const exerciseSearch=document.getElementById('exerciseSearch');
+  const exLabel=document.getElementById('exLabel');
+  const exDuration=document.getElementById('exDuration');
+  const exUnit=document.getElementById('exUnit');
+  const exEst=document.getElementById('exEst');
+  document.querySelectorAll('body > #exDropdown').forEach(el=>{if(el!==exDropdown) el.remove()});
+  if(exDropdown&&exDropdown.parentElement!==document.body) document.body.appendChild(exDropdown);
+  const exerciseLockToken='exercise-dropdown';
+  let currentExercise=EXERCISE_DB[0]; // default: first
+  let currentAIExercise=null;
+
+  function renderExerciseOptions(list){
+    currentAIExercise=null;
+    if(!list.length){
+      exOptions.innerHTML='<div class="ex-search-message">未找到相关运动</div>';
+      return;
+    }
+    exOptions.innerHTML=list.map(e=>{
+      const idx=EXERCISE_DB.indexOf(e);
+      return `<div class="ex-option" data-source="local" data-idx="${idx}" data-name="${escapeHTML(e.name)}">
+        <span>${escapeHTML(e.name)}</span>
+        <span class="eo-met">${e.inputType==='steps'?'按步数':'MET '+e.met}</span>
+      </div>`;
+    }).join('');
+    bindExerciseOptions();
+    markSelected(currentExercise.name);
+  }
+  function renderAIExerciseOption(exercise,fromCache=false){
+    currentAIExercise=normalizeAIExercise(exercise);
+    if(!currentAIExercise){
+      exOptions.innerHTML='<div class="ex-search-message">没有找到可靠的运动信息，请尝试输入更具体的运动名称</div>';
+      return;
+    }
+    exOptions.innerHTML=`<div class="ex-search-message" style="color:var(--gold)">✨ AI 搜索结果${fromCache?'（缓存）':''}</div>
+      <div class="ex-option" data-source="ai" data-name="${escapeHTML(currentAIExercise.name)}">
+        <span>${escapeHTML(currentAIExercise.name)}</span>
+        <span class="eo-tag">AI</span>
+        <span class="eo-met">MET ${currentAIExercise.met}</span>
+      </div>`;
+    bindExerciseOptions();
+  }
+  function renderExerciseMessage(message,isError=false){
+    currentAIExercise=null;
+    exOptions.innerHTML=`<div class="ex-search-message" style="${isError?'color:var(--red)':''}">${message}</div>`;
+  }
+  function selectExercise(exercise){
+    currentExercise=exercise;
+    exLabel.textContent=currentExercise.name;
+    exDuration.value=currentExercise.defaultVal;
+    exUnit.textContent=currentExercise.inputType==='steps'?'步数':'分钟';
+    markSelected(currentExercise.name);
+    exSelect.classList.remove('open');
+    exDropdown.classList.remove('open','drop-up');
+    GlassScrollLock.unlock(exerciseLockToken);
+    document.getElementById('exerciseCard').classList.remove('dropdown-open');
+    updateExEst();
+  }
+  function bindExerciseOptions(){
+    exOptions.querySelectorAll('.ex-option').forEach(opt=>{
+      opt.addEventListener('click',e=>{
+        e.stopPropagation();
+        const source=opt.dataset.source;
+        const exercise=source==='ai'?currentAIExercise:EXERCISE_DB[+opt.dataset.idx];
+        if(!exercise) return;
+        selectExercise(exercise);
+      });
+    });
+  }
+  function markSelected(name){
+    exDropdown.querySelectorAll('.ex-option').forEach(o=>{
+      o.classList.toggle('selected',o.dataset.name===name);
+    });
+  }
+  function positionExerciseDropdown(){
+    const rect=exSelect.getBoundingClientRect();
+    const viewportGap=12;
+    const gap=10;
+    const maxAllowedWidth=window.innerWidth-viewportGap*2;
+    const isSmall=window.matchMedia('(max-width: 640px)').matches;
+    const width=Math.min(maxAllowedWidth,Math.max(rect.width,isSmall?280:260));
+    const maxHeight=Math.min(isSmall?Math.floor(window.innerHeight*.48):320,window.innerHeight-viewportGap*2);
+    const spaceBelow=window.innerHeight-rect.bottom-viewportGap;
+    const spaceAbove=rect.top-viewportGap;
+    exSelect.classList.remove('drop-up');
+    exDropdown.classList.remove('drop-up');
+    exDropdown.style.visibility='hidden';
+    exDropdown.style.width=`${width}px`;
+    exDropdown.style.maxHeight=`${maxHeight}px`;
+    exDropdown.style.left='0px';
+    exDropdown.style.top='0px';
+    const naturalHeight=Math.min(exDropdown.scrollHeight||maxHeight,maxHeight);
+    const shouldDropUp=spaceBelow<naturalHeight+gap&&spaceAbove>spaceBelow;
+    const availableSpace=(shouldDropUp?spaceAbove:spaceBelow)-gap;
+    const finalMaxHeight=Math.max(120,Math.min(maxHeight,availableSpace));
+    exDropdown.style.maxHeight=`${finalMaxHeight}px`;
+    const measuredHeight=Math.min(exDropdown.scrollHeight||finalMaxHeight,finalMaxHeight);
+    let top=rect.bottom+gap;
+    if(shouldDropUp){
+      top=Math.max(viewportGap,rect.top-measuredHeight-gap);
+      exSelect.classList.add('drop-up');
+      exDropdown.classList.add('drop-up');
+    }
+    let left=rect.left+rect.width/2-width/2;
+    left=Math.min(Math.max(viewportGap,left),window.innerWidth-width-viewportGap);
+    top=Math.max(viewportGap,top);
+    exDropdown.style.left=`${left}px`;
+    exDropdown.style.top=`${top}px`;
+    exDropdown.style.visibility='';
+  }
+  markSelected(currentExercise.name);
+  bindExerciseOptions();
+
+  exSelect.addEventListener('click',e=>{
+    exSelect.classList.toggle('open');
+    exDropdown.classList.toggle('open',exSelect.classList.contains('open'));
+    document.getElementById('exerciseCard').classList.toggle('dropdown-open',exSelect.classList.contains('open'));
+    if(exSelect.classList.contains('open')){
+      GlassScrollLock.lock(exerciseLockToken);
+      positionExerciseDropdown();
+      requestAnimationFrame(positionExerciseDropdown);
+    }else{
+      GlassScrollLock.unlock(exerciseLockToken);
+    }
+  });
+  exerciseSearch.addEventListener('click',e=>e.stopPropagation());
+  exerciseSearch.addEventListener('input',e=>{
+    const rawQuery=e.target.value.trim();
+    const q=rawQuery.toLowerCase();
+    cancelPendingExerciseSearch();
+    if(!rawQuery){
+      renderExerciseOptions(EXERCISE_DB);
+      if(exSelect.classList.contains('open')) positionExerciseDropdown();
+      return;
+    }
+    const localResults=findLocalExercises(q);
+    if(localResults.length>0){
+      renderExerciseOptions(localResults);
+      if(exSelect.classList.contains('open')) positionExerciseDropdown();
+      return;
+    }
+    if(q.length<2){
+      renderExerciseMessage('未找到相关运动');
+      if(exSelect.classList.contains('open')) positionExerciseDropdown();
+      return;
+    }
+    const cached=getCachedAIExercise(rawQuery);
+    if(cached){
+      renderAIExerciseOption(cached,true);
+      if(exSelect.classList.contains('open')) positionExerciseDropdown();
+      return;
+    }
+    const requestId=aiExerciseSearchRequestId;
+    renderExerciseMessage('AI 正在搜索运动…');
+    if(exSelect.classList.contains('open')) positionExerciseDropdown();
+    aiExerciseSearchTimer=setTimeout(async()=>{
+      if(requestId!==aiExerciseSearchRequestId||exerciseSearch.value.trim().toLowerCase()!==q) return;
+      try{
+        const aiExercise=await searchExerciseWithAI(rawQuery);
+        if(requestId!==aiExerciseSearchRequestId||exerciseSearch.value.trim().toLowerCase()!==q) return;
+        if(!aiExercise){
+          renderExerciseMessage('没有找到可靠的运动信息，请尝试输入更具体的运动名称');
+          if(exSelect.classList.contains('open')) positionExerciseDropdown();
+          return;
+        }
+        setCachedAIExercise(rawQuery,aiExercise);
+        renderAIExerciseOption(aiExercise,false);
+        if(exSelect.classList.contains('open')) positionExerciseDropdown();
+      }catch(err){
+        if(requestId!==aiExerciseSearchRequestId||exerciseSearch.value.trim().toLowerCase()!==q) return;
+        console.error('AI exercise search error:',err);
+        renderExerciseMessage('AI搜索暂时不可用，请稍后重试',true);
+        if(exSelect.classList.contains('open')) positionExerciseDropdown();
+      }
+    },650);
+  });
+  // Close dropdown on outside click
+  document.addEventListener('click',e=>{
+    if(!e.target.closest?.('#exCustomSelect')&&!e.target.closest?.('#exDropdown')){
+      exSelect.classList.remove('open');
+      exDropdown.classList.remove('open','drop-up');
+      GlassScrollLock.unlock(exerciseLockToken);
+      document.getElementById('exerciseCard').classList.remove('dropdown-open');
+    }
+  });
+  const repositionExerciseDropdown=()=>{
+    if(exSelect.classList.contains('open')) positionExerciseDropdown();
+  };
+  window.addEventListener('resize',repositionExerciseDropdown,{passive:true});
+  window.addEventListener('scroll',repositionExerciseDropdown,true);
+
+  function updateExEst(){
+    const type=currentExercise.inputType;
+    const val=+exDuration.value||0;
+    if(type==='steps'){
+      exUnit.textContent='步数';
+      const cal=calcStepsCalories(val,p);
+      exEst.textContent=`预计消耗约 ${cal} kcal`;
+    }else{
+      exUnit.textContent='分钟';
+      const cal=calcExerciseCalories(currentExercise,val,p);
+      exEst.textContent=`预计消耗约 ${cal} kcal`;
+    }
+  }
+  exDuration.addEventListener('input',updateExEst);
+  updateExEst();
+
+  document.getElementById('addExBtn').addEventListener('click',()=>{
+    const val=+exDuration.value;
+    const dateTime=normalizeDateTime(getTimePickerValue('exerciseTime'));
+    if(saveExerciseRecordEntry(currentExercise,val,dateTime,{editingId:editingExerciseId,profile:p})){
+      resetTimePicker('exerciseTime');
+    }
+  });
+
+  content.querySelectorAll('.exi-edit').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      const id=btn.dataset.id;
+      const record=(p.exerciseRecords||[]).find(e=>e.id===id);
+      if(!record) return;
+      openExerciseEditor(e.currentTarget,p,record);
+    });
+  });
+
+  content.querySelectorAll('.exi-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!requireEditableHealthProfile(p)) return;
+      if(!confirm('确定删除这条运动记录吗？')) return;
+      const id=btn.dataset.id;
+      addDeletedRecord('exercise',id);
+      p.exerciseRecords=p.exerciseRecords.filter(e=>e.id!==id);
+      saveData();
+      renderDashboard();
+      showToast('已删除一条运动记录','info');
+    });
+  });
+}
+
+function renderWaterCard(){
+  const p=getActiveProfile();
+  const nameEl=document.getElementById('waterProfileName');
+  if(nameEl) nameEl.textContent=getDisplayName(p);
+  const wrap=document.getElementById('waterContent');
+  if(!wrap) return;
+  p.waterRecords=p.waterRecords||[];
+  const todayTotal=getTodayWaterTotal(p);
+  const goal=calculateDailyWaterGoal(p);
+  const percent=goal?Math.min(Math.round(todayTotal/goal*100),999):0;
+  const ringPercent=Math.min(percent,100);
+  const remaining=Math.max(goal-todayTotal,0);
+  const advice=remaining>0?`还差 ${formatWaterAmount(remaining)}`:'今日饮水已达标 💧';
+  const adviceClass=remaining>0?'':'done';
+  const todayRecords=getTodayWaterRecords(p).slice().sort((a,b)=>getRecordTime(b).localeCompare(getRecordTime(a)));
+  const start=getMonday(currentViewDate);
+  const weekDays=Array.from({length:7},(_,i)=>addDays(start,i));
+  wrap.innerHTML=`
+    <div class="water-summary">
+      <div class="water-ring" style="--water-progress:${ringPercent}%">
+        <div class="water-ring-inner">
+          <div class="water-ring-val">${percent}%</div>
+          <div class="water-ring-label">完成</div>
+        </div>
+      </div>
+      <div>
+        <div class="water-main-stat">${todayTotal.toLocaleString()} <span>/ ${goal.toLocaleString()} ml</span></div>
+        <div class="water-goal-line">今日目标：<strong>${goal.toLocaleString()} ml</strong></div>
+        <div class="water-goal-line">今日已喝：<strong>${todayTotal.toLocaleString()} ml</strong></div>
+        <div class="water-advice ${adviceClass}">${advice}</div>
+      </div>
+    </div>
+    <div class="water-history-title">
+      <span>所选日期记录</span>
+      <span>${todayRecords.length?`${todayRecords.length} 条`:''}</span>
+    </div>
+    <div class="health-record-list">
+      ${todayRecords.length?todayRecords.map(r=>`<div class="health-record-item">
+        <div><strong>${formatWaterAmount(r.amount)}</strong><div class="hr-time">${formatDateTime(r.dateTime||`${r.date}T00:00`)}</div></div>
+        <div class="health-record-actions">
+          <button class="hr-edit water-edit" data-id="${escapeHTML(r.id)}" type="button" title="编辑饮水记录">${icon('edit')}</button>
+          <button class="hr-del water-del health-record-delete" data-id="${escapeHTML(r.id)}" type="button" aria-label="删除">${icon('x')}</button>
+        </div>
+      </div>`).join(''):'<div class="ex-empty">所选日期暂无饮水记录</div>'}
+    </div>
+    <div class="water-history-title"><span>本周饮水趋势</span><span>${formatWaterAmount(goal)}/日</span></div>
+    <div class="water-week">
+      ${weekDays.map(date=>{
+        const total=getDateWaterRecords(p,date).reduce((sum,r)=>sum+(Number(r.amount)||0),0);
+        const h=Math.min(Math.round(total/goal*100),100);
+        return `<div class="water-day" title="${formatDateTitle(date)} · ${formatWaterAmount(total)}">
+          <div class="water-day-bar"><div class="water-day-fill" style="--h:${h}%"></div></div>
+          <div class="water-day-label">${formatDateShort(date)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  wrap.querySelectorAll('.water-edit').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      const record=(p.waterRecords||[]).find(item=>item.id===btn.dataset.id);
+      if(record) openWaterEditor(e.currentTarget,p,record);
+    });
+  });
+  wrap.querySelectorAll('.water-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!requireEditableHealthProfile(p)) return;
+      if(!confirm('确定删除这条饮水记录吗？')) return;
+      addDeletedRecord('water',btn.dataset.id);
+      p.waterRecords=(p.waterRecords||[]).filter(r=>r.id!==btn.dataset.id);
+      saveData();
+      renderDashboard();
+      showToast('已删除一条饮水记录','info');
+    });
+  });
+}
 
 function addWaterRecord(amount,dateTime=currentViewDateTime()){
   if(!requireCurrentDeviceOwnerForHealthWrite()) return;
@@ -10260,6 +14185,148 @@ function renderStepsRecordDetail(wrap,p){
   bindRecordDetailAdd(wrap,'steps');
 }
 
+function renderHealthOverview(){
+  const p=getActiveProfile();
+  const nameEl=document.getElementById('healthProfileName');
+  if(nameEl) nameEl.textContent=getDisplayName(p);
+  const wrap=document.getElementById('healthOverview');
+  if(!wrap) return;
+
+  const sleepMinutes=getTodaySleepDuration(p);
+  const totalSteps=getTodayTotalSteps(p);
+  const exerciseMinutes=getTodayExerciseMinutes(p);
+
+  wrap.innerHTML=`
+    <div class="health-grid">
+      <div class="health-stat">
+        <div class="hs-icon">${icon('footprints')}</div>
+        <div class="hs-val steps">${totalSteps.toLocaleString()}</div>
+        <div class="hs-label">步数</div>
+      </div>
+      <div class="health-stat">
+        <div class="hs-icon">${icon('bed')}</div>
+        <div class="hs-val sleep">${formatSleepDuration(sleepMinutes)}</div>
+        <div class="hs-label">睡眠</div>
+      </div>
+      <div class="health-stat">
+        <div class="hs-icon">${icon('flame')}</div>
+        <div class="hs-val exercise">${exerciseMinutes} min</div>
+        <div class="hs-label">运动</div>
+      </div>
+    </div>
+    <div class="record-management-split">
+      <section class="record-management-pane">
+        <div class="record-management-list-head"><span>步数明细</span><span>${formatDate(currentViewDate)}</span></div>
+        <div class="health-record-list" id="stepsRecordList"></div>
+      </section>
+      <section class="record-management-pane">
+        <div class="record-management-list-head"><span>睡眠明细</span><span>${formatDate(currentViewDate)}</span></div>
+        <div class="health-record-list" id="sleepRecordList"></div>
+      </section>
+    </div>`;
+  renderStepsList(p);
+  renderSleepList(p);
+  return;
+
+  let html=`
+    <div class="health-grid">
+      <div class="health-stat">
+        <div class="hs-icon">${icon('bed')}</div>
+        <div class="hs-val sleep">${formatSleepDuration(sleepMinutes)}</div>
+        <div class="hs-label">睡眠</div>
+      </div>
+      <div class="health-stat">
+        <div class="hs-icon">${icon('footprints')}</div>
+        <div class="hs-val steps">${totalSteps.toLocaleString()}</div>
+        <div class="hs-label">步数</div>
+      </div>
+      <div class="health-stat">
+        <div class="hs-icon">${icon('flame')}</div>
+        <div class="hs-val exercise">${exerciseMinutes} min</div>
+        <div class="hs-label">运动</div>
+      </div>
+    </div>
+    <div class="health-input-row">
+      <div class="health-input-col">
+        <h4>记录步数</h4>
+        <div class="health-input-line">
+          <span class="hi-label">步数</span>
+          <input type="number" id="stepsInput" placeholder="如 8426" min="0" max="100000">
+        </div>
+        <div class="time-picker" id="stepsTimePicker" aria-label="步数记录时间"></div>
+        <button class="btn btn-gold btn-sm" id="addStepsBtn" style="width:100%;margin-top:4px">${editingStepsId?'保存步数':'添加步数'}</button>
+        <div class="health-record-list" id="stepsRecordList"></div>
+      </div>
+      <div class="health-input-col">
+        <h4>记录睡眠</h4>
+        <div class="sleep-start-row sleep-time-compact">
+          <span class="sleep-field-label">开始睡眠</span>
+          ${timeCompactHTML('sleepStart','23:00')}
+        </div>
+        <div class="sleep-end-quality-row">
+          <div class="sleep-field sleep-time-compact">
+            <span class="sleep-field-label">结束时间</span>
+            ${timeCompactHTML('sleepEnd','07:00')}
+          </div>
+          <div class="sleep-field sleep-quality-field">
+            <span class="sleep-field-label">睡眠质量</span>
+            <select id="sleepQuality">
+              <option value="good">良好</option>
+              <option value="normal">一般</option>
+              <option value="poor">较差</option>
+            </select>
+          </div>
+        </div>
+        <div class="sleep-date-advanced">
+          <button class="auto-time-chip" id="sleepDateToggle" type="button" aria-expanded="false">
+            <span>睡眠日期</span><strong>自动判断 · ${formatDate(currentViewDate)}</strong><span class="auto-time-arrow">▼</span>
+          </button>
+          <div class="auto-time-editor">
+            <input class="time-select" id="sleepReferenceDate" type="date" value="${currentViewDate}" aria-label="睡眠归属日期">
+          </div>
+        </div>
+        <button class="btn btn-gold btn-sm" id="addSleepBtn" style="width:100%;margin-top:4px">${editingSleepId?'保存睡眠':'添加睡眠'}</button>
+        <div class="health-record-list" id="sleepRecordList"></div>
+      </div>
+    </div>`;
+
+  wrap.innerHTML=html;
+  setupTimePicker('stepsTime',currentViewDateTime());
+  if(window.GlassUI) GlassUI.enhance(wrap);
+  const sleepDateBox=wrap.querySelector('.sleep-date-advanced');
+  const sleepDateToggle=wrap.querySelector('#sleepDateToggle');
+  sleepDateToggle?.addEventListener('click',()=>{
+    const open=!sleepDateBox.classList.contains('open');
+    sleepDateBox.classList.toggle('open',open);
+    sleepDateToggle.setAttribute('aria-expanded',open?'true':'false');
+  });
+  wrap.querySelector('#sleepReferenceDate')?.addEventListener('change',e=>{
+    const strong=sleepDateToggle?.querySelector('strong');
+    if(strong) strong.textContent=`手动 · ${formatDate(e.target.value||currentViewDate)}`;
+  });
+
+  // Render today's record lists
+  renderStepsList(p);
+  renderSleepList(p);
+
+  // Steps add handler
+  document.getElementById('addStepsBtn').addEventListener('click',()=>{
+    const steps=parseInt(document.getElementById('stepsInput').value);
+    const dateTime=normalizeDateTime(getTimePickerValue('stepsTime'));
+    if(saveStepsRecordEntry(steps,dateTime,{editingId:editingStepsId,profile:p})){
+      resetTimePicker('stepsTime');
+    }
+  });
+
+  // Sleep add handler
+  document.getElementById('addSleepBtn').addEventListener('click',()=>{
+    const startTime=getCompactTime('sleepStart','23:00');
+    const endTime=getCompactTime('sleepEnd','07:00');
+    const sleepReferenceDate=document.getElementById('sleepReferenceDate')?.value||currentViewDate;
+    const quality=document.getElementById('sleepQuality').value;
+    saveSleepRecordEntry({startTime,endTime,referenceDate:sleepReferenceDate,quality},{editingId:editingSleepId,profile:p});
+  });
+}
 
 function renderStepsList(p){
   const wrap=document.getElementById('stepsRecordList');
@@ -10371,6 +14438,96 @@ function checkBirthdayReminder(){
     break;
   }
 }
+
+function renderGapCard(){
+  const p=getActiveProfile();
+  const intake=calcTodayIntake(p);
+  const targets=calcNutrientTargets(p);
+  const suggWrap=document.getElementById('gapSuggestions');
+  if(!suggWrap) return;
+
+  if(!targets){
+    const missing=getMissingNutrientCalcFields(p);
+    const hasIntake=(intake.calories||0)>0;
+    if(hasIntake){
+      // 即便资料不完整，也如实告诉用户今天吃了什么、还差什么（按 DRIs 默认值估算）
+      const defaultTargets={calories:2000,carbs:275,protein:60,fat:55,fiber:25};
+      const intakeRound={
+        calories:Math.round(intake.calories),
+        carbs:Math.round(intake.carbs*10)/10,
+        protein:Math.round(intake.protein*10)/10,
+        fat:Math.round(intake.fat*10)/10,
+        fiber:Math.round(intake.fiber*10)/10,
+      };
+      const gaps=Object.fromEntries(Object.entries(defaultTargets).map(([k,tgt])=>[k,+(tgt-intakeRound[k]).toFixed(1)]));
+      const hints=[];
+      if(gaps.protein>10) hints.push(`蛋白质约差 ${gaps.protein}g，建议加一份高蛋白食物`);
+      if(gaps.fiber>5) hints.push(`纤维约差 ${gaps.fiber}g，建议加一份蔬菜或粗粮`);
+      if(gaps.carbs>30) hints.push(`碳水约差 ${gaps.carbs}g，建议补充主食`);
+      const hintText=hints.length?hints.join('；'):'今日营养较为均衡';
+      const headerHint=missing.length?`<span style="color:var(--amber)">资料待补全：${escapeHTML(missing.join('、'))}</span> · <a href="#" id="openSettingsFromGap" style="color:var(--gold-l);text-decoration:underline">去设置</a>`:'';
+      suggWrap.innerHTML=`<div style="font-size:12px;color:var(--txt2);text-align:center;padding:8px 0">${headerHint}</div><div style="font-size:12px;color:var(--txt);text-align:center;padding:4px 0">${escapeHTML(hintText)}</div>`;
+      const openBtn=suggWrap.querySelector('#openSettingsFromGap');
+      if(openBtn) openBtn.addEventListener('click',(e)=>{e.preventDefault();openProfileSettings()});
+    }else{
+      const hint=missing.length?`请先在 设置 → 个人资料 中填写：${missing.join('、')}`:'请在 设置 → 个人资料 中填写完整资料';
+      suggWrap.innerHTML=`<div style="color:var(--txt3);font-size:12px;text-align:center;padding:16px 0"><a href="#" id="openSettingsFromGap" style="color:var(--gold-l);text-decoration:underline">${escapeHTML(hint)}</a></div>`;
+      const openBtn=suggWrap.querySelector('#openSettingsFromGap');
+      if(openBtn) openBtn.addEventListener('click',(e)=>{e.preventDefault();openProfileSettings()});
+    }
+    return;
+  }
+
+  const items=[
+    {label:'卡路里',val:intake.calories,tgt:targets.calories,unit:'kcal'},
+    {label:'碳水',val:intake.carbs,tgt:targets.carbs,unit:'g'},
+    {label:'蛋白质',val:intake.protein,tgt:targets.protein,unit:'g'},
+    {label:'脂肪',val:intake.fat,tgt:targets.fat,unit:'g'},
+    {label:'纤维',val:intake.fiber,tgt:targets.fiber,unit:'g'},
+  ];
+
+  const gaps={};
+
+  items.forEach(it=>{
+    const gap=+(it.tgt-it.val).toFixed(1);
+    gaps[it.label]=gap;
+  });
+
+  // Suggestions
+  let suggestions=[];
+
+  if(gaps['蛋白质']>10){
+    const foods=FOOD_DB.filter(f=>f.pro>15).sort((a,b)=>b.pro-a.pro).slice(0,3);
+    suggestions.push({nutrient:'蛋白质',foods:foods.map(f=>f.name)});
+  }
+  if(gaps['碳水']>20){
+    const foods=FOOD_DB.filter(f=>f.carb>20&&f.cat==='主食').sort((a,b)=>b.carb-a.carb).slice(0,3);
+    suggestions.push({nutrient:'碳水',foods:foods.map(f=>f.name)});
+  }
+  if(gaps['纤维']>5){
+    const foods=FOOD_DB.filter(f=>f.fib>2).sort((a,b)=>b.fib-a.fib).slice(0,3);
+    suggestions.push({nutrient:'纤维',foods:foods.map(f=>f.name)});
+  }
+  if(gaps['脂肪']>10){
+    const foods=FOOD_DB.filter(f=>f.fat>8&&f.cat!=='零食').sort((a,b)=>b.fat-a.fat).slice(0,3);
+    suggestions.push({nutrient:'脂肪',foods:foods.map(f=>f.name)});
+  }
+
+  if(suggestions.length===0){
+    suggWrap.innerHTML='<div style="font-size:11px;color:var(--txt3);text-align:center;padding:8px 0">营养摄入均衡，继续保持</div>';
+  }else{
+    suggWrap.innerHTML=suggestions.map(s=>
+        `<div class="suggestion-item">
+          <span class="sg-dot"></span>
+          <span class="sg-main">
+            <span>建议补充：${s.foods.join('、')}</span>
+            <span class="sg-reason">${s.nutrient}不足 · 推荐份量：1份，正餐或加餐补充</span>
+          </span>
+        </div>`
+      ).join('');
+  }
+}
+
 function renderChart(){
   // 性能优化：Chart.js defer 加载，未就绪时跳过；非健康页面时不渲染
   if(typeof Chart==='undefined'){console.log('[Chart] Chart.js not ready, skip render');return}
@@ -10719,7 +14876,7 @@ function getAIFoodCacheKey(query){
 }
 function getCachedAIFood(query){
   try{
-    const cache=readMemoizedLocalJson(AI_FOOD_CACHE_KEY);
+    const cache=JSON.parse(localStorage.getItem(AI_FOOD_CACHE_KEY)||'{}');
     const food=normalizeAIFood(cache[getAIFoodCacheKey(query)]);
     if(food&&food.estimateVersion!==FOOD_AI_VERSION) return null;
     return food;
@@ -10730,46 +14887,27 @@ function getCachedAIFood(query){
 }
 function setCachedAIFood(query,food){
   try{
-    const cache=readMemoizedLocalJson(AI_FOOD_CACHE_KEY);
+    const cache=JSON.parse(localStorage.getItem(AI_FOOD_CACHE_KEY)||'{}');
     const normalized=normalizeAIFood(food);
     if(!normalized) return;
     cache[getAIFoodCacheKey(query)]=normalized;
-    writeMemoizedLocalJson(AI_FOOD_CACHE_KEY,cache);
+    localStorage.setItem(AI_FOOD_CACHE_KEY,JSON.stringify(cache));
   }catch(e){
     console.warn('AI food cache write error:',e);
   }
 }
 function cleanupLegacyAIFoodCaches(){
-  cleanupLegacyLocalCaches();
-}
-function cleanupLegacyLocalCaches(){
   try{
-    // Only remove known-abandoned AI/cache keys. Never touch healthTrackerData_v2 or profile records.
-    const legacyExact=[
-      'healthTrackerAIHealthCoachCache_v1',
-      'healthTrackerAIHealthCoach_v1',
-      'healthTrackerAIWeeklyReportCache_v1',
-      'healthTrackerAICoachCache_v1',
-      'healthTrackerSmartRecipeCache_v1',
-      'healthTrackerAIRecipeCache_v1',
-      'ai_health_coach_cache_v1',
-      'aiFoodCache_v1',
-      'ai_food_cache_v1'
-    ];
-    const removeKeys=[];
+    if(localStorage.getItem(AI_FOOD_CACHE_CLEANUP_KEY)==='1') return;
+    const legacyKeys=[];
     for(let i=0;i<localStorage.length;i++){
       const key=localStorage.key(i);
-      if(!key) continue;
-      if(key.startsWith(AI_FOOD_CACHE_PREFIX)&&key!==AI_FOOD_CACHE_KEY) removeKeys.push(key);
-      else if(key.startsWith('healthTrackerAIFoodCacheCleanup_')&&key!==AI_FOOD_CACHE_CLEANUP_KEY) removeKeys.push(key);
-      else if(legacyExact.includes(key)) removeKeys.push(key);
+      if(key&&key.startsWith(AI_FOOD_CACHE_PREFIX)&&key!==AI_FOOD_CACHE_KEY) legacyKeys.push(key);
     }
-    removeKeys.forEach(key=>{
-      try{localStorage.removeItem(key)}catch(_){}
-    });
+    legacyKeys.forEach(key=>localStorage.removeItem(key));
     localStorage.setItem(AI_FOOD_CACHE_CLEANUP_KEY,'1');
   }catch(e){
-    console.warn('Legacy local cache cleanup error:',e);
+    console.warn('Legacy AI food cache cleanup error:',e);
   }
 }
 function showSearchResults(wrap){
@@ -10983,11 +15121,11 @@ function renderSearchResults(query,options={}){
   const rawQuery=query.trim();
   const q=rawQuery.toLowerCase();
   const preferAI=shouldUseAIFoodEstimate(rawQuery);
-  // 别名标准化：让"西红柿"等变体也能命中getFoodDB()中的"番茄"
+  // 别名标准化：让"西红柿"等变体也能命中FOOD_DB中的"番茄"
   const canonical=normalizeFoodName(rawQuery);
   const searchTerms=[q];
   if(canonical.toLowerCase()!==q) searchTerms.push(canonical.toLowerCase());
-  const results=preferAI?[]:getFoodDB().filter(f=>{
+  const results=preferAI?[]:FOOD_DB.filter(f=>{
     const fn=f.name.toLowerCase();
     return searchTerms.some(term=>fn.includes(term)||term.includes(fn))||f.cat.toLowerCase().includes(q);
   }).slice(0,12);
@@ -11040,7 +15178,7 @@ function renderSearchResults(query,options={}){
   }
   cancelPendingFoodSearch();
   wrap.innerHTML=results.map(f=>{
-    const idx=getFoodDB().indexOf(f);
+    const idx=FOOD_DB.indexOf(f);
     const p=getHealthWriteProfile()||getActiveProfile();
     const isFav=isFavoriteFood(p,f);
     return `<div class="search-item" data-idx="${idx}">
@@ -11057,7 +15195,7 @@ function renderSearchResults(query,options={}){
       if(e.target.classList.contains('si-fav')){
         e.stopPropagation();
         if(!requireCurrentDeviceOwnerForHealthWrite()) return;
-        const food=getFoodDB()[+e.target.dataset.favIdx];
+        const food=FOOD_DB[+e.target.dataset.favIdx];
         const p=getHealthWriteProfile()||getActiveProfile();
         const added=toggleFavoriteFood(p,food);
         saveData();
@@ -11066,7 +15204,7 @@ function renderSearchResults(query,options={}){
         showToast(added?`已收藏 ${food.name}`:'已取消收藏',added?'success':'info');
         return;
       }
-      const food=getFoodDB()[+item.dataset.idx];
+      const food=FOOD_DB[+item.dataset.idx];
       const picked=prepareFoodPortion({...food,source:'search',quantity:1});
       if(handleSearchFoodPick(picked,context)) return;
       if(foodDraftSession?.mode==='search'){
@@ -11085,6 +15223,275 @@ function renderSearchResults(query,options={}){
   });
 }
 
+// ==================== AI ANALYSIS ====================
+function getDataURLBytes(dataURL){
+  const text=String(dataURL||'');
+  const b64=text.split(',')[1]||'';
+  return Math.round(b64.length*3/4);
+}
+function formatBytes(bytes){
+  const n=Number(bytes)||0;
+  return n>1024*1024?`${(n/1024/1024).toFixed(2)}MB`:`${Math.round(n/1024)}KB`;
+}
+function logFoodAI(stage,data={}){
+  console.info('[FoodAI]',{stage,...data});
+}
+function compressFoodImage(file,{maxSide=1024,quality=.76}={}){
+  const start=performance.now();
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('图片读取失败'));
+    reader.onload=()=>{
+      const originalURL=reader.result;
+      const img=new Image();
+      img.onerror=()=>reject(new Error('图片解析失败'));
+      img.onload=()=>{
+        const scale=Math.min(1,maxSide/Math.max(img.width,img.height));
+        const width=Math.max(1,Math.round(img.width*scale));
+        const height=Math.max(1,Math.round(img.height*scale));
+        const canvas=document.createElement('canvas');
+        canvas.width=width;
+        canvas.height=height;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,width,height);
+        let compressedURL=canvas.toDataURL('image/jpeg',quality);
+        let compressedBytes=getDataURLBytes(compressedURL);
+        // 尽量控制在 300KB-500KB；若仍偏大，逐步降低质量但不低于70%
+        if(compressedBytes>520*1024){
+          for(const q of [.72,.70]){
+            compressedURL=canvas.toDataURL('image/jpeg',q);
+            compressedBytes=getDataURLBytes(compressedURL);
+            if(compressedBytes<=520*1024) break;
+          }
+        }
+        const originalBytes=file.size||getDataURLBytes(originalURL);
+        const result={url:compressedURL,originalURL,originalBytes,compressedBytes,width,height,quality,ms:Math.round(performance.now()-start)};
+        logFoodAI('imageCompress',{
+          ms:result.ms,
+          originalBytes:result.originalBytes,
+          compressedBytes:result.compressedBytes,
+          originalSize:formatBytes(result.originalBytes),
+          compressedSize:formatBytes(result.compressedBytes),
+          width,
+          height
+        });
+        resolve(result);
+      };
+      img.src=originalURL;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function parseAIJsonArray(text){
+  const raw=String(text||'').trim();
+  const match=raw.match(/\[[\s\S]*\]/);
+  if(!match) return [];
+  try{return JSON.parse(match[0])}catch(e){return []}
+}
+function findNutritionReference(name){
+  // findLocalFoodByName already checks aliases, this fallback adds canonical-name fuzzy match
+  return findLocalFoodByName(name)||FOOD_DB.find(f=>String(name||'').includes(f.name)||f.name.includes(String(name||'')))||null;
+}
+function normalizePhotoFoodItem(item,phase='quick'){
+  const name=String(item?.food||item?.name||'未知食物').trim()||'未知食物';
+  const ref=findNutritionReference(name);
+  const estimatedWeight=Number(item?.estimatedWeight??item?.weight??item?.estimated_weight??item?.amount);
+  const weightStep=estimatedWeight<100?5:10;
+  const amount=Number.isFinite(estimatedWeight)&&estimatedWeight>0?Math.max(weightStep,Math.round(estimatedWeight/weightStep)*weightStep):(ref?getFoodBaseAmount(ref):100);
+  const per100={
+    cal:Number(item?.calories_per_100g??item?.calPer100g??item?.caloriesPer100g),
+    pro:Number(item?.protein_per_100g??item?.proteinPer100g),
+    fat:Number(item?.fat_per_100g??item?.fatPer100g),
+    carb:Number(item?.carbs_per_100g??item?.carbsPer100g),
+    fib:Number(item?.fiber_per_100g??item?.fiberPer100g)
+  };
+  const hasPer100=Number.isFinite(per100.cal)&&per100.cal>0;
+  const base=hasPer100?{
+    cal:per100.cal,pro:Number.isFinite(per100.pro)?per100.pro:0,fat:Number.isFinite(per100.fat)?per100.fat:0,
+    carb:Number.isFinite(per100.carb)?per100.carb:0,fib:Number.isFinite(per100.fib)?per100.fib:0
+  }:(ref?{cal:ref.cal,pro:ref.pro,fat:ref.fat,carb:ref.carb,fib:ref.fib}: {cal:0,pro:0,fat:0,carb:0,fib:0});
+  const baseAmount=hasPer100?100:(ref?getFoodBaseAmount(ref):100);
+  return prepareFoodPortion({
+    ...(ref||{}),
+    name,
+    cat:item?.cat||item?.category||ref?.cat||'AI识别',
+    unit:'g',
+    source:'ai_photo',
+    base_amount:baseAmount,
+    base_weight:baseAmount,
+    cal:base.cal,
+    pro:base.pro,
+    fat:base.fat,
+    carb:base.carb,
+    fib:base.fib,
+    amount,
+    estimatedWeight:amount,
+    confidence:['low','medium','high'].includes(String(item?.confidence||'').toLowerCase())?String(item.confidence).toLowerCase():'medium',
+    estimateReason:item?.reason||item?.estimateReason||'图片估算重量可能存在误差，请按实际份量修正',
+    aiAdvice:item?.advice||item?.aiAdvice||item?.suggestion||'图片估算重量可能存在误差，请按实际份量修正',
+    aiStage:phase
+  });
+}
+async function callFoodVisionAI(photoURL,promptText,aiCfg,stage){
+  const aiStart=performance.now();
+  const uploadBytes=getDataURLBytes(photoURL);
+  logFoodAI('upload',{stage,uploadBytes,uploadSize:formatBytes(uploadBytes)});
+  const response=await fetch(getApiUrl('/api/food-photo'),{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+    },
+    body:JSON.stringify({
+      prompt:promptText,
+      image:photoURL
+    })
+  });
+  const data=await response.json().catch(()=>({}));
+  const aiMs=Math.round(performance.now()-aiStart);
+  logFoodAI('AI',{stage,ms:aiMs,ok:response.ok});
+  if(!response.ok){
+    const msg=data?.error||data?.message||`请求失败：HTTP ${response.status}`;
+    throw new Error(msg);
+  }
+  return data?.text||'';
+}
+async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId||getHealthWriteProfile()?.id||''){
+  aiAnalysisTargetProfileId=targetProfileId;
+  foodDraft=[];
+  foodDraftSession=null;
+  const modal=document.getElementById('aiModal');
+  const content=document.getElementById('aiModalContent');
+  modal.classList.add('show');
+  GlassScrollLock.lock('modal:aiModal');
+
+  const aiCfg=getAIConfig();
+  const totalStart=performance.now();
+
+  // Check if real API is configured
+  if(aiCfg.apiKey&&aiCfg.modelId){
+    // Real Bailian (Qwen-VL) API call
+    content.innerHTML=`
+      <div class="ai-scanning">
+        <img src="${photoURL}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px">
+        <div class="ai-scan-ring"></div>
+        <div class="ai-scan-text">正在识别食物并估算营养...</div>
+      </div>`;
+
+    try{
+      const promptText='请一次完成图片中的菜品识别、份量估算和营养估算，只返回严格JSON数组，不要Markdown或解释。每项必须包含：food(食物名称)、category(主食/菜肴/肉类/水果/饮品/其他)、estimatedWeight(合理取整的估算克数)、confidence(low/medium/high)、calories_per_100g、protein_per_100g、fat_per_100g、carbs_per_100g、fiber_per_100g、reason、advice。根据餐盘占比、常见盛装方式和常规份量估算重量；不要生成假精确重量，无法判断时使用合理的粗粒度整数并将confidence降为low；营养值按该菜品常见做法的每100g数值估算；reason简短说明图片判断依据；advice提醒用户可按实际食用量调整。';
+      const parseStart=performance.now();
+      const text=await callFoodVisionAI(photoURL,promptText,aiCfg,'complete');
+      const foods=parseAIJsonArray(text);
+      logFoodAI('parse',{stage:'complete',ms:Math.round(performance.now()-parseStart),count:foods.length});
+      if(!foods.length) throw new Error('无法解析AI返回结果');
+      foodDraft=foods.map(f=>normalizePhotoFoodItem(f,'complete'));
+      logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
+      renderAIResults(photoURL,targetProfileId,{detailReady:true});
+      return;
+    }catch(err){
+      console.error('Bailian API error:',err);
+      logFoodAI('total',{ms:Math.round(performance.now()-totalStart),failed:true});
+      content.innerHTML=`
+        <div style="text-align:center;padding:20px">
+          <div style="font-size:14px;color:var(--red);margin-bottom:8px">AI识别失败</div>
+          <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">${err.message||'网络错误或API配置问题'}</div>
+          <div style="font-size:11px;color:var(--txt3);margin-bottom:12px">可能原因：<br>1. 网络连接异常<br>2. 未开通通义千问VL模型权限<br>3. 浏览器跨域限制(CORS)<br>4. 图片过大或格式不支持<br><br>建议：请检查网络连接，或稍后重试。</div>
+          <button class="btn btn-gold btn-sm" id="aiFallbackBtn">使用演示模式</button>
+        </div>`;
+      document.getElementById('aiFallbackBtn').addEventListener('click',()=>{
+        runDemoAIAnalysis(photoURL,targetProfileId);
+      });
+      return;
+    }
+  }
+
+  // Demo mode (no API key configured)
+  content.innerHTML=`
+    <div class="ai-scanning">
+      <img src="${photoURL}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px">
+      <div class="ai-scan-ring"></div>
+      <div class="ai-scan-text">AI 正在识别食物（演示模式）...</div>
+    </div>`;
+  runDemoAIAnalysis(photoURL,targetProfileId,totalStart);
+}
+
+function runDemoAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId,totalStart=performance.now()){
+  // Simulate analysis (pick 1-3 random foods)
+  setTimeout(()=>{
+    const mealFoods=FOOD_DB.filter(f=>['主食','菜肴','肉类','蛋奶'].includes(f.cat));
+    const vegFoods=FOOD_DB.filter(f=>f.cat==='蔬菜');
+    const picked=[];
+    // Pick a main
+    picked.push(mealFoods[Math.floor(Math.random()*mealFoods.length)]);
+    // Maybe pick a veg
+    if(Math.random()>0.3) picked.push(vegFoods[Math.floor(Math.random()*vegFoods.length)]);
+    // Maybe pick a drink/snack
+    if(Math.random()>0.5){
+      const extras=FOOD_DB.filter(f=>['饮品','水果'].includes(f.cat));
+      picked.push(extras[Math.floor(Math.random()*extras.length)]);
+    }
+    foodDraft=picked.map(f=>normalizePhotoFoodItem({
+      food:f.name,
+      category:f.cat,
+      estimatedWeight:getFoodBaseAmount(f),
+      confidence:'medium',
+      calories_per_100g:f.cal*100/getFoodBaseAmount(f),
+      protein_per_100g:f.pro*100/getFoodBaseAmount(f),
+      fat_per_100g:f.fat*100/getFoodBaseAmount(f),
+      carbs_per_100g:f.carb*100/getFoodBaseAmount(f),
+      fiber_per_100g:f.fib*100/getFoodBaseAmount(f),
+      reason:'演示模式按常见份量估算',
+      advice:'请根据实际餐盘份量微调重量后再添加'
+    },'detail'));
+    logFoodAI('AI',{stage:'demo',ms:700,ok:true});
+    logFoodAI('parse',{stage:'demo',ms:1,count:foodDraft.length});
+    logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
+    renderAIResults(photoURL,targetProfileId,{detailReady:true});
+  },700);
+}
+
+function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{detailReady=true}={}){
+  aiAnalysisTargetProfileId=targetProfileId;
+  foodDraft=foodDraft.map(prepareFoodPortion);
+  const prevEdit=foodDraftSession?.editingIndex??null;
+  foodDraftSession={mode:'ai',phase:'review',editingIndex:prevEdit,pendingFood:null,photoURL,targetProfileId,detailReady};
+  if(!document.getElementById('aiFoodDraftHost')||!document.querySelector('#aiModalContent .meal-seg')){
+    mealSelectionTouched=false;
+    currentMeal=getMealTypeByDateTime(toLocalDateTimeValue());
+  }
+  const content=document.getElementById('aiModalContent');
+  const statusText=detailReady?'重量和营养已补全，可查看详情或修正重量':'已快速识别食物，正在后台估算重量和营养...';
+  content.innerHTML=`
+    <img src="${photoURL}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-bottom:10px">
+    <div style="font-size:12px;color:var(--gold);margin-bottom:4px">AI识别结果（可查看详情并修正重量）</div>
+    <div data-ai-detail-status style="font-size:10px;color:var(--txt3);margin-bottom:8px">${statusText}</div>
+    ${mealSelectorHTML()}
+    <div id="aiFoodDraftHost"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" id="aiRescanBtn" style="flex:1">重新识别</button>
+    </div>`;
+  bindMealSelector(content);
+  const host=document.getElementById('aiFoodDraftHost');
+  host.innerHTML=renderFoodDraftReviewHTML();
+  const refreshAI=()=>renderAIResults(photoURL,targetProfileId,{detailReady});
+  bindFoodDraftReview(host,{
+    mode:'ai',
+    onRefresh:refreshAI,
+    onAddMore:()=>openFoodDraftSearchOverlay({onJoined:refreshAI}),
+    onCancel:()=>{
+      foodDraft=[];
+      foodDraftSession=null;
+      closeModal('aiModal');
+      clearPhotoZone();
+    },
+    onConfirm:()=>confirmFoodDraft({mode:'ai',targetProfileId})
+  });
+  document.getElementById('aiRescanBtn').addEventListener('click',()=>{
+    foodDraft=[];
+    foodDraftSession=null;
+    startAIAnalysis(photoURL,targetProfileId);
+  });
+}
 
 // ==================== ACTIONS ====================
 function recordWeight(){
@@ -11412,19 +15819,18 @@ function renderProfileEditPage(p){
     {val:'active',label:'高度 (×1.725)'},
     {val:'veryActive',label:'极度 (×1.9)'},
   ];
-  const avatarSrc=resolveProfileAvatar(p);
   return `
     <div class="profile-avatar-edit">
       <div class="avatar-preview-wrap">
-        ${avatarSrc 
-          ? `<img src="${avatarSrc}" alt="头像" class="avatar-preview-img" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+        ${p.avatar 
+          ? `<img src="${p.avatar}" alt="头像" class="avatar-preview-img" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
              <span class="avatar-preview-fallback" style="display:none">${getGenderIcon(p.gender)||'·'}</span>`
           : `<span class="avatar-preview-default" style="background:${p.gender==='male'?'rgba(96,165,250,0.2)':p.gender==='female'?'rgba(167,139,250,0.2)':'rgba(212,175,55,0.2)'};color:${p.gender==='male'?'var(--blue)':p.gender==='female'?'var(--purple)':'var(--gold)'}">${getGenderIcon(p.gender)||'·'}</span>`
         }
       </div>
       <div class="avatar-actions">
         <button type="button" class="avatar-btn" id="uploadAvatarBtn">更换头像</button>
-        ${avatarSrc ? '<button type="button" class="avatar-btn avatar-btn-remove" id="removeAvatarBtn">恢复默认</button>' : ''}
+        ${p.avatar ? '<button type="button" class="avatar-btn avatar-btn-remove" id="removeAvatarBtn">恢复默认</button>' : ''}
       </div>
       <input type="file" id="avatarFileInput" accept="image/*" style="display:none">
     </div>
@@ -11977,9 +16383,9 @@ function saveSettings(){
   const uploadBtn=document.getElementById('uploadAvatarBtn');
   if(uploadBtn){
     if(uploadBtn.dataset.avatarAction==='replace'&&uploadBtn.dataset.avatarData){
-      parkProfileAvatar(p,uploadBtn.dataset.avatarData);
+      p.avatar=uploadBtn.dataset.avatarData;
     }else if(uploadBtn.dataset.avatarAction==='clear'){
-      parkProfileAvatar(p,'');
+      p.avatar='';
     }
   }
   p.birthDate=document.getElementById('setBirthDate').value||'';
@@ -12037,7 +16443,7 @@ function saveSettings(){
   // If family code was just added or changed, trigger sync
   if(nowConfigured && state.familyCode!==oldCode){
     updateSyncStatus('config','已配置');
-    if(typeof debouncedSync==='function') debouncedSync();
+    debouncedSync();
   }else if(nowConfigured){
     // Already configured, keep current status (don't falsely show "已同步")
     updateSyncStatus('config','已配置');
@@ -12069,9 +16475,9 @@ function saveProfileSection(){
   const uploadBtn=document.getElementById('uploadAvatarBtn');
   if(uploadBtn){
     if(uploadBtn.dataset.avatarAction==='replace'&&uploadBtn.dataset.avatarData){
-      parkProfileAvatar(p,uploadBtn.dataset.avatarData);
+      p.avatar=uploadBtn.dataset.avatarData;
     }else if(uploadBtn.dataset.avatarAction==='clear'){
-      parkProfileAvatar(p,'');
+      p.avatar='';
     }
   }
   p.birthDate=document.getElementById('setBirthDate').value||'';
@@ -12157,7 +16563,7 @@ function saveSyncSection(){
   if(result) result.innerHTML='<span class="ok">同步码已保存，可点击“立即同步”</span>';
   renderAppPageSummaries();
   showToast('同步码已保存','success');
-  if(code!==oldCode)  (typeof debouncedSync==='function'&&debouncedSync());
+  if(code!==oldCode) debouncedSync();
   return true;
 }
 
@@ -12705,8 +17111,7 @@ function finishJoiningExistingSpace(cloudState,code,pendingMode){
   state=mergeCloudData(cloudState);
   state.familyCode=code;
   if(!setAppMode(remoteMode,{sync:false,notify:false,updatedAt:cloudState.appModeUpdatedAt})) throw new Error('使用模式保存失败');
-  if(typeof invalidateSyncDataCache==='function') invalidateSyncDataCache();
-  invalidateHealthScoreMemo();
+  invalidateSyncDataCache();
   try{
     localStorage.setItem(STORAGE_KEY,JSON.stringify(getPersistableState()));
   }catch(e){}
@@ -13027,7 +17432,7 @@ function onboardingBack(){
       showOnboardingError('返回失败，请重试');
       return;
     }
-    if(typeof invalidateSyncDataCache==='function') invalidateSyncDataCache();
+    invalidateSyncDataCache();
     _onboardingState.flow='';
     _onboardingState.generatedCode='';
   }
@@ -13285,7 +17690,7 @@ function openFoodEditor(trigger,p,record){
 }
 function openExerciseEditor(trigger,p,record){
   const dt=normalizeDateTime(record.dateTime||`${record.date||currentViewDate}T00:00`);
-  const current=getExerciseDB().find(e=>e.name===record.name)||getExerciseDB()[0];
+  const current=EXERCISE_DB.find(e=>e.name===record.name)||EXERCISE_DB[0];
   let selectedExercise=current;
   const valueMatch=String(record.detail||'').replace(/,/g,'').match(/(\d+(?:\.\d+)?)/);
   const pop=showEditPopover(trigger,'编辑运动记录',`
@@ -13313,7 +17718,7 @@ function openExerciseEditor(trigger,p,record){
   const selected=pop.querySelector('#editExerciseSelected');
   const renderOptions=list=>{
     results.innerHTML=list.length?list.map(ex=>{
-      const idx=getExerciseDB().indexOf(ex);
+      const idx=EXERCISE_DB.indexOf(ex);
       return `<button class="qa-search-item ${ex.name===selectedExercise.name?'active':''}" type="button" data-idx="${idx}">
         <span><span class="qsi-name">${escapeHTML(ex.name)}</span><span class="qsi-cat">${getExerciseIntensity(ex)} · ${ex.inputType==='steps'?'按步数':'MET '+ex.met}</span></span>
         <span class="qsi-cal">选择</span>
@@ -13321,7 +17726,7 @@ function openExerciseEditor(trigger,p,record){
     }).join(''):'<div class="ex-search-message">未找到相关运动</div>';
     results.querySelectorAll('.qa-search-item').forEach(item=>{
       item.addEventListener('click',()=>{
-        const exercise=getExerciseDB()[Number(item.dataset.idx)];
+        const exercise=EXERCISE_DB[Number(item.dataset.idx)];
         if(!exercise) return;
         selectedExercise=exercise;
         selected.innerHTML=`已选择：<strong>${escapeHTML(exercise.name)}</strong> · ${getExerciseIntensity(exercise)}`;
@@ -13329,7 +17734,7 @@ function openExerciseEditor(trigger,p,record){
       });
     });
   };
-  renderOptions(getExerciseDB());
+  renderOptions(EXERCISE_DB);
   search.addEventListener('input',()=>renderOptions(findLocalExercises(search.value).slice(0,30)));
   search.focus({preventScroll:true});
 }
@@ -13437,20 +17842,6 @@ function openRecordEntry(type,options={}){
   }
 }
 window.openRecordEntry=openRecordEntry;
-let _quickAddPanelReady=false;
-function ensureQuickAddPanelReady(){
-  if(_quickAddPanelReady) return;
-  _quickAddPanelReady=true;
-  setupQuickAddPanel();
-}
-window.openQuickAddPanel=function openQuickAddLazy(action){
-  ensureQuickAddPanelReady();
-  if(window.openQuickAddPanel===openQuickAddLazy){
-    console.error('[QuickAdd] panel setup failed');
-    return;
-  }
-  return window.openQuickAddPanel(action);
-};
 function setupQuickAddPanel(){
   const btn=document.getElementById('quickAddBtn');
   const panel=document.getElementById('quickAddPanel');
@@ -13647,7 +18038,12 @@ function setupQuickAddPanel(){
 
   window.closeQuickAddPanel=closePanel;
   window.openQuickAddPanel=openPanel;
-  // FAB click is bound in bindEssentialEvents → ensureQuickAddPanelReady; do not re-bind here.
+
+  btn.addEventListener('click',e=>{
+    e.preventDefault();
+    btn.blur();
+    openPanel();
+  });
   overlay.addEventListener('click',closePanel);
   closeTop?.addEventListener('click',closePanel);
   document.addEventListener('keydown',e=>{
@@ -14083,7 +18479,7 @@ function renderExerciseModal(options={}){
   const durInput=document.getElementById('qaExDuration');
   const unitLabel=document.getElementById('qaExUnitLabel');
   const estEl=document.getElementById('qaExEst');
-  let selectedExercise=getExerciseDB()[0];
+  let selectedExercise=EXERCISE_DB[0];
   let currentAIExercise=null;
 
   function renderSelected(){
@@ -14104,7 +18500,7 @@ function renderExerciseModal(options={}){
   function bindOptions(){
     resultsEl.querySelectorAll('.qa-search-item').forEach(item=>{
       item.addEventListener('click',()=>{
-        const exercise=item.dataset.source==='ai'?currentAIExercise:getExerciseDB()[Number(item.dataset.idx)];
+        const exercise=item.dataset.source==='ai'?currentAIExercise:EXERCISE_DB[Number(item.dataset.idx)];
         selectExercise(exercise);
       });
     });
@@ -14116,7 +18512,7 @@ function renderExerciseModal(options={}){
       return;
     }
     resultsEl.innerHTML=list.map(exercise=>{
-      const idx=getExerciseDB().indexOf(exercise);
+      const idx=EXERCISE_DB.indexOf(exercise);
       return `<div class="qa-search-item" data-source="local" data-idx="${idx}" data-name="${escapeHTML(exercise.name)}">
         <div><div class="qsi-name">${escapeHTML(exercise.name)}</div><div class="qsi-cat">${getExerciseIntensity(exercise)} · ${exercise.inputType==='steps'?'按步数':'MET '+exercise.met}</div></div>
         <div class="qsi-cal">选择</div>
@@ -14155,7 +18551,7 @@ function renderExerciseModal(options={}){
     const rawQuery=e.target.value.trim();
     const q=rawQuery.toLowerCase();
     cancelPendingExerciseSearch();
-    if(!rawQuery){renderLocalOptions(getExerciseDB());return;}
+    if(!rawQuery){renderLocalOptions(EXERCISE_DB);return;}
     const localResults=findLocalExercises(q);
     if(localResults.length){renderLocalOptions(localResults);return;}
     if(q.length<2){renderMessage('未找到相关运动');return;}
@@ -14180,7 +18576,7 @@ function renderExerciseModal(options={}){
     },650);
   });
   durInput.addEventListener('input',updateEst);
-  renderLocalOptions(getExerciseDB());
+  renderLocalOptions(EXERCISE_DB);
   renderSelected();
   updateEst();
   searchInput.focus();
@@ -14737,16 +19133,9 @@ function renderMoreModal(){
 }
 
 // ==================== EVENT BINDING ====================
-let _deferredEventsBound=false;
-function ensureDeferredEventsBound(){
-  if(_deferredEventsBound) return;
-  _deferredEventsBound=true;
-  try{bindDeferredEvents()}catch(err){console.error('[Init] bindDeferredEvents failed:',err)}
-  try{setupRecordDetailModal()}catch(err){console.error('[Init] setupRecordDetailModal failed:',err)}
-}
-function bindEssentialEvents(){
-  // Date navigator (home chrome)
-  document.getElementById('dateTitleBtn')?.addEventListener('click',()=>{
+function bindEvents(){
+  // Date navigator
+  document.getElementById('dateTitleBtn').addEventListener('click',()=>{
     const picker=document.getElementById('datePickerInput');
     if(picker.showPicker) picker.showPicker();
     else picker.click();
@@ -14759,50 +19148,13 @@ function bindEssentialEvents(){
     saveLocalViewDate(today);
     renderDateDependentViews();
   });
-  document.getElementById('datePickerInput')?.addEventListener('change',e=>{
+  document.getElementById('datePickerInput').addEventListener('change',e=>{
     if(!isValidDateStr(e.target.value)) return;
     saveLocalViewDate(e.target.value);
     renderDateDependentViews();
   });
 
-  // Bottom app tabs + header essentials
-  document.querySelectorAll('.bottom-tab').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      if(btn.id==='quickAddBtn') return; // FAB handled separately
-      btn.blur();
-      switchAppPage(btn.dataset.appPage);
-    });
-  });
-  document.getElementById('themeToggleBtn')?.addEventListener('click',toggleTheme);
-  document.getElementById('settingsBtn')?.addEventListener('click',()=>switchAppPage('settings'));
-  document.getElementById('syncBadge')?.addEventListener('click',()=>{
-    ensureDeferredEventsBound();
-    if(isCloudConfigured()){
-      syncNow(false);
-    }else{
-      openSyncSettings();
-    }
-  });
-
-  // Quick add: bind FAB click only; panel DOM/carousel wiring waits until first open.
-  document.getElementById('quickAddBtn')?.addEventListener('click',e=>{
-    e.preventDefault();
-    e.currentTarget?.blur?.();
-    ensureQuickAddPanelReady();
-    window.openQuickAddPanel?.();
-  });
-
-  // Onboarding may show before first paint for new devices
-  document.getElementById('onboardingContinueBtn')?.addEventListener('click',onboardingContinue);
-  document.getElementById('onboardingConfirmOwnerBtn')?.addEventListener('click',onboardingConfirmOwner);
-  document.getElementById('onboardingSaveProfileBtn')?.addEventListener('click',onboardingSaveProfile);
-  document.getElementById('onboardingBackBtn')?.addEventListener('click',onboardingBack);
-  document.getElementById('onboardingSyncCodeInput')?.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){e.preventDefault();onboardingContinue();}
-  });
-}
-function bindDeferredEvents(){
-  // Chart controls (health page)
+  // Chart controls
   document.querySelectorAll('#periodSeg .td-filter-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       document.querySelectorAll('#periodSeg .td-filter-btn').forEach(b=>b.classList.remove('active'));
@@ -14819,10 +19171,24 @@ function bindDeferredEvents(){
       renderChart();
     });
   });
+  // Bottom app tabs
+  document.querySelectorAll('.bottom-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(btn.id==='quickAddBtn') return; // FAB handled separately
+      btn.blur();
+      switchAppPage(btn.dataset.appPage);
+    });
+  });
   document.getElementById('settingsPageOpenSettingsBtn')?.addEventListener('click',openProfileSettings);
   document.getElementById('settingsPageRebindBtn')?.addEventListener('click',openRebindDeviceOwnerModal);
   document.getElementById('coupleOpenSettingsBtn')?.addEventListener('click',()=>switchAppPage('settings'));
 
+  // ===== Quick Add Panel =====
+  setupQuickAddPanel();
+
+  // Settings
+  document.getElementById('themeToggleBtn').addEventListener('click',toggleTheme);
+  document.getElementById('settingsBtn')?.addEventListener('click',()=>switchAppPage('settings'));
   document.getElementById('weeklySummaryDetailClose')?.addEventListener('click',closeWeeklySummaryDetail);
   document.getElementById('weeklySummaryDetailModal')?.addEventListener('click',e=>{
     if(e.target.id==='weeklySummaryDetailModal') closeWeeklySummaryDetail();
@@ -14831,9 +19197,9 @@ function bindDeferredEvents(){
   document.getElementById('calorieDeficitModal')?.addEventListener('click',e=>{
     if(e.target.id==='calorieDeficitModal') closeCalorieDeficitExplain();
   });
-  document.getElementById('settingsClose')?.addEventListener('click',()=>closeModal('settingsModal'));
+  document.getElementById('settingsClose').addEventListener('click',()=>closeModal('settingsModal'));
   document.getElementById('cancelSettingsEditBtn')?.addEventListener('click',()=>closeModal('settingsModal'));
-  document.getElementById('saveSettingsBtn')?.addEventListener('click',handleSettingsSave);
+  document.getElementById('saveSettingsBtn').addEventListener('click',handleSettingsSave);
   document.getElementById('rebindDeviceOwnerBtn')?.addEventListener('click',openRebindDeviceOwnerModal);
   document.getElementById('rebindDeviceOwnerClose')?.addEventListener('click',closeRebindDeviceOwnerModal);
   document.getElementById('cancelRebindDeviceOwnerBtn')?.addEventListener('click',()=>{
@@ -14841,15 +19207,15 @@ function bindDeferredEvents(){
     else closeRebindDeviceOwnerModal();
   });
   document.getElementById('confirmRebindDeviceOwnerBtn')?.addEventListener('click',confirmRebindDeviceOwner);
-  document.getElementById('exportDataBtn')?.addEventListener('click',exportData);
-  document.getElementById('importDataBtn')?.addEventListener('click',()=>{
+  document.getElementById('exportDataBtn').addEventListener('click',exportData);
+  document.getElementById('importDataBtn').addEventListener('click',()=>{
     document.getElementById('importFileInput').click();
   });
   document.getElementById('clearDataBtn')?.addEventListener('click',clearAllData);
-  document.getElementById('importFileInput')?.addEventListener('change',e=>{
+  document.getElementById('importFileInput').addEventListener('change',e=>{
     if(e.target.files[0]) importData(e.target.files[0]);
   });
-  document.getElementById('settingsModal')?.addEventListener('click',e=>{
+  document.getElementById('settingsModal').addEventListener('click',e=>{
     if(e.target.id==='settingsModal') closeModal('settingsModal');
   });
   initSmartRecipePrefsModal();
@@ -14857,22 +19223,37 @@ function bindDeferredEvents(){
     if(e.target.id==='rebindDeviceOwnerModal') closeRebindDeviceOwnerModal();
   });
 
+  // ===== Onboarding Modal Events =====
+  document.getElementById('onboardingContinueBtn')?.addEventListener('click',onboardingContinue);
+  document.getElementById('onboardingConfirmOwnerBtn')?.addEventListener('click',onboardingConfirmOwner);
+  document.getElementById('onboardingSaveProfileBtn')?.addEventListener('click',onboardingSaveProfile);
+  document.getElementById('onboardingBackBtn')?.addEventListener('click',onboardingBack);
+  document.getElementById('onboardingSyncCodeInput')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();onboardingContinue();}
+  });
   document.getElementById('coupleTimeClose')?.addEventListener('click',()=>closeModal('coupleTimeModal'));
   document.getElementById('coupleTimeModal')?.addEventListener('click',e=>{
     if(e.target.id==='coupleTimeModal') closeModal('coupleTimeModal');
   });
 
-  // Cloud sync (badge already bound in essentials)
+  // Cloud sync
   document.getElementById('saveSyncCodeBtn')?.addEventListener('click',saveSyncSection);
-  document.getElementById('testSyncBtn')?.addEventListener('click',testSyncConnection);
-  document.getElementById('syncNowBtn')?.addEventListener('click',async()=>{
+  document.getElementById('testSyncBtn').addEventListener('click',testSyncConnection);
+  document.getElementById('syncNowBtn').addEventListener('click',async()=>{
     const ok=await syncNow(false);
     if(ok) closeModal('settingsModal');
   });
+  document.getElementById('syncBadge').addEventListener('click',()=>{
+    if(isCloudConfigured()){
+      syncNow(false);
+    }else{
+      openSyncSettings();
+    }
+  });
 
   // AI modal
-  document.getElementById('aiClose')?.addEventListener('click',()=>closeModal('aiModal'));
-  document.getElementById('aiModal')?.addEventListener('click',e=>{
+  document.getElementById('aiClose').addEventListener('click',()=>closeModal('aiModal'));
+  document.getElementById('aiModal').addEventListener('click',e=>{
     if(e.target.id==='aiModal') closeModal('aiModal');
   });
 
@@ -14899,10 +19280,614 @@ function bindDeferredEvents(){
     }
   });
 }
-function bindEvents(){
-  bindEssentialEvents();
+
+// ==================== CLOUD SYNC ====================
+let syncTimer = null;
+let isSyncing = false;
+let deviceId = null;
+// --- 同步性能优化变量 ---
+let _syncPromise = null;          // 优化3：复用进行中的同步Promise，避免重复请求
+let _lastSyncDataHash = '';       // 优化2：上次成功同步的数据hash，用于周期同步变化检测
+let _syncDataCache = null;        // 优化5：缓存的sync payload，避免重复深拷贝+normalize
+let _syncDataCacheHash = '';      // 优化5：缓存数据对应的hash
+let _syncDataCacheDirty = true;   // 优化5：缓存是否需要重建
+function loadPreferCloudModeOnNextSyncCode(){
+  try{return (localStorage.getItem(PENDING_SYNC_CODE_STORAGE_KEY)||'').trim()}
+  catch(e){return ''}
+}
+function rememberPreferCloudModeOnNextSyncCode(code){
+  _preferCloudModeOnNextSyncCode=String(code||'').trim();
+  try{
+    if(_preferCloudModeOnNextSyncCode) localStorage.setItem(PENDING_SYNC_CODE_STORAGE_KEY,_preferCloudModeOnNextSyncCode);
+    else localStorage.removeItem(PENDING_SYNC_CODE_STORAGE_KEY);
+  }catch(e){}
+}
+function clearPreferCloudModeOnNextSyncCode(code){
+  const normalized=String(code||'').trim();
+  if(_preferCloudModeOnNextSyncCode===normalized) _preferCloudModeOnNextSyncCode='';
+  try{
+    if((localStorage.getItem(PENDING_SYNC_CODE_STORAGE_KEY)||'')===normalized) localStorage.removeItem(PENDING_SYNC_CODE_STORAGE_KEY);
+  }catch(e){}
+}
+let _preferCloudModeOnNextSyncCode=loadPreferCloudModeOnNextSyncCode(); // 更换同步码时，Existing空间Mode仅在下一次合并中优先
+function invalidateSyncDataCache(){ _syncDataCacheDirty = true; }
+function getSyncDataHash(){
+  if(_syncDataCacheDirty || !_syncDataCache) getSyncData();
+  return _syncDataCacheHash;
 }
 
+function getDeviceId(){
+  if(!deviceId){
+    deviceId = localStorage.getItem('healthTrackerDeviceId');
+    if(!deviceId){
+      deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+      localStorage.setItem('healthTrackerDeviceId', deviceId);
+    }
+  }
+  return deviceId;
+}
+
+function getCloudConfig(){
+  return {
+    url: EMBEDDED_CLOUD_CONFIG.url,
+    anonKey: EMBEDDED_CLOUD_CONFIG.anonKey,
+    familyCode: state.familyCode || ''
+  };
+}
+
+function isCloudConfigured(){
+  const c = getCloudConfig();
+  return !!(c.familyCode && c.familyCode.length >= 1);
+}
+
+function buildRestUrl(path){
+  let base = EMBEDDED_CLOUD_CONFIG.url.replace(/\/+$/,'');
+  if(!base.includes('/rest/v1')){
+    base = base + '/rest/v1';
+  }
+  return base + path;
+}
+
+function getRestHeaders(extra){
+  const h = {
+    'apikey': EMBEDDED_CLOUD_CONFIG.anonKey,
+    'Authorization': 'Bearer ' + EMBEDDED_CLOUD_CONFIG.anonKey,
+    'Content-Type': 'application/json'
+  };
+  return Object.assign(h, extra || {});
+}
+
+function updateSyncStatus(status, text){
+  const badge = document.getElementById('syncBadge');
+  const textEl = document.getElementById('syncBadgeText');
+  if(!badge) return;
+  badge.className = 'sync-badge ' + status;
+  if(text) textEl.textContent = text;
+  badge.style.display = isCloudConfigured() || status === 'config' ? 'inline-flex' : 'none';
+}
+
+function getSyncStatusText(status){
+  const map = {
+    synced: '已同步',
+    syncing: '同步中…',
+    error: '同步失败 · 点击重试',
+    offline: '未连接',
+    config: '未配置'
+  };
+  return map[status] || '未连接';
+}
+function formatSyncTime(d){
+  if(!d) return '';
+  const dt=d instanceof Date?d:new Date(d);
+  return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+}
+
+// Push local data to cloud (upsert)
+async function pushToCloud(familyCode){
+  const code=(familyCode||state.familyCode||'').trim();
+  if(!code) return {ok:false, err:'未配置云同步'};
+  const c = {...getCloudConfig(),familyCode:code};
+  const syncData = getSyncData(state);
+  const payload = {
+    code: c.familyCode,
+    data: JSON.stringify(syncData),
+    updated_at: new Date().toISOString(),
+    device_id: getDeviceId()
+  };
+  try{
+    const uploadBody=JSON.stringify(payload);
+    const _uploadStart=performance.now();
+    const resp = await fetch(buildRestUrl('/health_sync'), {
+      method: 'POST',
+      headers: getRestHeaders({
+        'Prefer': 'return=minimal,resolution=merge-duplicates'
+      }),
+      body: uploadBody
+    });
+    const _uploadMs=performance.now()-_uploadStart;
+    if(!resp.ok){
+      const errText = await resp.text();
+      const verified=await verifyCloudCleared(c.familyCode);
+      if(verified) return {ok:true};
+      return {ok:false, err:`HTTP ${resp.status}: ${errText.substring(0,200)}`};
+    }
+    console.info('[SyncPerf]', {uploadMs:Math.round(_uploadMs), uploadBytes:uploadBody.length});
+    return {ok:true, uploadMs:Math.round(_uploadMs), uploadBytes:uploadBody.length};
+  }catch(e){
+    return {ok:false, err:e.message};
+  }
+}
+
+// Pull cloud data
+async function pullFromCloud(familyCode){
+  const code=(familyCode||state.familyCode||'').trim();
+  if(!code) return {ok:false, err:'未配置云同步'};
+  const c = {...getCloudConfig(),familyCode:code};
+  try{
+    const _downloadStart=performance.now();
+    const resp = await fetch(
+      buildRestUrl('/health_sync?code=eq.' + encodeURIComponent(c.familyCode) + '&order=updated_at.desc&limit=1'),
+      {
+        method: 'GET',
+        headers: getRestHeaders()
+      }
+    );
+    const _downloadMs=performance.now()-_downloadStart;
+    if(!resp.ok){
+      const errText = await resp.text();
+      return {ok:false, err:`HTTP ${resp.status}: ${errText.substring(0,200)}`};
+    }
+    const rows = await resp.json();
+    const _downloadBytes=rows&&rows.length?JSON.stringify(rows).length:0;
+    console.info('[SyncPerf]', {downloadMs:Math.round(_downloadMs), downloadBytes:_downloadBytes});
+    if(!rows || rows.length === 0){
+      return {ok:true, data:null, downloadMs:Math.round(_downloadMs), downloadBytes:_downloadBytes};
+    }
+    const row = rows[0];
+    let cloudState;
+    try{
+      cloudState = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+    }catch(e){
+      return {ok:false, err:'云端数据格式错误'};
+    }
+    return {ok:true, data:cloudState, row:row, downloadMs:Math.round(_downloadMs), downloadBytes:_downloadBytes};
+  }catch(e){
+    return {ok:false, err:e.message};
+  }
+}
+
+function isClearedHealthData(data){
+  if(!data || !Array.isArray(data.profiles)) return false;
+  return data.profiles.every(p =>
+    (!p.weightRecords || p.weightRecords.length===0) &&
+    (!p.foodRecords || p.foodRecords.length===0) &&
+    (!p.exerciseRecords || p.exerciseRecords.length===0) &&
+    (!p.stepsRecords || p.stepsRecords.length===0) &&
+    (!p.sleepRecords || p.sleepRecords.length===0) &&
+    (!p.waterRecords || p.waterRecords.length===0)
+  );
+}
+
+async function verifyCloudCleared(familyCode){
+  const code=(familyCode||'').trim();
+  if(!code) return true;
+  try{
+    const resp=await fetch(
+      buildRestUrl('/health_sync?code=eq.' + encodeURIComponent(code) + '&order=updated_at.desc&limit=1'),
+      {method:'GET',headers:getRestHeaders()}
+    );
+    if(!resp.ok) return false;
+    const rows=await resp.json();
+    if(!rows || rows.length===0) return true;
+    const cloudData=typeof rows[0].data==='string'?JSON.parse(rows[0].data):rows[0].data;
+    return isClearedHealthData(cloudData);
+  }catch(e){
+    return false;
+  }
+}
+
+// 用空数据覆盖指定家庭共享码的云端数据，避免 DELETE 请求被浏览器或接口策略拦截
+async function clearCloudData(familyCode, emptyState){
+  const code=(familyCode||'').trim();
+  if(!code) return {ok:true};
+  const syncData=getSyncData(emptyState||getDefaultData());
+  const payload = {
+    code: code,
+    data: JSON.stringify(syncData),
+    updated_at: new Date().toISOString(),
+    device_id: getDeviceId()
+  };
+  try{
+    const resp = await fetch(buildRestUrl('/health_sync'), {
+      method: 'POST',
+      headers: getRestHeaders({
+        'Prefer': 'return=minimal,resolution=merge-duplicates'
+      }),
+      body: JSON.stringify(payload)
+    });
+    if(!resp.ok){
+      const errText = await resp.text();
+      return {ok:false, err:`HTTP ${resp.status}: ${errText.substring(0,200)}`};
+    }
+    return {ok:true};
+  }catch(e){
+    const verified=await verifyCloudCleared(code);
+    if(verified) return {ok:true};
+    return {ok:false, err:e.message};
+  }
+}
+
+function syncProfileBasics(localProfile,cloudProfile){
+  const cloudProfileUpdatedAt=cloudProfile.profileUpdatedAt||0;
+  const localProfileUpdatedAt=localProfile.profileUpdatedAt||0;
+  if(cloudProfileUpdatedAt < localProfileUpdatedAt) return;
+  ['name','gender','relation','birthDate','height','activityLevel','goal','goalWeight','startWeight','profileUpdatedAt','displayName','avatar'].forEach(key=>{
+    if(cloudProfile[key]!==undefined){
+      localProfile[key]=cloudProfile[key];
+    }
+  });
+}
+
+// Merge cloud data into local state
+function mergeCloudData(cloudState,{preferCloudMode=false}={}){
+  if(!cloudState || !cloudState.profiles) return state;
+  normalizeAppMode(cloudState,{existingData:true});
+  normalizeDeletedRecords(state);
+  normalizeDeletedRecords(cloudState);
+  normalizeCoupleSpace(state);
+  normalizeCoupleSpace(cloudState);
+  migrateProfiles(cloudState);
+  migrateWeightRecords(cloudState);
+
+  // Start with a deep copy of local state
+  const merged = JSON.parse(JSON.stringify(state));
+  const deletedRecords={
+    weight:Array.from(new Set([...(state.deletedRecords?.weight||[]),...(cloudState.deletedRecords?.weight||[])])),
+    food:Array.from(new Set([...(state.deletedRecords?.food||[]),...(cloudState.deletedRecords?.food||[])])),
+    exercise:Array.from(new Set([...(state.deletedRecords?.exercise||[]),...(cloudState.deletedRecords?.exercise||[])])),
+    steps:Array.from(new Set([...(state.deletedRecords?.steps||[]),...(cloudState.deletedRecords?.steps||[])])),
+    sleep:Array.from(new Set([...(state.deletedRecords?.sleep||[]),...(cloudState.deletedRecords?.sleep||[])])),
+    water:Array.from(new Set([...(state.deletedRecords?.water||[]),...(cloudState.deletedRecords?.water||[])]))
+  };
+  // 优化4：将deletedRecords数组转为Set，查询从O(n)降至O(1)
+  const deletedSets={};
+  Object.keys(deletedRecords).forEach(type=>{deletedSets[type]=new Set(deletedRecords[type])});
+  const isDeleted=(type,keys)=>{
+    // 优化4：使用Set查询替代Array.includes，O(n)→O(1)
+    const s=deletedSets[type];
+    if(!s||s.size===0) return false;
+    return (Array.isArray(keys)?keys:[keys]).some(k=>s.has(k));
+  };
+
+  cloudState.profiles.forEach(cloudProfile => {
+    let localProfile = merged.profiles.find(p => p.id === cloudProfile.id);
+    if(!localProfile){
+      // Profile doesn't exist locally, add it
+      const cloned=JSON.parse(JSON.stringify(cloudProfile));
+      cloned.weightRecords=(cloned.weightRecords||[]).filter(r=>!isDeleted('weight',weightDeleteKeys(r,cloned.id)));
+      cloned.foodRecords=(cloned.foodRecords||[]).filter(r=>!isDeleted('food',r.id));
+      cloned.exerciseRecords=(cloned.exerciseRecords||[]).filter(r=>!isDeleted('exercise',r.id));
+      cloned.stepsRecords=(cloned.stepsRecords||[]).filter(r=>!isDeleted('steps',r.id));
+      cloned.sleepRecords=(cloned.sleepRecords||[]).filter(r=>!isDeleted('sleep',r.id));
+      cloned.waterRecords=(cloned.waterRecords||[]).filter(r=>!isDeleted('water',r.id));
+      merged.profiles.push(cloned);
+      return;
+    }
+
+    // Profile basic information is shared cloud data. Use profileUpdatedAt to avoid
+    // overwriting a newer local profile edit during pull -> merge -> push.
+    syncProfileBasics(localProfile,cloudProfile);
+
+    // Merge weight records (deduplicate by profile + exact time + weight, supports multiple records per day)
+    const weightMap = new Map();
+    const weightKey=r=>`${localProfile.id}_${getRecordTime(r)}_${r.weight}`;
+    localProfile.weightRecords=(localProfile.weightRecords||[]).filter(r=>!isDeleted('weight',weightDeleteKeys(r,localProfile.id)));
+    localProfile.weightRecords.forEach(r => weightMap.set(weightKey(r), r));
+    cloudProfile.weightRecords.forEach(r => {
+      const key=weightKey(r);
+      if(!weightMap.has(key) && !isDeleted('weight',weightDeleteKeys(r,localProfile.id))){
+        weightMap.set(key, r);
+      }
+    });
+    localProfile.weightRecords = Array.from(weightMap.values()).sort((a,b) => getRecordTime(a).localeCompare(getRecordTime(b)));
+
+    // Merge food records (deduplicate by id)
+    const foodMap = new Map();
+    localProfile.foodRecords=(localProfile.foodRecords||[]).filter(r=>!isDeleted('food',r.id));
+    localProfile.foodRecords.forEach(r => foodMap.set(r.id || (r.date+'_'+r.meal), r));
+    (cloudProfile.foodRecords || []).forEach(r => {
+      const key = r.id || (r.date+'_'+r.meal);
+      if(!foodMap.has(key) && !isDeleted('food',key)){
+        foodMap.set(key, r);
+      }
+    });
+    localProfile.foodRecords = Array.from(foodMap.values());
+
+    // Merge exercise records (deduplicate by id)
+    const exMap = new Map();
+    localProfile.exerciseRecords=(localProfile.exerciseRecords||[]).filter(r=>!isDeleted('exercise',r.id));
+    localProfile.exerciseRecords.forEach(r => exMap.set(r.id, r));
+    (cloudProfile.exerciseRecords || []).forEach(r => {
+      if(!exMap.has(r.id) && !isDeleted('exercise',r.id)){
+        exMap.set(r.id, r);
+      }
+    });
+    localProfile.exerciseRecords = Array.from(exMap.values());
+
+    // Merge steps records (deduplicate by id)
+    localProfile.stepsRecords=localProfile.stepsRecords||[];
+    const stepsMap=new Map();
+    localProfile.stepsRecords=(localProfile.stepsRecords).filter(r=>!isDeleted('steps',r.id));
+    localProfile.stepsRecords.forEach(r=>stepsMap.set(r.id,r));
+    (cloudProfile.stepsRecords||[]).forEach(r=>{
+      if(!stepsMap.has(r.id)&&!isDeleted('steps',r.id)) stepsMap.set(r.id,r);
+    });
+    localProfile.stepsRecords=Array.from(stepsMap.values());
+
+    // Merge sleep records (deduplicate by id)
+    localProfile.sleepRecords=localProfile.sleepRecords||[];
+    const sleepMap=new Map();
+    localProfile.sleepRecords=(localProfile.sleepRecords).filter(r=>!isDeleted('sleep',r.id));
+    localProfile.sleepRecords.forEach(r=>sleepMap.set(r.id,r));
+    (cloudProfile.sleepRecords||[]).forEach(r=>{
+      if(!sleepMap.has(r.id)&&!isDeleted('sleep',r.id)) sleepMap.set(r.id,r);
+    });
+    localProfile.sleepRecords=Array.from(sleepMap.values());
+
+    // Merge water records (deduplicate by id)
+    localProfile.waterRecords=localProfile.waterRecords||[];
+    const waterMap=new Map();
+    localProfile.waterRecords=(localProfile.waterRecords).filter(r=>!isDeleted('water',r.id));
+    localProfile.waterRecords.forEach(r=>waterMap.set(r.id,r));
+    (cloudProfile.waterRecords||[]).forEach(r=>{
+      if(!waterMap.has(r.id)&&!isDeleted('water',r.id)) waterMap.set(r.id,r);
+    });
+    localProfile.waterRecords=Array.from(waterMap.values());
+
+    // Merge favorite foods by stable favorite id and deletion tombstones.
+    // A tombstone deletes older local/cloud favorites, while a newer re-favorite clears the tombstone.
+    mergeFavoriteCollections(localProfile,cloudProfile);
+
+  });
+
+  // Couple space is shared: merge by field and anniversary id to avoid overwriting partner edits.
+  merged.coupleSpace=mergeCoupleSpace(state.coupleSpace,cloudState.coupleSpace);
+  normalizeCoupleSpace(merged);
+  const localModeUpdatedAt=Number(state.appModeUpdatedAt)||0;
+  const cloudModeUpdatedAt=Number(cloudState.appModeUpdatedAt)||0;
+  if(preferCloudMode||cloudModeUpdatedAt>=localModeUpdatedAt){
+    merged.appMode=getAppMode(cloudState);
+    merged.appModeUpdatedAt=cloudModeUpdatedAt;
+  }else{
+    merged.appMode=getAppMode(state);
+    merged.appModeUpdatedAt=localModeUpdatedAt;
+  }
+  merged.current_profile_id = state.current_profile_id;
+  merged.viewerId = getProfileIdByDataId(merged,state.current_profile_id)||state.viewerId;
+  merged.activeProfileId = state.activeProfileId;
+  merged.aiConfig = state.aiConfig;
+  merged.familyCode = state.familyCode;
+  merged.lastLocalClearAt = state.lastLocalClearAt || null;
+  merged.deletedRecords = deletedRecords;
+
+  return merged;
+}
+
+// Full sync: pull -> merge -> push
+// 优化2/3/6：force=false时检查hash跳过周期同步；复用进行中的Promise；保留SyncPerf日志
+async function syncNow(silent,{force=true}={}){
+  if(!isCloudConfigured()){
+    if(!silent) showToast('请先在设置中配置云同步','error');
+    return false;
+  }
+  // 优化3：如果正在同步，复用当前Promise，不重复请求
+  if(isSyncing){
+    if(_syncPromise) return _syncPromise;
+    console.info('[SyncPerf]', {skipped:true, reason:'sync in progress, no promise to reuse'});
+    return false;
+  }
+  const syncFamilyCode=state.familyCode;
+  // 优化3：手动同步/启动同步时清除pending防抖timer，避免重复执行
+  if(force && syncTimer){
+    clearTimeout(syncTimer);
+    syncTimer=null;
+  }
+  // 优化2：周期同步(force=false)时，如果本地数据无变化则跳过完整GET+POST
+  if(!force){
+    const currentHash=getSyncDataHash();
+    if(currentHash && currentHash===_lastSyncDataHash){
+      console.info('[SyncPerf]', {skipped:true, reason:'periodic sync: no local change, skip', hash:currentHash});
+      return true;
+    }
+  }
+  isSyncing = true;
+  updateSyncStatus('syncing', getSyncStatusText('syncing'));
+  const _totalStart=performance.now();
+
+  const preferCloudModeForThisSync=_preferCloudModeOnNextSyncCode===syncFamilyCode;
+  _syncPromise = (async () => {
+    let mergedFromCloud = false;
+    let _downloadBytes=0, _uploadBytes=0, _downloadMs=0, _uploadMs=0, _mergeMs=0;
+    try{
+      // Step 1: Pull cloud data
+      const pullResult = await pullFromCloud(syncFamilyCode);
+      if(!pullResult.ok){
+        throw new Error(pullResult.err);
+      }
+      if(state.familyCode!==syncFamilyCode){
+        console.info('[SyncPerf]',{skipped:true,reason:'sync code changed during pull',from:syncFamilyCode,to:state.familyCode});
+        return true;
+      }
+      _downloadMs=pullResult.downloadMs||0;
+      _downloadBytes=pullResult.downloadBytes||0;
+
+      // Step 2: Merge if cloud has data.
+      // 如果本机刚清空过数据，而云端记录更新时间更早，则跳过旧云端数据，防止旧记录回流。
+      const localClearAt=state.lastLocalClearAt||0;
+      const cloudUpdatedAt=pullResult.row?.updated_at ? new Date(pullResult.row.updated_at).getTime() : 0;
+      const shouldSkipOldCloud=!preferCloudModeForThisSync&&localClearAt&&cloudUpdatedAt&&cloudUpdatedAt<localClearAt;
+      if(pullResult.data && !shouldSkipOldCloud){
+        const _mergeStart=performance.now();
+        const modeBeforeMerge=getAppMode();
+        state = mergeCloudData(pullResult.data,{preferCloudMode:preferCloudModeForThisSync});
+        const modeChanged=getAppMode()!==modeBeforeMerge;
+        invalidateSyncDataCache(); // 优化5：合并后state已变化，标记缓存失效
+        _mergeMs=performance.now()-_mergeStart;
+        mergedFromCloud = true;
+        if(modeChanged) reconcileAppModeUI();
+        else{
+          // 性能优化：Mode未变化时只刷新当前页面需要的模块，不触发完整 renderAll
+          renderDashboard();
+          if(activeAppPage==='health') renderChart();
+          if(activeAppPage==='couple') renderAppPageSummaries();
+        }
+      }
+
+      // Step 3: Push merged data to cloud
+      const pushResult = await pushToCloud(syncFamilyCode);
+      if(!pushResult.ok){
+        throw new Error(pushResult.err);
+      }
+      _uploadMs=pushResult.uploadMs||0;
+      _uploadBytes=pushResult.uploadBytes||0;
+      if(preferCloudModeForThisSync) clearPreferCloudModeOnNextSyncCode(syncFamilyCode);
+
+      // 优化2：记录成功同步后的数据hash，供下次周期同步比较
+      _lastSyncDataHash = getSyncDataHash();
+
+      // Update sync timestamp and save once
+      state.lastSyncAt = Date.now();
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(getPersistableState()));
+      }catch(e){}
+
+      const _totalMs=performance.now()-_totalStart;
+      console.info('[SyncPerf]', {
+        totalMs:Math.round(_totalMs),
+        downloadMs:Math.round(_downloadMs),
+        mergeMs:Math.round(_mergeMs),
+        uploadMs:Math.round(_uploadMs),
+        downloadBytes:_downloadBytes,
+        uploadBytes:_uploadBytes,
+        mergedFromCloud
+      });
+
+      const syncTime=formatSyncTime(new Date(state.lastSyncAt));
+      updateSyncStatus('synced', `已同步 · ${syncTime}`);
+      if(!silent) showToast('同步成功','success');
+      return true;
+    }catch(e){
+      console.error('Sync error:', e);
+      // Safety: persist merged data even if push failed
+      if(mergedFromCloud){
+        try{
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(getPersistableState()));
+        }catch(e2){}
+      }
+      updateSyncStatus('error', '同步失败 · 点击重试');
+      if(!silent) showToast('同步失败: ' + e.message, 'error');
+      return false;
+    }finally{
+      isSyncing = false;
+      _syncPromise = null;
+    }
+  })();
+
+  return _syncPromise;
+}
+
+// Debounced auto-sync (called after saveData)
+function debouncedSync(){
+  if(!isCloudConfigured()) return;
+  // Safety lock: do NOT push during join-existing-space flow (pull-first)
+  if(_isJoiningSpace) return;
+  if(syncTimer) clearTimeout(syncTimer);
+  const run=()=>{
+    if(_isJoiningSpace) return;
+    if(isSyncing){
+      syncTimer=setTimeout(run,500);
+      return;
+    }
+    syncTimer=null;
+    syncNow(true,{force:true});
+  };
+  syncTimer=setTimeout(run,3000);
+}
+
+// Test cloud connection
+async function testSyncConnection(){
+  const resultEl = document.getElementById('syncTestResult');
+  if(resultEl) resultEl.innerHTML = '<span style="color:var(--gold)">测试中...</span>';
+
+  // Use embedded URL and key, read code from input
+  const code = document.getElementById('setSyncCode')?.value.trim() || '';
+
+  if(!code){
+    if(resultEl) resultEl.innerHTML = '<span class="err">请输入同步码</span>';
+    return false;
+  }
+
+  try{
+    const resp = await fetch(
+      buildRestUrl('/health_sync?code=eq.' + encodeURIComponent(code) + '&order=updated_at.desc&limit=1'),
+      {
+        method: 'GET',
+        headers: getRestHeaders()
+      }
+    );
+
+    if(resp.ok){
+      const rows = await resp.json();
+      const hasData = rows && rows.length > 0;
+      if(resultEl){
+        resultEl.innerHTML = '<span class="ok">✓ 连接成功' + (hasData ? '（已有云端数据）' : '（新共享码，首次使用）') + '</span>';
+      }
+      return true;
+    }else if(resp.status === 404){
+      if(resultEl) resultEl.innerHTML = '<span class="err">✗ 数据表不存在，请联系管理员</span>';
+      return false;
+    }else if(resp.status === 401 || resp.status === 403){
+      if(resultEl) resultEl.innerHTML = '<span class="err">✗ 认证失败</span>';
+      return false;
+    }else{
+      const errText = await resp.text();
+      if(resultEl) resultEl.innerHTML = '<span class="err">✗ HTTP ' + resp.status + ': ' + errText.substring(0,100) + '</span>';
+      return false;
+    }
+  }catch(e){
+    if(resultEl) resultEl.innerHTML = '<span class="err">✗ 网络错误: ' + e.message + '</span>';
+    return false;
+  }
+}
+
+// Initialize cloud sync on app load
+// Safe to call multiple times — periodic interval is set up only once.
+let _periodicSyncSetup=false;
+async function initCloudSync(){
+  if(!isCloudConfigured()){
+    updateSyncStatus('config', '未配置');
+    return;
+  }
+  // Show last sync time if available, otherwise show "已配置"
+  if(state.lastSyncAt){
+    const lastTime=formatSyncTime(state.lastSyncAt);
+    updateSyncStatus('synced', `已同步 · ${lastTime}`);
+  }else{
+    updateSyncStatus('config', '已配置');
+  }
+  updateSyncStatus('syncing', '同步中…');
+  // Pull from cloud on startup
+  const ok = await syncNow(true);
+  if(ok && !_periodicSyncSetup){
+    _periodicSyncSetup=true;
+    // Set up periodic sync every 2 minutes
+    setInterval(() => {
+      if(!isSyncing && isCloudConfigured()){
+        syncNow(true,{force:false}); // 优化2：周期同步，无变化时自动跳过
+      }
+    }, 120000);
+  }
+}
 
 // ==================== GLASS SCROLL LOCK ====================
 const GlassScrollLock=(()=>{
@@ -15747,7 +20732,7 @@ const GlassUI=(()=>{
     enhanceTimer=setTimeout(()=>enhance(document),30);
   }
 
-  function init(options={}){
+  function init(){
     document.addEventListener('click',e=>{
       const titleBtn=e.target.closest?.('#dateTitleBtn');
       if(titleBtn){
@@ -15776,8 +20761,7 @@ const GlassUI=(()=>{
     };
     window.addEventListener('resize',reposition,{passive:true});
     window.addEventListener('scroll',reposition,{passive:true,capture:true});
-    // Skip full-document enhance on boot — deferred after first paint for iOS startup.
-    if(options.enhance!==false) enhance(document);
+    enhance(document);
     observer=new MutationObserver(scheduleEnhance);
     observer.observe(document.body,{childList:true,subtree:true});
   }
@@ -15787,93 +20771,30 @@ const GlassUI=(()=>{
 window.GlassUI=GlassUI;
 
 // ==================== INIT ====================
-function finishAppBoot(){
-  document.documentElement.setAttribute('data-boot-ready','1');
-  document.body.classList.remove('boot-loading');
-  // Re-measure immersive header/nav AFTER .app becomes visible.
-  // Measuring while html:not([data-boot-ready]) .app{visibility:hidden} can yield 0
-  // on some WebViews; without a follow-up sync the fixed header covers
-  // #dateNavigator + #todayHealthCard (今日健康状态), leaving a large empty gap
-  // after 趋势速览 that looks like "missing home modules".
-  try{queueMobileBottomNavPositionSync()}catch(_){}
-  // Post-paint icon catch-up + MutationObserver for dynamic modules (not boot-blocking).
-  try{startAutoIconHydration()}catch(_){}
-  requestAnimationFrame(()=>{
-    try{syncMobileBottomNavPosition()}catch(_){}
-    requestAnimationFrame(()=>{
-      try{syncMobileBottomNavPosition()}catch(_){}
-    });
-  });
-  const splash=document.getElementById('appBootSplash');
-  if(splash){
-    window.setTimeout(()=>{
-      try{splash.remove()}catch(_){}
-    },280);
-  }
-}
-function scheduleDeferredStartupWork(){
-  const run=()=>{
-    try{runDeferredDataMigrations()}catch(err){console.error('[Init] deferredMigrate failed:',err)}
-    try{ensureDeferredEventsBound()}catch(err){console.error('[Init] deferredEvents failed:',err)}
-    try{cleanupLegacyLocalCaches()}catch(err){console.error('[Init] deferred cleanup failed:',err)}
-    try{GlassUI.enhance(document)}catch(err){console.error('[Init] deferred GlassUI.enhance failed:',err)}
-    try{checkBirthdayReminder()}catch(err){console.error('[Init] deferred birthday failed:',err)}
-    try{initCloudSync()}catch(err){console.error('[Init] deferred initCloudSync failed:',err)}
-  };
-  if(typeof requestIdleCallback==='function'){
-    requestIdleCallback(()=>run(),{timeout:2200});
-  }else{
-    setTimeout(run,200);
-  }
-}
 function init(){
   console.log('[Init] start');
-  const t0=_bootNow();
-  const mark=(label,started)=>{
-    const ms=Math.round(_bootNow()-started);
-    console.log('[BOOT] '+label+' '+ms+' ms');
-    return ms;
-  };
   const initStep=(label,fn)=>{
     try{return fn()}
     catch(err){console.error(`[Init] ${label} failed:`,err);return undefined}
   };
-  // Theme + shell + home first. Defer: migrations, non-home pages, full events, Glass enhance, cloud sync.
+  initStep('cleanupLegacyAIFoodCaches',cleanupLegacyAIFoodCaches);
   initStep('applyTheme',()=>applyTheme(getInitialTheme()));
-  // First-paint chrome only — do NOT scan entire document (slow on iOS).
-  // Bottom nav must be included: syncModeNavigation() only re-renders the mode tab icon.
-  initStep('renderIcons',()=>{
-    const header=document.querySelector('.header');
-    const bottomNav=document.getElementById('bottomTabNav');
-    if(header) renderIcons(header);
-    if(bottomNav) renderIcons(bottomNav);
-    if(!header&&!bottomNav) renderIcons(document);
-  });
-  let tStep=_bootNow();
+  initStep('renderIcons',()=>renderIcons(document));
   initStep('setupAppPageShell',setupAppPageShell);
-  mark('setupShell',tStep);
-  tStep=_bootNow();
   initStep('bindEvents',bindEvents);
-  mark('bindEvents',tStep);
-  // GlassUI.init installs listeners only; full enhance is deferred after first paint.
-  initStep('GlassUI.init',()=>GlassUI.init({enhance:false}));
+  initStep('setupRecordDetailModal',setupRecordDetailModal);
+  initStep('GlassUI.init',()=>GlassUI.init());
+  initStep('DeviceOwnerDebug:beforeEnsure',()=>logDeviceOwnerDebug('init:before-ensureDeviceOwnerSelected',state));
   const hasDeviceOwner=!!getDeviceOwnerProfile();
-  tStep=_bootNow();
   if(hasDeviceOwner){
-    initStep('renderAll',()=>renderAll({includeTrend:false,boot:true}));
+    initStep('renderAll',()=>renderAll());
   }else{
     initStep('renderProfileTabs',renderProfileTabs);
     initStep('ensureDeviceOwnerSelected',ensureDeviceOwnerSelected);
   }
-  mark('renderHome',tStep);
-  // Reveal home only after first paint of home content is scheduled.
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      finishAppBoot();
-      mark('firstPaint',t0);
-      scheduleDeferredStartupWork();
-    });
-  });
+  initStep('GlassUI.enhance',()=>GlassUI.enhance(document));
+  // Initialize cloud sync
+  initStep('initCloudSync',initCloudSync);
   // Welcome message for new users — skip if onboarding modal is showing
   if(!document.getElementById('onboardingModal')?.classList.contains('show')){
     const activeProfile=getActiveProfile();
@@ -15884,32 +20805,4 @@ function init(){
     }
   }
 }
-document.addEventListener('DOMContentLoaded',function(){init();});
-</script>
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').then(reg => {
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        if (nw) nw.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            nw.postMessage('SKIP_WAITING');
-          }
-        });
-      });
-    }).catch((error) => {
-      console.warn('[PWA] Service Worker registration failed:', error);
-    });
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing) return;
-      refreshing = true;
-      window.location.reload();
-    });
-  });
-}
-</script>
-
-</body></html>
+init();
