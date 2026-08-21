@@ -67,10 +67,6 @@ html:not([data-boot-ready]) .app{
 })();
 </script>
 <link rel="stylesheet" href="./css/app.css">
-<script defer src="./js/recipe.js"></script>
-<script defer src="./js/ai.js"></script>
-<script defer src="./js/couple.js"></script>
-<script defer src="./js/sync.js"></script>
 </head>
 <body class="boot-loading">
 <div id="appBootSplash" role="status" aria-live="polite" aria-label="应用加载中">
@@ -971,7 +967,9 @@ function toggleTheme(){
     localStorage.setItem(THEME_STORAGE_KEY,next);
   }catch(e){}
   if(chartInstance) renderChart();
-  if(activeAppPage==='health-compare') renderHealthCompareTrendChart();
+  if(activeAppPage==='health-compare' && typeof renderHealthCompareTrendChart==='function' && !renderHealthCompareTrendChart.__isAppModuleGate){
+    renderHealthCompareTrendChart();
+  }
 }
 
 function normalizeDeletedRecords(data){
@@ -1954,6 +1952,12 @@ function loadData(){
   console.log('[BOOT] loadData total '+Math.round(_bootNow()-tAll)+' ms (default)');
   return applyLocalDeviceOwner(getDefaultData());
 }
+/* Phase 5: lightweight sync shims — overwritten when sync.js loads */
+window.isCloudConfigured=window.isCloudConfigured||function(){return !!(state&&state.familyCode&&String(state.familyCode).length>=1);};
+window.invalidateSyncDataCache=window.invalidateSyncDataCache||function(){};
+window.debouncedSync=window.debouncedSync||function(){};
+window.updateSyncStatus=window.updateSyncStatus||function(){};
+
 function saveData(){
   runDeferredDataMigrations();
   try{
@@ -4340,7 +4344,6 @@ function renderTodayHealthOverview(){
   endHomeRenderContext();
 }
 function scheduleDeferredHomeExtras(profile,snap,options={}){
-  const allowAI=options.allowAI!==false;
   const run=()=>{
     if(activeAppPage!=='home') return;
     const insights=document.getElementById('homeInsightsContent');
@@ -4350,9 +4353,7 @@ function scheduleDeferredHomeExtras(profile,snap,options={}){
         bindHomeTrendOverview(profile,currentViewDate);
       }catch(err){console.error('[Render] deferred home trend failed:',err)}
     }
-    if(allowAI){
-      try{triggerHealthCoachV2Auto(profile,currentViewDate)}catch(err){console.error('[Render] deferred health coach failed:',err)}
-    }
+    /* Phase 5: HOME must not load AI module */
     try{refreshHomeAdviceSlotLabel(profile)}catch(_){}
   };
   if(typeof requestIdleCallback==='function'){
@@ -4465,6 +4466,7 @@ function renderHomeAdviceCard(p,snap,calDisplay){
 function refreshHomeAdviceSlotLabel(profile){
   const labelEl=document.querySelector('#homeAdviceCard .home-advice-label');
   if(!labelEl) return;
+  if(typeof getHealthCoachDayCache!=='function') return;
   try{
     const dayCache=getHealthCoachDayCache(profile,currentViewDate);
     const latest=getLatestHealthCoachAdvice(dayCache);
@@ -4568,13 +4570,22 @@ function renderHealthPageModules(profile,date=currentViewDate){
   const p=profile||getActiveProfile();
   const healthGrid=document.querySelector('.app-page[data-app-page="health"] .dashboard');
   const managementSection=document.getElementById('healthRecordManagement');
-  if(healthGrid) ensureSmartRecipeCard(healthGrid,managementSection);
   renderWeightCard();
-  renderWeeklyReportCard(p,date);
-  try{renderSmartRecipeCard(p,date)}catch(err){console.error('[Render] renderSmartRecipeCard failed:',err)}
   renderHealthRecordManagement();
-  if(!isSyncing&&!isFutureDate(date)) triggerWeeklyReportAuto(p,date);
   if(healthGrid) hydrateIconsIn(healthGrid);
+  whenAppModule('ai', ()=>{
+    if(activeAppPage!=='health') return;
+    renderWeeklyReportCard(p,date);
+    if(!isSyncing&&!isFutureDate(date)) triggerWeeklyReportAuto(p,date);
+    if(healthGrid) hydrateIconsIn(healthGrid);
+  });
+  whenAppModule('recipe', ()=>{
+    if(activeAppPage!=='health') return;
+    try{initSmartRecipePrefsModal()}catch(_){}
+    if(healthGrid) ensureSmartRecipeCard(healthGrid,managementSection);
+    try{renderSmartRecipeCard(p,date)}catch(err){console.error('[Render] renderSmartRecipeCard failed:',err)}
+    if(healthGrid) hydrateIconsIn(healthGrid);
+  });
 }
 function renderDailyView(){
   // Startup / home refresh: only paint what the current page needs.
@@ -4767,30 +4778,45 @@ function switchAppPage(page,{scrollTop=true}={}){
   const isChildPage=['health-analysis','daily-tasks','daily-advice','trend-detail','health-compare','couple-ledger','smart-recipe','smart-recipe-detail'].includes(page);
   document.body.classList.toggle('child-page-active',isChildPage);
   document.body.classList.toggle('health-compare-page-active',page==='health-compare');
-  renderAppPageSummaries();
-  syncMobileBottomNavPosition();
-  // Restore scroll position synchronously BEFORE browser paints (no visual flash)
-  if(scrollTop){
-    window.scrollTo({top:savedPos,left:0,behavior:'instant'});
-    // Single rAF fallback for dynamic content that may shift layout after initial render
-    requestAnimationFrame(()=>{window.scrollTo({top:savedPos,left:0,behavior:'instant'});});
+  // Phase 5: activate page chrome first; load modules only for pages that need them
+  const runPageContent=()=>{
+    renderAppPageSummaries();
+    syncMobileBottomNavPosition();
+    // Restore scroll position synchronously BEFORE browser paints (no visual flash)
+    if(scrollTop){
+      window.scrollTo({top:savedPos,left:0,behavior:'instant'});
+      // Single rAF fallback for dynamic content that may shift layout after initial render
+      requestAnimationFrame(()=>{window.scrollTo({top:savedPos,left:0,behavior:'instant'});});
+    }
+    if(page==='health'){
+      // Enter health page: render health modules + chart (Chart.js may still be loading)
+      const p=getActiveProfile();
+      renderHealthPageModules(p,currentViewDate);
+      renderChart();
+      if(chartInstance) setTimeout(()=>chartInstance.resize(),60);
+    }
+    // Detail sub-pages: render on entry
+    if(page==='health-analysis') renderHealthAnalysisPage(getActiveProfile(),currentViewDate);
+    if(page==='daily-tasks') renderDailyTasksPage(getActiveProfile(),currentViewDate);
+    if(page==='daily-advice') renderDailyAdvicePage(getActiveProfile(),currentViewDate);
+    if(page==='trend-detail') renderTrendDetailPage(getActiveProfile(),currentViewDate);
+    if(page==='health-compare') renderHealthComparePage(currentViewDate);
+    if(page==='couple-ledger') renderCoupleLedgerPage();
+    if(page==='smart-recipe') renderSmartRecipePage(getActiveProfile(),currentViewDate);
+    if(page==='smart-recipe-detail') renderSmartRecipeDetailPage(getActiveProfile(),currentViewDate);
+  };
+  if(page==='couple'||page==='health-compare'){
+    whenAppModule('couple', runPageContent);
+  }else if(page==='smart-recipe'||page==='smart-recipe-detail'){
+    whenAppModule('recipe', ()=>{
+      try{initSmartRecipePrefsModal()}catch(_){}
+      runPageContent();
+    });
+  }else if(page==='daily-tasks'||page==='daily-advice'){
+    whenAppModule('ai', runPageContent);
+  }else{
+    runPageContent();
   }
-  if(page==='health'){
-    // Enter health page: render health modules + chart (Chart.js may still be loading)
-    const p=getActiveProfile();
-    renderHealthPageModules(p,currentViewDate);
-    renderChart();
-    if(chartInstance) setTimeout(()=>chartInstance.resize(),60);
-  }
-  // Detail sub-pages: render on entry
-  if(page==='health-analysis') renderHealthAnalysisPage(getActiveProfile(),currentViewDate);
-  if(page==='daily-tasks') renderDailyTasksPage(getActiveProfile(),currentViewDate);
-  if(page==='daily-advice') renderDailyAdvicePage(getActiveProfile(),currentViewDate);
-  if(page==='trend-detail') renderTrendDetailPage(getActiveProfile(),currentViewDate);
-  if(page==='health-compare') renderHealthComparePage(currentViewDate);
-  if(page==='couple-ledger') renderCoupleLedgerPage();
-  if(page==='smart-recipe') renderSmartRecipePage(getActiveProfile(),currentViewDate);
-  if(page==='smart-recipe-detail') renderSmartRecipeDetailPage(getActiveProfile(),currentViewDate);
   return true;
 }
 
@@ -8604,10 +8630,12 @@ function renderDailyAdvicePage(profile,date){
     reasons.map(r=>`<div class="da-reason-item"><span class="da-reason-label">${escapeHTML(r.label)}</span><span class="da-reason-val">${escapeHTML(r.value)}</span></div>`).join('')+
     `</div></section>`:'';
 
-  // Determine action button
+  // Determine action button (recipe link needs recipe.js — avoid calling it before lazy load)
   let actionBtn='';
-  const smartRecipeLink=getSmartRecipeLinkContext(profile,date,snap,cs);
-  if(smartRecipeLink){
+  const smartRecipeLink=(typeof getSmartRecipeLinkContext==='function' && !getSmartRecipeLinkContext.__isAppModuleGate)
+    ? getSmartRecipeLinkContext(profile,date,snap,cs) : null;
+  const suggestRecipe=!smartRecipeLink && snap.hasFood && snap.targets?.protein && (Number(snap.intake?.protein)||0)<Number(snap.targets.protein);
+  if(smartRecipeLink||suggestRecipe){
     actionBtn=`<button type="button" class="da-action-btn" id="dailyAdviceSmartRecipeBtn">${icon('utensils')} 去智能食谱补充</button>`;
   }else if(calDisplay.overCalories>0||!snap.hasFood){
     actionBtn=`<button class="da-action-btn" data-task-action="food">${icon('utensils')} 记录饮食</button>`;
@@ -8629,8 +8657,12 @@ function renderDailyAdvicePage(profile,date){
   wrap.querySelectorAll('.da-action-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       if(btn.id==='dailyAdviceSmartRecipeBtn'){
-        const ctx=getSmartRecipeLinkContext(profile,date,snap,cs);
-        openSmartRecipePage('today',ctx||{mode:'protein-gap'});
+        // openSmartRecipePage is gated → loads recipe.js then runs real impl
+        whenAppModule('recipe',()=>{
+          const ctx=(typeof getSmartRecipeLinkContext==='function')
+            ? getSmartRecipeLinkContext(profile,date,snap,cs) : null;
+          openSmartRecipePage('today',ctx||{mode:'protein-gap'});
+        });
         return;
       }
       const action=btn.dataset.taskAction;
@@ -12722,6 +12754,7 @@ function finishJoiningExistingSpace(cloudState,code,pendingMode){
 
 // Unified first-entry flow: optional code + pending Mode, then Existing/New branching.
 async function onboardingContinue(){
+  await loadAppModule('sync');
   const codeInput=document.getElementById('onboardingSyncCodeInput');
   const requestedCode=(codeInput?.value||'').trim().toUpperCase();
   const pendingMode=_onboardingState.pendingMode==='couple'?'couple':'single';
@@ -14777,11 +14810,10 @@ function bindEssentialEvents(){
   document.getElementById('settingsBtn')?.addEventListener('click',()=>switchAppPage('settings'));
   document.getElementById('syncBadge')?.addEventListener('click',()=>{
     ensureDeferredEventsBound();
-    if(isCloudConfigured()){
-      syncNow(false);
-    }else{
-      openSyncSettings();
-    }
+    whenAppModule('sync',()=>{
+      if(isCloudConfigured()) syncNow(false);
+      else openSyncSettings();
+    });
   });
 
   // Quick add: bind FAB click only; panel DOM/carousel wiring waits until first open.
@@ -14852,7 +14884,7 @@ function bindDeferredEvents(){
   document.getElementById('settingsModal')?.addEventListener('click',e=>{
     if(e.target.id==='settingsModal') closeModal('settingsModal');
   });
-  initSmartRecipePrefsModal();
+  // Phase 5: do not load recipe.js here — initSmartRecipePrefsModal runs on first recipe use
   document.getElementById('rebindDeviceOwnerModal')?.addEventListener('click',e=>{
     if(e.target.id==='rebindDeviceOwnerModal') closeRebindDeviceOwnerModal();
   });
@@ -14893,7 +14925,9 @@ function bindDeferredEvents(){
       closeRebindDeviceOwnerModal();
       closeModal('aiModal');
       closeModal('coupleTimeModal');
-      closeSmartRecipePrefsModal();
+      if(typeof closeSmartRecipePrefsModal==='function' && !closeSmartRecipePrefsModal.__isAppModuleGate){
+        closeSmartRecipePrefsModal();
+      }
       if(document.getElementById('weeklySummaryDetailModal')?.classList.contains('show')) closeWeeklySummaryDetail();
       if(document.getElementById('calorieDeficitModal')?.classList.contains('show')) closeCalorieDeficitExplain();
     }
@@ -15811,6 +15845,73 @@ function finishAppBoot(){
     },280);
   }
 }
+/* Phase 5: on-demand / idle module loader — does not block first paint */
+const APP_MODULE_SRCS={
+  recipe:'./js/recipe.js',
+  ai:'./js/ai.js',
+  couple:'./js/couple.js',
+  sync:'./js/sync.js'
+};
+const _appModulePromises=Object.create(null);
+function loadAppModule(name){
+  if(_appModulePromises[name]) return _appModulePromises[name];
+  const src=APP_MODULE_SRCS[name];
+  if(!src){
+    const err=new Error('[Module] unknown module: '+name);
+    console.error(err.message);
+    return Promise.reject(err);
+  }
+  _appModulePromises[name]=new Promise((resolve,reject)=>{
+    const el=document.createElement('script');
+    el.src=src;
+    el.async=true;
+    el.onload=()=>resolve(name);
+    el.onerror=()=>{
+      console.error('[Module] failed to load '+name+' from '+src);
+      delete _appModulePromises[name];
+      reject(new Error('Failed to load module: '+name));
+    };
+    (document.head||document.documentElement).appendChild(el);
+  });
+  return _appModulePromises[name];
+}
+function whenAppModule(name,fn){
+  return loadAppModule(name).then(()=>{
+    try{return fn()}
+    catch(err){console.error('[Module] '+name+' callback failed:',err);}
+  }).catch(err=>{console.error('[Module] '+name+' unavailable:',err);});
+}
+/** Install a temporary global that loads module then calls the real impl (module overwrites this name). */
+function installAppModuleGate(moduleName,fnName){
+  if(typeof window[fnName]==='function' && !window[fnName].__isAppModuleGate) return;
+  const gate=async function(...args){
+    await loadAppModule(moduleName);
+    const impl=window[fnName];
+    if(impl===gate || typeof impl!=='function'){
+      console.error('[Module] '+fnName+' missing after loading '+moduleName);
+      return;
+    }
+    return impl.apply(this,args);
+  };
+  gate.__isAppModuleGate=true;
+  window[fnName]=gate;
+}
+
+/* Phase 5: install on-demand gates before init/bindEvents */
+[
+  'openSmartRecipePage','renderSmartRecipePage','renderSmartRecipeDetailPage','renderSmartRecipeCard','initSmartRecipePrefsModal','ensureSmartRecipeCard'
+].forEach(fn=>installAppModuleGate('recipe',fn));
+[
+  'renderCoupleSpaceContent','openHealthCompare','renderHealthComparePage','renderHealthCompareTrendChart','refreshCoupleSpaceView','openCoupleTimeModal','toggleCoupleAnnSortMode','saveCoupleTogetherDate','saveCoupleMeeting','saveCoupleAnniversary','deleteCoupleAnniversary','saveCoupleCountdown','deleteCoupleCountdown','saveCoupleMemory','deleteCoupleMemory','setupCoupleAnnSortHandlers','saveCoupleAnniversaryOrderFromDom'
+].forEach(fn=>installAppModuleGate('couple',fn));
+[
+  'parseHealthText','startAIAnalysis','triggerHealthCoachV2Auto','triggerWeeklyReportAuto','triggerHealthProfileAuto','triggerDailyTasksAuto','renderWeeklyReportCard','bindWeeklyReportCard','generateWeeklyReport','generateHealthCoachAdvice','generateDailyTasksPlan','generateHealthProfile','openWeeklySummaryDetail','closeWeeklySummaryDetail','callFoodVisionAI','renderHealthProfileCard','bindHealthProfileCard','handleDailyTaskAction'
+].forEach(fn=>installAppModuleGate('ai',fn));
+[
+  'syncNow','initCloudSync','mergeCloudData','getSyncData','getCloudConfig','pushToCloud','pullFromCloud','clearCloudData','testSyncConnection','rememberPreferCloudModeOnNextSyncCode','clearPreferCloudModeOnNextSyncCode','getDeviceId','getSyncDataHash','verifyCloudCleared','isClearedHealthData'
+].forEach(fn=>installAppModuleGate('sync',fn));
+/* sync helpers isCloudConfigured / debouncedSync / invalidateSyncDataCache keep lightweight shims until sync.js loads */
+
 function scheduleDeferredStartupWork(){
   const run=()=>{
     try{runDeferredDataMigrations()}catch(err){console.error('[Init] deferredMigrate failed:',err)}
@@ -15818,7 +15919,9 @@ function scheduleDeferredStartupWork(){
     try{cleanupLegacyLocalCaches()}catch(err){console.error('[Init] deferred cleanup failed:',err)}
     try{GlassUI.enhance(document)}catch(err){console.error('[Init] deferred GlassUI.enhance failed:',err)}
     try{checkBirthdayReminder()}catch(err){console.error('[Init] deferred birthday failed:',err)}
-    try{initCloudSync()}catch(err){console.error('[Init] deferred initCloudSync failed:',err)}
+    loadAppModule('sync').then(()=>{
+      try{initCloudSync()}catch(err){console.error('[Init] deferred initCloudSync failed:',err)}
+    }).catch(err=>console.error('[Init] sync module load failed:',err));
   };
   if(typeof requestIdleCallback==='function'){
     requestIdleCallback(()=>run(),{timeout:2200});
@@ -15884,7 +15987,7 @@ function init(){
     }
   }
 }
-document.addEventListener('DOMContentLoaded',function(){init();});
+init();
 </script>
 
 <script>
