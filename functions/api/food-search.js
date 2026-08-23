@@ -11,13 +11,76 @@ import {
   getDoubaoTurboModel,
 } from './_shared/doubao.js';
 
-const FOOD_AI_VERSION = 'food-ai-estimate-v4';
+const FOOD_AI_VERSION = 'food-ai-estimate-v7';
+
+const FOOD_TYPE_KEYWORDS = {
+  '饮品': ['饮品', '饮料', '奶茶', '啵啵', '拿铁', '咖啡', '果茶', '果汁', '椰饮', '冰饮', '酸奶', '奶昔', '茶'],
+  '甜品': ['蛋糕', '布丁', '冰淇淋', '蛋挞', '泡芙'],
+  '菜品': ['炒', '焖', '煮', '汤', '饭', '面', '粉'],
+};
+
+function detectFoodType(name, category = '') {
+  const text = String(name || '').trim().toLowerCase();
+  for (const type of ['甜品', '饮品', '菜品']) {
+    if (FOOD_TYPE_KEYWORDS[type].some((keyword) => text.includes(keyword))) return type;
+  }
+  if (category === '饮品' || category === '饮料') return '饮品';
+  if (category === '甜品' || category === '甜点') return '甜品';
+  if (category === '菜肴') return '菜品';
+  return '其他';
+}
+
+function inferFoodUnit(name, foodType, portionUnit, category = '') {
+  const text = String(name || '');
+  if (foodType === '饮品') return '杯';
+  if (foodType === '甜品') return '块';
+  if (foodType === '菜品') return /汤|面|粉|饭/.test(text) ? '碗' : '份';
+  if (category === '水果') {
+    if (/草莓|葡萄|提子|樱桃|圣女果|小番茄|樱桃番茄|枣/.test(text)) return '颗';
+    if (/香蕉|甘蔗/.test(text)) return '根';
+    return '个';
+  }
+  if (category === '主食') return '碗';
+  if (category === '肉类') return '份';
+  return portionUnit === 'ml' ? '杯' : '份';
+}
+
+function getAIReferenceRule(name, category, foodType, unit) {
+  const text = String(name || '');
+  if (/草莓|圣女果|小番茄|樱桃番茄/.test(text) && unit === '颗') return { min: 10, max: 20, typical: 15, referenceUnit: 'g' };
+  if (/香蕉/.test(text) && unit === '根') return { min: 80, max: 150, typical: 120, referenceUnit: 'g' };
+  if (foodType === '饮品' && unit === '杯') return { min: 300, max: 700, typical: 500, referenceUnit: 'ml' };
+  if (foodType === '饮品' && unit === '瓶') return { min: 300, max: 1500, typical: 500, referenceUnit: 'ml' };
+  if ((foodType === '甜品' || category === '甜品') && unit === '块') return { min: 80, max: 200, typical: 120, referenceUnit: 'g' };
+  if (category === '肉类' && unit === '片') return { min: 10, max: 80, typical: 30, referenceUnit: 'g' };
+  if (category === '肉类' && unit === '块') return { min: 30, max: 200, typical: 100, referenceUnit: 'g' };
+  if (category === '肉类' && unit === '份') return { min: 80, max: 350, typical: 150, referenceUnit: 'g' };
+  return null;
+}
+
+function validateAIReferenceMeasure({ name, category, foodType, unit, amount, referenceAmount, referenceUnit }) {
+  const rule = getAIReferenceRule(name, category, foodType, unit);
+  const count = Math.max(1, Math.round(Number(amount) || 1));
+  let value = Number(referenceAmount);
+  let refUnit = String(referenceUnit || (foodType === '饮品' ? 'ml' : 'g')).toLowerCase();
+  if (refUnit === 'kg') { value *= 1000; refUnit = 'g'; }
+  if (refUnit === 'l') { value *= 1000; refUnit = 'ml'; }
+  if (!rule) return { referenceAmount: Number.isFinite(value) && value > 0 ? roundNumber(value) : 0, referenceUnit: refUnit, aiReferenceAdjusted: false };
+  const min = rule.min * count;
+  const max = rule.max * count;
+  const invalid = refUnit !== rule.referenceUnit || !Number.isFinite(value) || value < min || value > max;
+  return {
+    referenceAmount: invalid ? roundNumber(rule.typical * count) : roundNumber(value),
+    referenceUnit: rule.referenceUnit,
+    aiReferenceAdjusted: invalid,
+  };
+}
 
 const COMPLEX_FOOD_RULES = [
   {
     match: ['螺蛳粉', '螺蛤粉'],
     name: '螺蛳粉',
-    unit: '1份（普通一份）',
+    unit: '份',
     portionAmount: 500,
     portionUnit: 'g',
     estimateReason: '基于普通一份螺蛳粉估算，包含米粉、汤底、油包、腐竹等主要组成，实际热量受配料和油量影响。',
@@ -30,13 +93,13 @@ const COMPLEX_FOOD_RULES = [
     fib: 5,
     confidence: 'medium',
   },
-  { match: ['麻辣烫', '冒菜'], cal: 750, min: 550, max: 1000, carb: 55, pro: 28, fat: 45, fib: 8, confidence: 'medium', portionAmount: 600, portionUnit: 'g', estimateReason: '按常见一份麻辣烫估算，考虑汤底、丸类、肉菜和调味油，实际热量受选菜和油量影响。' },
+  { match: ['麻辣烫', '麻辣香锅', '冒菜'], cal: 750, min: 550, max: 1000, carb: 55, pro: 28, fat: 45, fib: 8, confidence: 'medium', portionAmount: 600, portionUnit: 'g', estimateReason: '按常见一份麻辣类菜品估算，考虑肉菜、酱料和调味油，实际热量受选菜和油量影响。' },
   { match: ['火锅'], cal: 900, min: 650, max: 1300, carb: 50, pro: 40, fat: 60, fib: 8, confidence: 'low', portionAmount: 700, portionUnit: 'g', estimateReason: '火锅热量受锅底、蘸料和食材选择影响较大，该值按常见单人一餐估算。' },
   { match: ['炒饭', '蛋炒饭', '扬州炒饭'], cal: 620, min: 450, max: 850, carb: 80, pro: 18, fat: 24, fib: 3, confidence: 'medium', portionAmount: 350, portionUnit: 'g', estimateReason: '按常见一份炒饭估算，考虑米饭、鸡蛋、配菜和炒制用油，实际热量受油量影响。' },
   { match: ['炒面', '炒粉', '炒河粉'], cal: 650, min: 480, max: 900, carb: 85, pro: 18, fat: 26, fib: 4, confidence: 'medium', portionAmount: 350, portionUnit: 'g', estimateReason: '按常见一份炒制主食估算，热量主要来自面粉类主食和炒制用油。' },
   { match: ['炸鸡', '鸡排', '炸鸡排', '鸡柳', '炸鸡柳'], cal: 620, min: 450, max: 900, carb: 35, pro: 32, fat: 38, fib: 2, confidence: 'medium', portionAmount: 250, portionUnit: 'g', estimateReason: '该估算考虑油炸过程带来的额外脂肪，实际热量受裹粉厚度和份量影响。' },
   { match: ['汉堡', '鸡腿堡', '牛肉堡'], cal: 560, min: 420, max: 750, carb: 45, pro: 24, fat: 30, fib: 3, confidence: 'medium', portionAmount: 220, portionUnit: 'g', estimateReason: '按常见一个汉堡估算，包含面包、肉饼、酱料和配菜，实际热量受酱料和规格影响。' },
-  { match: ['奶茶', '杨枝甘露', '生椰拿铁', '伯牙绝弦'], cal: 430, min: 250, max: 700, carb: 60, pro: 6, fat: 18, fib: 1, confidence: 'low', portionAmount: 500, portionUnit: 'ml', estimateReason: '按常规杯饮品估算，实际热量主要受糖量、奶底、配料和杯型大小影响。' },
+  { match: ['奶茶', '啵啵', '杨枝甘露', '生椰拿铁', '奥利奥酸奶', '伯牙绝弦'], cal: 430, min: 250, max: 700, carb: 60, pro: 6, fat: 18, fib: 1, confidence: 'low', portionAmount: 500, portionUnit: 'ml', estimateReason: '按常规杯饮品估算，实际热量主要受糖量、奶底、配料和杯型大小影响。' },
   { match: ['盖浇饭', '饭套餐', '外卖套餐', '套餐'], cal: 780, min: 600, max: 1100, carb: 95, pro: 30, fat: 30, fib: 6, confidence: 'low', portionAmount: 600, portionUnit: 'g', estimateReason: '按常见外卖套餐估算，包含主食、菜肴和酱汁，实际热量受油量和配菜影响。' },
   { match: ['手抓饼', '鸡蛋灌饼', '煎饼果子', '烤冷面'], cal: 560, min: 420, max: 750, carb: 60, pro: 18, fat: 28, fib: 3, confidence: 'medium', portionAmount: 260, portionUnit: 'g', estimateReason: '按常见一份街边主食估算，考虑饼皮、鸡蛋、酱料和煎制用油。' },
   { match: ['酸辣粉', '米线', '米粉'], cal: 580, min: 430, max: 800, carb: 85, pro: 14, fat: 20, fib: 4, confidence: 'medium', portionAmount: 500, portionUnit: 'g', estimateReason: '按常见一碗粉类主食估算，包含粉、汤底、调味油和少量配菜。' },
@@ -117,12 +180,41 @@ function normalizeFood(data) {
   const carbs = toNumber(src.carb ?? src.carbs ?? src.carbohydrate);
   const fat = toNumber(src.fat);
   const fiber = toNumber(src.fib ?? src.fiber);
+  const foodType = String(src.foodType || src.type || detectFoodType(name, src.cat || src.category)).trim() || '其他';
+  const category = String(src.category || src.cat || (foodType === '菜品' ? '菜肴' : foodType === '其他' ? '其他' : foodType)).trim();
+  const inferredPortionAmount = portionAmount || (foodType === '饮品' ? 500 : foodType === '甜品' ? 120 : foodType === '菜品' ? 300 : 100);
+  const referenceUnit = foodType === '饮品' || portionUnit === 'ml' ? 'ml' : 'g';
+  const inferredUnit = inferFoodUnit(name, foodType, referenceUnit, category);
+  const suppliedUnit = String(src.unit || '').trim();
+  const allowedUnits = foodType === '饮品' ? ['杯', '瓶'] : category === '水果' ? ['个', '颗', '根'] : ['杯', '瓶', '块', '份', '碗', '个', '颗', '根', '片'];
+  const unit = allowedUnits.includes(suppliedUnit) ? suppliedUnit : inferredUnit;
+  const rawAmount = Number(src.amount);
+  const amount = Math.max(1, Math.round(Number.isFinite(rawAmount) && rawAmount > 0 && rawAmount <= 50 ? rawAmount : 1));
+  const reference = validateAIReferenceMeasure({
+    name,
+    category,
+    foodType,
+    unit,
+    amount,
+    referenceAmount: toNumber(src.referenceAmount) || inferredPortionAmount,
+    referenceUnit,
+  });
 
   return {
     name,
     source: 'ai',
-    cat: 'AI估算',
-    unit: String(src.unit || src.serving || src.portion || '份').trim() || '份',
+    category,
+    cat: category,
+    foodType,
+    type: foodType,
+    unit,
+    amount,
+    referenceAmount: reference.referenceAmount,
+    referenceUnit: reference.referenceUnit,
+    aiReferenceAdjusted: reference.aiReferenceAdjusted,
+    measureModelVersion: 2,
+    defaultAmount: amount,
+    defaultUnit: unit,
     cal: calories,
     calories,
     estimatedCalories: calories,
@@ -130,9 +222,11 @@ function normalizeFood(data) {
     calorieMax: calorieMax || calories,
     confidence: normalizeConfidence(src.confidence, calorieMin && calorieMax && calorieMin !== calorieMax ? 'medium' : 'high'),
     estimateReason: clampReason(src.estimateReason, ESTIMATE_REASON_TEMPLATES.composite),
-    portionText: String(src.portionText || src.portion_text || '').trim(),
-    portionAmount,
-    portionUnit,
+    portionText: reference.aiReferenceAdjusted
+      ? buildPortionText({ portionAmount: reference.referenceAmount, portionUnit: reference.referenceUnit })
+      : String(src.portionText || src.portion_text || '').trim(),
+    portionAmount: reference.referenceAmount,
+    portionUnit: reference.referenceUnit,
     carb: carbs,
     carbs,
     pro: protein,
@@ -140,9 +234,9 @@ function normalizeFood(data) {
     fat,
     fib: fiber,
     fiber,
-    base_amount: portionAmount,
+    base_amount: reference.referenceAmount,
     estimateVersion: FOOD_AI_VERSION,
-    quantity: 1,
+    quantity: amount,
   };
 }
 
@@ -155,7 +249,8 @@ function applyComplexFoodGuard(food, query) {
     return {
       ...food,
       source: 'ai',
-      cat: 'AI估算',
+      category: food.category || food.cat || '其他',
+      cat: food.category || food.cat || '其他',
       calories: food.cal,
       protein: food.pro,
       carbs: food.carb,
@@ -167,6 +262,14 @@ function applyComplexFoodGuard(food, query) {
       portionText: food.portionText || buildPortionText({ portionAmount, portionUnit }),
       estimateReason: clampReason(food.estimateReason, ESTIMATE_REASON_TEMPLATES.composite),
       estimateVersion: FOOD_AI_VERSION,
+      foodType: food.foodType || detectFoodType(food.name, food.cat),
+      type: food.foodType || detectFoodType(food.name, food.cat),
+      unit: food.unit || inferFoodUnit(food.name, food.foodType, portionUnit, food.category || food.cat),
+      amount: Number(food.amount) || 1,
+      referenceAmount: Number(food.referenceAmount) || portionAmount,
+      referenceUnit: food.referenceUnit || portionUnit,
+      measureModelVersion: 2,
+      defaultAmount: Number(food.amount) || 1,
     };
   }
 
@@ -181,8 +284,17 @@ function applyComplexFoodGuard(food, query) {
 
   next.name = next.name || rule.name || food.name;
   next.source = 'ai';
-  next.cat = 'AI估算';
-  next.unit = explicitAmount ? formatAmount(explicitAmount.amount, explicitAmount.unit) : `常规份量（约${formatAmount(portionAmount, portionUnit)}）`;
+  next.category = next.category || (next.foodType === '菜品' ? '菜肴' : next.foodType);
+  next.cat = next.category;
+  next.foodType = next.foodType || detectFoodType(next.name, next.cat);
+  next.type = next.foodType;
+  next.unit = inferFoodUnit(next.name, next.foodType, portionUnit, next.category);
+  next.amount = Math.max(1, Math.round(Number(next.amount) || 1));
+  next.referenceAmount = portionAmount;
+  next.referenceUnit = next.foodType === '饮品' || portionUnit === 'ml' ? 'ml' : 'g';
+  next.measureModelVersion = 2;
+  next.defaultAmount = next.amount;
+  next.defaultUnit = next.unit;
   next.cal = Math.round(guardedCalories || rule.cal);
   next.calories = next.cal;
   next.estimatedCalories = next.cal;
@@ -355,11 +467,15 @@ export async function onRequestPost(context) {
 7. 不要因为结果是“约”“估计”“常见份量”而返回失败；饮食记录允许估算。
 
 识别优先级：
-1. 明确品牌/具体产品且有常见数据：使用该产品常见数据。
-2. 没有精确产品数据：按同类食品、常见配方和常见份量合理估算。
-3. 普通菜肴：按中国大陆常见做法和常见一份重量估算。
-4. 街边小吃、烧烤、炸串、夜宵：按常见单份或单串/单根重量估算。
-5. 食物名称存在多个叫法：按中国大陆最常见含义理解。
+1. 优先理解用户输入的完整名称，不要把复合饮品、甜品或菜品拆成单个基础食材。
+2. 明确品牌/具体产品且有常见数据：使用该产品常见数据。
+3. 没有精确产品数据：按同类食品、常见配方和常见份量合理估算。
+4. 普通菜肴：按中国大陆常见做法和常见一份重量估算。
+5. 街边小吃、烧烤、炸串、夜宵：按常见单份或单串/单根重量估算。
+6. 食物名称存在多个叫法：按中国大陆最常见含义理解。
+
+食物类型判断：
+饮品关键词包括奶茶、啵啵、拿铁、咖啡、果茶、冰饮、酸奶、奶昔、茶；甜品关键词包括蛋糕、布丁、冰淇淋、蛋挞、泡芙；菜品关键词包括炒、焖、煮、汤、饭、面、粉。命中时返回对应 foodType。
 
 基础食物处理：
 米饭、鸡蛋、牛奶、玉米、鸡胸肉、苹果等基础食材可以按常见营养数据库估算，confidence 可为 high。
@@ -398,12 +514,20 @@ export async function onRequestPost(context) {
 只允许返回 JSON，不要解释，不要 Markdown，不要代码块。
 
 如果能识别或能合理估算，必须返回：
-{"found":true,"name":"食物名称","source":"ai","unit":"常见标准份量","portionText":"AI估算 · 常规份量（约500g）","portionAmount":数字,"portionUnit":"g或ml","estimatedCalories":数字,"calories":数字,"calorieMin":数字,"calorieMax":数字,"confidence":"high|medium|low","estimateReason":"不超过80字的估算说明","cal":数字,"carb":数字,"carbs":数字,"pro":数字,"protein":数字,"fat":数字,"fib":数字,"fiber":数字}
+{"found":true,"name":"食物名称","source":"ai","category":"饮品|甜品|菜肴|水果|主食|肉类|其他","foodType":"饮品|甜品|菜品|其他","unit":"杯|瓶|块|份|碗|个|颗|根|片","amount":数字,"referenceAmount":数字,"referenceUnit":"g或ml","portionText":"AI估算 · 常规份量（约500ml）","portionAmount":数字,"portionUnit":"g或ml","estimatedCalories":数字,"calories":数字,"calorieMin":数字,"calorieMax":数字,"confidence":"high|medium|low","estimateReason":"不超过80字的估算说明","cal":数字,"carb":数字,"carbs":数字,"pro":数字,"protein":数字,"fat":数字,"fib":数字,"fiber":数字}
 
 字段规则：
 name 必须是有效食物名称。
 source 固定返回 "ai"。
-unit 必须有值。用户未提供重量时，可以使用“常规份量（约500g）”或“常见一份”。
+foodType 必须根据完整食物名称返回饮品、甜品、菜品或其他。
+category 必须是食物类别；菜品使用“菜肴”。
+unit 是用户数数量时使用的自然计量单位，绝不能拼接重量或容量。
+amount 是 unit 对应的初始数量。杯、瓶、块、份、碗、个、颗、根、片等离散单位必须返回整数。
+referenceAmount 和 referenceUnit 是该份食物的参考重量或容量，与 amount 分开返回。
+饮品优先返回 unit=杯或瓶、amount=1、referenceUnit=ml；禁止饮品使用“块”，禁止把 g 作为饮品默认展示单位。
+水果优先使用个、颗、根；甜品优先使用块、份；主食优先使用碗、份、个；肉类优先使用块、片、份。
+不要所有食物都返回“份”或“克”。例如草莓返回 amount=10、unit=颗、referenceAmount=150、referenceUnit=g；奶茶返回 amount=1、unit=杯、referenceAmount=500、referenceUnit=ml；蛋糕返回 amount=1、unit=块、referenceAmount=120、referenceUnit=g。
+返回前必须检查单个自然单位的重量是否合理：草莓/圣女果每颗约10-20g，香蕉每根约80-150g，饮品每杯约300-700ml，甜品每块约80-200g。若视觉估算超出范围，保留 amount 和 unit，并把 referenceAmount 修正到常见范围；例如圣女果6颗600g应修正为约90g。
 portionText 用于界面展示，必须符合“AI估算 · 常规份量（约500g）”“按输入重量估算 · 400g”“AI估算 · 常见一份”之一。
 portionAmount 是估算份量数值，无法判断时可为 0；portionUnit 使用 g 或 ml。
 estimatedCalories 是推荐用于展示的估算热量；cal 必须等于 estimatedCalories，用于兼容旧字段。

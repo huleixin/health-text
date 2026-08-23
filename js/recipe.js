@@ -1,4 +1,4 @@
-/* Phase 4 extracted module — globals shared with index.html */
+﻿/* Phase 4 extracted module — globals shared with index.html */
 const AI_SMART_RECIPE_CACHE_KEY = 'healthTrackerSmartRecipeAI_v1';
 
 /* Smart Recipe — schema version & preference defaults (P1, no AI) */
@@ -172,7 +172,7 @@ function normalizeSmartRecipeForUI(raw,source='local'){
     return {name:String(item?.name||item?.food||'').trim(),amount:item?.amount??'',unit:String(item?.unit||'')};
   }).filter(item=>item.name);
   if(!String(raw.title||'').trim()) return null;
-  return {
+  const recipe={
     id:raw.id||`${source}_${Date.now().toString(36)}`,
     title:String(raw.title||'').trim(),
     mealType:MEAL_KEYS.includes(raw.mealType)?raw.mealType:getSmartRecipeCurrentMeal(),
@@ -192,6 +192,7 @@ function normalizeSmartRecipeForUI(raw,source='local'){
     adjustment:String(raw.adjustment||'').trim(),
     source:raw.source||source
   };
+  return recipe;
 }
 function getSmartRecipeLinkContext(profile,date=currentViewDate,snap,cs){
   if(!profile) return null;
@@ -381,12 +382,24 @@ function recipeIngredientsToFoodDraft(recipe){
     const grams=gramsList[index]||80;
     const local=findLocalFoodByName(name);
     if(local){
+      const itemUnit=normalizeMeasureUnit(item?.unit||'');
+      const isDirectUnit=FOOD_RECORD_MEASURE_UNITS.includes(itemUnit);
+      const directAmount=Number(item?.amount);
+      const unit=isDirectUnit?itemUnit:local.unit;
+      const amount=isDirectUnit&&directAmount>0
+        ?(isDiscreteFoodMeasureUnit(unit)?Math.max(1,Math.round(directAmount)):directAmount)
+        :local.amount;
       return prepareFoodPortion({
         ...local,
         name,
-        amount:grams,
+        unit,
+        amount,
+        referenceAmount:grams,
+        referenceUnit:itemUnit==='ml'?'ml':'g',
+        referenceMode:'manual',
+        measureModelVersion:2,
         source:'recipe',
-        source_unit:local.unit||`${grams}g`
+        source_unit:unit
       });
     }
     const share=grams/totalGrams;
@@ -397,6 +410,9 @@ function recipeIngredientsToFoodDraft(recipe){
       source:'recipe',
       base_amount:grams,
       amount:grams,
+      referenceAmount:grams,
+      referenceUnit:'g',
+      measureModelVersion:2,
       cal:roundFoodValue((nutrition.calories||0)*share,1),
       pro:roundFoodValue((nutrition.protein||0)*share,1),
       fat:roundFoodValue((nutrition.fat||0)*share,1),
@@ -418,16 +434,13 @@ function openFoodDraftFromRecipe(recipe){
   foodDraftSession={mode:'search',phase:'review',editingIndex:null,pendingFood:null,recordDate:currentViewDate,fromRecipe:true};
   mealSelectionTouched=true;
   currentMeal=MEAL_KEYS.includes(recipe.mealType)?recipe.mealType:getSmartRecipeCurrentMeal();
-  const modal=document.getElementById('quickActionModal');
-  const titleEl=document.getElementById('quickActionTitle');
-  if(!modal||!titleEl){
+  if(typeof openFoodSubPage!=='function'){
     showToast('无法打开记录确认页','error');
     return;
   }
-  modal.dataset.quickAction='food-search';
-  titleEl.textContent='记录这餐';
-  openQuickActionModal();
-  renderFoodDraftShell();
+  openFoodSubPage(typeof FOOD_SUBPAGE_IDS!=='undefined'?FOOD_SUBPAGE_IDS.SEARCH:'food_search','记录这餐',{
+    render(shell){renderFoodDraftShell(shell);}
+  });
 }
 window.openFoodDraftFromRecipe=openFoodDraftFromRecipe;
 function ensureSmartRecipeCard(healthGrid,managementSection){
@@ -499,6 +512,7 @@ function closeSmartRecipeDetail(){
   const tab=smartRecipeDetailState?.returnTab||'today';
   const returnPage=smartRecipeDetailState?.returnPage||'smart-recipe';
   smartRecipeDetailState=null;
+  srGalleryRuntime=null;
   if(returnPage==='smart-recipe'){
     smartRecipeActiveTab=['today','ingredients','search','favorites'].includes(tab)?tab:'today';
     switchAppPage('smart-recipe');

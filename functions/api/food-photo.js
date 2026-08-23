@@ -10,7 +10,7 @@
  *   - prompt: the text prompt for food recognition
  *   - image:  base64 data URL of the photo (e.g. "data:image/jpeg;base64,...")
  *
- * Response: { text: string } | { error: string }
+ * Response: { text: string, meta?: object } | { error: string }
  */
 
 import {
@@ -30,7 +30,15 @@ function logFoodPhoto(meta) {
   console.log('[food-photo]', {
     provider: meta.provider,
     fallback: !!meta.fallback,
+    reason: meta.reason || '',
     ms: meta.ms,
+  });
+}
+
+function logFoodAIFallback(reason, provider) {
+  console.log('[FoodAI-Fallback]', {
+    reason: String(reason || ''),
+    provider: String(provider || ''),
   });
 }
 
@@ -56,48 +64,29 @@ function parseFoodPhotoJsonArray(text) {
   }
 }
 
-function getItemCalories(item) {
-  return (
-    item?.calories_per_100g ??
-    item?.calPer100g ??
-    item?.caloriesPer100g ??
-    item?.calories ??
-    item?.cal
-  );
-}
-
-function isValidCalories(value) {
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0;
-}
-
-function validateFoodPhotoAIResponse(text) {
+/**
+ * Soft accept for primary model: only reject empty/unparseable responses.
+ * Do NOT fallback for missing optional nutrition fields — frontend fills defaults.
+ */
+function isUsableFoodPhotoResponse(text) {
   const content = String(text || '').trim();
   if (!content) return false;
 
   const items = parseFoodPhotoJsonArray(content);
   if (items === null) return false;
-
-  // Empty array is a valid business outcome; frontend handles it without fallback.
   if (items.length === 0) return true;
-
   if (items.length > 20) return false;
 
-  for (const item of items) {
+  return items.some((item) => {
     if (!item || typeof item !== 'object') return false;
-
-    const name = String(item.food || item.name || '').trim();
-    if (!name) return false;
-
-    if (!isValidCalories(getItemCalories(item))) return false;
-  }
-
-  return true;
+    return !!String(item.food || item.name || '').trim();
+  });
 }
 
 function buildFoodPhotoRequestBody(prompt, image) {
   return {
-    max_tokens: 1400,
+    max_tokens: 800,
+    temperature: 0.2,
     messages: [
       {
         role: 'user',
@@ -114,6 +103,7 @@ async function callFoodPhotoAI(context, prompt, image) {
   const startedAt = Date.now();
   const requestBody = buildFoodPhotoRequestBody(prompt, image);
   let usedFallback = false;
+  let fallbackReason = '';
 
   if (getDoubaoApiKey(context)) {
     const doubaoResult = await callDoubao(context, {
@@ -122,16 +112,36 @@ async function callFoodPhotoAI(context, prompt, image) {
       thinking: { type: 'disabled' },
     });
 
-    if (doubaoResult.ok && validateFoodPhotoAIResponse(doubaoResult.text)) {
+    if (doubaoResult.ok && isUsableFoodPhotoResponse(doubaoResult.text)) {
       logFoodPhoto({
         provider: 'doubao',
         fallback: false,
         ms: Date.now() - startedAt,
       });
-      return { ok: true, text: doubaoResult.text };
+      return {
+        ok: true,
+        text: doubaoResult.text,
+        meta: {
+          provider: 'doubao',
+          fallback: false,
+          ms: Date.now() - startedAt,
+        },
+      };
     }
 
     usedFallback = true;
+    if (!doubaoResult.ok) {
+      fallbackReason =
+        doubaoResult.error ||
+        (doubaoResult.status === 504 ? 'timeout' : 'api_error');
+    } else {
+      fallbackReason = 'unparseable';
+    }
+    logFoodAIFallback(fallbackReason, 'doubao');
+  } else {
+    usedFallback = true;
+    fallbackReason = 'doubao_unavailable';
+    logFoodAIFallback(fallbackReason, 'doubao');
   }
 
   const model = getDashScopeModel(context);
@@ -144,6 +154,7 @@ async function callFoodPhotoAI(context, prompt, image) {
   logFoodPhoto({
     provider: 'qwen',
     fallback: usedFallback,
+    reason: fallbackReason,
     ms: Date.now() - startedAt,
   });
 
@@ -151,7 +162,16 @@ async function callFoodPhotoAI(context, prompt, image) {
     return { ok: false, error: qwenResult.error, status: qwenResult.status };
   }
 
-  return { ok: true, text: qwenResult.text };
+  return {
+    ok: true,
+    text: qwenResult.text,
+    meta: {
+      provider: 'qwen',
+      fallback: usedFallback,
+      reason: fallbackReason,
+      ms: Date.now() - startedAt,
+    },
+  };
 }
 
 export async function onRequestOptions() {
@@ -174,7 +194,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: result.error }, result.status);
     }
 
-    return jsonResponse({ text: result.text });
+    return jsonResponse({ text: result.text, meta: result.meta || null });
   } catch (err) {
     return jsonResponse(
       { error: err?.message || 'AI拍照识别暂时不可用' },

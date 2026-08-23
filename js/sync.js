@@ -41,25 +41,6 @@ let _lastSyncDataHash = '';       // 优化2：上次成功同步的数据hash�
 let _syncDataCache = null;        // 优化5：缓存的sync payload，避免重复深拷贝+normalize
 let _syncDataCacheHash = '';      // 优化5：缓存数据对应的hash
 let _syncDataCacheDirty = true;   // 优化5：缓存是否需要重建
-function loadPreferCloudModeOnNextSyncCode(){
-  try{return (localStorage.getItem(PENDING_SYNC_CODE_STORAGE_KEY)||'').trim()}
-  catch(e){return ''}
-}
-function rememberPreferCloudModeOnNextSyncCode(code){
-  _preferCloudModeOnNextSyncCode=String(code||'').trim();
-  try{
-    if(_preferCloudModeOnNextSyncCode) localStorage.setItem(PENDING_SYNC_CODE_STORAGE_KEY,_preferCloudModeOnNextSyncCode);
-    else localStorage.removeItem(PENDING_SYNC_CODE_STORAGE_KEY);
-  }catch(e){}
-}
-function clearPreferCloudModeOnNextSyncCode(code){
-  const normalized=String(code||'').trim();
-  if(_preferCloudModeOnNextSyncCode===normalized) _preferCloudModeOnNextSyncCode='';
-  try{
-    if((localStorage.getItem(PENDING_SYNC_CODE_STORAGE_KEY)||'')===normalized) localStorage.removeItem(PENDING_SYNC_CODE_STORAGE_KEY);
-  }catch(e){}
-}
-let _preferCloudModeOnNextSyncCode=loadPreferCloudModeOnNextSyncCode(); // 更换同步码时，Existing空间Mode仅在下一次合并中优先
 function invalidateSyncDataCache(){ _syncDataCacheDirty = true; }
 function getSyncDataHash(){
   if(_syncDataCacheDirty || !_syncDataCache) getSyncData();
@@ -88,23 +69,6 @@ function getCloudConfig(){
 function isCloudConfigured(){
   const c = getCloudConfig();
   return !!(c.familyCode && c.familyCode.length >= 1);
-}
-
-function buildRestUrl(path){
-  let base = EMBEDDED_CLOUD_CONFIG.url.replace(/\/+$/,'');
-  if(!base.includes('/rest/v1')){
-    base = base + '/rest/v1';
-  }
-  return base + path;
-}
-
-function getRestHeaders(extra){
-  const h = {
-    'apikey': EMBEDDED_CLOUD_CONFIG.anonKey,
-    'Authorization': 'Bearer ' + EMBEDDED_CLOUD_CONFIG.anonKey,
-    'Content-Type': 'application/json'
-  };
-  return Object.assign(h, extra || {});
 }
 
 function updateSyncStatus(status, text){
@@ -278,6 +242,54 @@ function syncProfileBasics(localProfile,cloudProfile){
   });
 }
 
+function countSyncRecordStats(data){
+  const profiles=data?.profiles||[];
+  const stats={
+    profiles:profiles.length,
+    weight:0,food:0,exercise:0,steps:0,sleep:0,water:0,
+    ledgerExpenses:0,
+    byProfile:[]
+  };
+  profiles.forEach(p=>{
+    const row={
+      id:p.id,
+      profile_id:typeof getProfileDataId==='function'?getProfileDataId(p):(p.profile_id||''),
+      name:p.name||'',
+      weight:(p.weightRecords||[]).length,
+      food:(p.foodRecords||[]).length,
+      exercise:(p.exerciseRecords||[]).length,
+      steps:(p.stepsRecords||[]).length,
+      sleep:(p.sleepRecords||[]).length,
+      water:(p.waterRecords||[]).length
+    };
+    stats.weight+=row.weight;
+    stats.food+=row.food;
+    stats.exercise+=row.exercise;
+    stats.steps+=row.steps;
+    stats.sleep+=row.sleep;
+    stats.water+=row.water;
+    stats.byProfile.push(row);
+  });
+  const ledger=data?.coupleSpace?.ledger;
+  stats.ledgerExpenses=Array.isArray(ledger?.expenses)?ledger.expenses.length:0;
+  return stats;
+}
+function findMergeLocalProfile(mergedProfiles,cloudProfile){
+  if(!cloudProfile) return null;
+  // Prefer stable shared identity (profile_A / profile_B). Runtime id (p1/p2) can differ across devices.
+  const cloudDataId=typeof getProfileDataId==='function'
+    ?getProfileDataId(cloudProfile)
+    :String(cloudProfile.profile_id||'');
+  if(cloudDataId){
+    const byDataId=(mergedProfiles||[]).find(p=>{
+      const localDataId=typeof getProfileDataId==='function'?getProfileDataId(p):String(p.profile_id||'');
+      return localDataId&&localDataId===cloudDataId;
+    });
+    if(byDataId) return byDataId;
+  }
+  return (mergedProfiles||[]).find(p=>p.id&&p.id===cloudProfile.id)||null;
+}
+
 // Merge cloud data into local state
 function mergeCloudData(cloudState,{preferCloudMode=false}={}){
   if(!cloudState || !cloudState.profiles) return state;
@@ -309,8 +321,10 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
     return (Array.isArray(keys)?keys:[keys]).some(k=>s.has(k));
   };
 
+  const mergeMatchLog=[];
   cloudState.profiles.forEach(cloudProfile => {
-    let localProfile = merged.profiles.find(p => p.id === cloudProfile.id);
+    let localProfile = findMergeLocalProfile(merged.profiles,cloudProfile);
+    const cloudDataId=typeof getProfileDataId==='function'?getProfileDataId(cloudProfile):(cloudProfile.profile_id||'');
     if(!localProfile){
       // Profile doesn't exist locally, add it
       const cloned=JSON.parse(JSON.stringify(cloudProfile));
@@ -321,8 +335,18 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
       cloned.sleepRecords=(cloned.sleepRecords||[]).filter(r=>!isDeleted('sleep',r.id));
       cloned.waterRecords=(cloned.waterRecords||[]).filter(r=>!isDeleted('water',r.id));
       merged.profiles.push(cloned);
+      mergeMatchLog.push({action:'add',cloudId:cloudProfile.id,cloudDataId,cloudFood:(cloudProfile.foodRecords||[]).length});
       return;
     }
+    mergeMatchLog.push({
+      action:'merge',
+      localId:localProfile.id,
+      cloudId:cloudProfile.id,
+      dataId:cloudDataId||(typeof getProfileDataId==='function'?getProfileDataId(localProfile):localProfile.profile_id),
+      idMismatch:localProfile.id!==cloudProfile.id,
+      beforeFood:(localProfile.foodRecords||[]).length,
+      cloudFood:(cloudProfile.foodRecords||[]).length
+    });
 
     // Profile basic information is shared cloud data. Use profileUpdatedAt to avoid
     // overwriting a newer local profile edit during pull -> merge -> push.
@@ -333,7 +357,7 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
     const weightKey=r=>`${localProfile.id}_${getRecordTime(r)}_${r.weight}`;
     localProfile.weightRecords=(localProfile.weightRecords||[]).filter(r=>!isDeleted('weight',weightDeleteKeys(r,localProfile.id)));
     localProfile.weightRecords.forEach(r => weightMap.set(weightKey(r), r));
-    cloudProfile.weightRecords.forEach(r => {
+    (cloudProfile.weightRecords||[]).forEach(r => {
       const key=weightKey(r);
       if(!weightMap.has(key) && !isDeleted('weight',weightDeleteKeys(r,localProfile.id))){
         weightMap.set(key, r);
@@ -347,7 +371,7 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
     localProfile.foodRecords.forEach(r => foodMap.set(r.id || (r.date+'_'+r.meal), r));
     (cloudProfile.foodRecords || []).forEach(r => {
       const key = r.id || (r.date+'_'+r.meal);
-      if(!foodMap.has(key) && !isDeleted('food',key)){
+      if(!foodMap.has(key) && !isDeleted('food',key) && !isDeleted('food',r.id)){
         foodMap.set(key, r);
       }
     });
@@ -358,7 +382,7 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
     localProfile.exerciseRecords=(localProfile.exerciseRecords||[]).filter(r=>!isDeleted('exercise',r.id));
     localProfile.exerciseRecords.forEach(r => exMap.set(r.id, r));
     (cloudProfile.exerciseRecords || []).forEach(r => {
-      if(!exMap.has(r.id) && !isDeleted('exercise',r.id)){
+      if(r?.id && !exMap.has(r.id) && !isDeleted('exercise',r.id)){
         exMap.set(r.id, r);
       }
     });
@@ -370,7 +394,7 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
     localProfile.stepsRecords=(localProfile.stepsRecords).filter(r=>!isDeleted('steps',r.id));
     localProfile.stepsRecords.forEach(r=>stepsMap.set(r.id,r));
     (cloudProfile.stepsRecords||[]).forEach(r=>{
-      if(!stepsMap.has(r.id)&&!isDeleted('steps',r.id)) stepsMap.set(r.id,r);
+      if(r?.id && !stepsMap.has(r.id)&&!isDeleted('steps',r.id)) stepsMap.set(r.id,r);
     });
     localProfile.stepsRecords=Array.from(stepsMap.values());
 
@@ -380,7 +404,7 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
     localProfile.sleepRecords=(localProfile.sleepRecords).filter(r=>!isDeleted('sleep',r.id));
     localProfile.sleepRecords.forEach(r=>sleepMap.set(r.id,r));
     (cloudProfile.sleepRecords||[]).forEach(r=>{
-      if(!sleepMap.has(r.id)&&!isDeleted('sleep',r.id)) sleepMap.set(r.id,r);
+      if(r?.id && !sleepMap.has(r.id)&&!isDeleted('sleep',r.id)) sleepMap.set(r.id,r);
     });
     localProfile.sleepRecords=Array.from(sleepMap.values());
 
@@ -390,7 +414,7 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
     localProfile.waterRecords=(localProfile.waterRecords).filter(r=>!isDeleted('water',r.id));
     localProfile.waterRecords.forEach(r=>waterMap.set(r.id,r));
     (cloudProfile.waterRecords||[]).forEach(r=>{
-      if(!waterMap.has(r.id)&&!isDeleted('water',r.id)) waterMap.set(r.id,r);
+      if(r?.id && !waterMap.has(r.id)&&!isDeleted('water',r.id)) waterMap.set(r.id,r);
     });
     localProfile.waterRecords=Array.from(waterMap.values());
 
@@ -421,6 +445,8 @@ function mergeCloudData(cloudState,{preferCloudMode=false}={}){
   merged.deletedRecords = deletedRecords;
 
   detachLargeAvatarsFromData(merged);
+  console.info('[SyncDiag] merge match', mergeMatchLog);
+  console.info('[SyncDiag] merge result counts', countSyncRecordStats(merged));
   return merged;
 }
 
@@ -459,7 +485,35 @@ async function syncNow(silent,{force=true}={}){
   const preferCloudModeForThisSync=_preferCloudModeOnNextSyncCode===syncFamilyCode;
   _syncPromise = (async () => {
     let mergedFromCloud = false;
+    let skippedCloudMerge=false;
+    let skipReason='';
     let _downloadBytes=0, _uploadBytes=0, _downloadMs=0, _uploadMs=0, _mergeMs=0;
+    const beforeStats=countSyncRecordStats(state);
+    const storageOrigin=(()=>{
+      try{return location.origin||location.protocol||'unknown'}catch(_){return 'unknown'}
+    })();
+    const localKeys=(()=>{
+      try{
+        const keys=[];
+        for(let i=0;i<localStorage.length;i++){
+          const k=localStorage.key(i)||'';
+          if(k.startsWith('healthTracker')||k==='currentViewDate'||k==='theme') keys.push(k);
+        }
+        return keys.sort();
+      }catch(_){return []}
+    })();
+    console.info('[SyncDiag] before sync', {
+      familyCode:syncFamilyCode,
+      storageKey:typeof STORAGE_KEY!=='undefined'?STORAGE_KEY:'healthTrackerData_v2',
+      storageOrigin,
+      isFileProtocol:String(storageOrigin).startsWith('file:'),
+      localStorageKeys:localKeys,
+      lastLocalClearAt:state.lastLocalClearAt||null,
+      preferCloudMode:preferCloudModeForThisSync,
+      activeProfileId:state.activeProfileId,
+      current_profile_id:state.current_profile_id,
+      counts:beforeStats
+    });
     try{
       // Step 1: Pull cloud data
       const pullResult = await pullFromCloud(syncFamilyCode);
@@ -472,12 +526,29 @@ async function syncNow(silent,{force=true}={}){
       }
       _downloadMs=pullResult.downloadMs||0;
       _downloadBytes=pullResult.downloadBytes||0;
+      const cloudStats=pullResult.data?countSyncRecordStats(pullResult.data):null;
+      console.info('[SyncDiag] after download', {
+        hasCloudRow:!!pullResult.row,
+        cloudUpdatedAt:pullResult.row?.updated_at||null,
+        downloadBytes:_downloadBytes,
+        cloudCounts:cloudStats,
+        cloudProfileIds:(pullResult.data?.profiles||[]).map(p=>({id:p.id,profile_id:p.profile_id}))
+      });
 
       // Step 2: Merge if cloud has data.
       // 如果本机刚清空过数据，而云端记录更新时间更早，则跳过旧云端数据，防止旧记录回流。
       const localClearAt=state.lastLocalClearAt||0;
       const cloudUpdatedAt=pullResult.row?.updated_at ? new Date(pullResult.row.updated_at).getTime() : 0;
       const shouldSkipOldCloud=!preferCloudModeForThisSync&&localClearAt&&cloudUpdatedAt&&cloudUpdatedAt<localClearAt;
+      if(shouldSkipOldCloud){
+        skippedCloudMerge=true;
+        skipReason='lastLocalClearAt newer than cloud updated_at';
+        console.warn('[SyncDiag] skip cloud merge', {
+          localClearAt,
+          cloudUpdatedAt,
+          preferCloudMode:preferCloudModeForThisSync
+        });
+      }
       if(pullResult.data && !shouldSkipOldCloud){
         const _mergeStart=performance.now();
         const modeBeforeMerge=getAppMode();
@@ -487,6 +558,11 @@ async function syncNow(silent,{force=true}={}){
         invalidateHealthScoreMemo(); // 云端合并后必须清健康快照 memo，否则首页仍显示同步前旧数据
         _mergeMs=performance.now()-_mergeStart;
         mergedFromCloud = true;
+        console.info('[SyncDiag] after merge', {
+          mergeMs:Math.round(_mergeMs),
+          counts:countSyncRecordStats(state),
+          activeProfileId:state.activeProfileId
+        });
         if(modeChanged) reconcileAppModeUI();
         else{
           // 性能优化：Mode未变化时只刷新当前页面需要的模块，不触发完整 renderAll
@@ -494,6 +570,24 @@ async function syncNow(silent,{force=true}={}){
           if(activeAppPage==='health') renderChart();
           if(activeAppPage==='couple') renderAppPageSummaries();
         }
+      }else if(!pullResult.data){
+        skipReason=skipReason||'cloud has no row/data';
+        console.warn('[SyncDiag] no cloud data to merge — local will be pushed as source of truth');
+      }
+
+      // Guard: if we skipped merging cloud data that still has records, do NOT push empty local
+      // over cloud. That would look like "sync success" while destroying restoreable data.
+      const localEmpty=isClearedHealthData({profiles:state.profiles||[]});
+      const cloudHasRecords=!!(cloudStats&&(cloudStats.weight+cloudStats.food+cloudStats.exercise+cloudStats.steps+cloudStats.sleep+cloudStats.water+cloudStats.ledgerExpenses)>0);
+      if(skippedCloudMerge&&localEmpty&&cloudHasRecords){
+        console.error('[SyncDiag] refusing push that would wipe cloud after skipped merge', {
+          skipReason,
+          beforeStats,
+          cloudStats
+        });
+        updateSyncStatus('error', '同步未恢复云端数据 · 点击重试');
+        if(!silent) showToast('同步未写入本地：已跳过云端合并，且本地为空，已阻止覆盖云端','error');
+        return false;
       }
 
       // Step 3: Push merged data to cloud
@@ -510,10 +604,15 @@ async function syncNow(silent,{force=true}={}){
 
       // Update sync timestamp and save once
       state.lastSyncAt = Date.now();
+      let persistOk=false;
       try{
         localStorage.setItem(STORAGE_KEY, JSON.stringify(getPersistableState()));
-      }catch(e){}
+        persistOk=true;
+      }catch(e){
+        console.error('[SyncDiag] localStorage write failed after sync', e);
+      }
 
+      const afterStats=countSyncRecordStats(state);
       const _totalMs=performance.now()-_totalStart;
       console.info('[SyncPerf]', {
         totalMs:Math.round(_totalMs),
@@ -523,6 +622,15 @@ async function syncNow(silent,{force=true}={}){
         downloadBytes:_downloadBytes,
         uploadBytes:_uploadBytes,
         mergedFromCloud
+      });
+      console.info('[SyncDiag] after persist', {
+        persistOk,
+        mergedFromCloud,
+        skippedCloudMerge,
+        skipReason:skipReason||null,
+        beforeCounts:beforeStats,
+        cloudCounts:cloudStats,
+        afterCounts:afterStats
       });
 
       const syncTime=formatSyncTime(new Date(state.lastSyncAt));
@@ -641,3 +749,26 @@ async function initCloudSync(){
     }, 120000);
   }
 }
+
+/* Phase 5: classic script function decls may not replace prior window.* gate assignments
+   (esp. Android WebView). Explicitly publish so lazy load overwrites shims/gates. */
+window.getSyncData=getSyncData;
+window.invalidateSyncDataCache=invalidateSyncDataCache;
+window.getSyncDataHash=getSyncDataHash;
+window.getDeviceId=getDeviceId;
+window.getCloudConfig=getCloudConfig;
+window.isCloudConfigured=isCloudConfigured;
+window.updateSyncStatus=updateSyncStatus;
+window.getSyncStatusText=getSyncStatusText;
+window.formatSyncTime=formatSyncTime;
+window.pushToCloud=pushToCloud;
+window.pullFromCloud=pullFromCloud;
+window.isClearedHealthData=isClearedHealthData;
+window.verifyCloudCleared=verifyCloudCleared;
+window.clearCloudData=clearCloudData;
+window.mergeCloudData=mergeCloudData;
+window.countSyncRecordStats=countSyncRecordStats;
+window.syncNow=syncNow;
+window.debouncedSync=debouncedSync;
+window.testSyncConnection=testSyncConnection;
+window.initCloudSync=initCloudSync;

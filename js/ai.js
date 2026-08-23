@@ -1669,64 +1669,6 @@ async function parseHealthText(text){
 }
 
 // ==================== AI ANALYSIS ====================
-function getDataURLBytes(dataURL){
-  const text=String(dataURL||'');
-  const b64=text.split(',')[1]||'';
-  return Math.round(b64.length*3/4);
-}
-function formatBytes(bytes){
-  const n=Number(bytes)||0;
-  return n>1024*1024?`${(n/1024/1024).toFixed(2)}MB`:`${Math.round(n/1024)}KB`;
-}
-function logFoodAI(stage,data={}){
-  console.info('[FoodAI]',{stage,...data});
-}
-function compressFoodImage(file,{maxSide=1024,quality=.76}={}){
-  const start=performance.now();
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onerror=()=>reject(new Error('图片读取失败'));
-    reader.onload=()=>{
-      const originalURL=reader.result;
-      const img=new Image();
-      img.onerror=()=>reject(new Error('图片解析失败'));
-      img.onload=()=>{
-        const scale=Math.min(1,maxSide/Math.max(img.width,img.height));
-        const width=Math.max(1,Math.round(img.width*scale));
-        const height=Math.max(1,Math.round(img.height*scale));
-        const canvas=document.createElement('canvas');
-        canvas.width=width;
-        canvas.height=height;
-        const ctx=canvas.getContext('2d');
-        ctx.drawImage(img,0,0,width,height);
-        let compressedURL=canvas.toDataURL('image/jpeg',quality);
-        let compressedBytes=getDataURLBytes(compressedURL);
-        // 尽量控制在 300KB-500KB；若仍偏大，逐步降低质量但不低于70%
-        if(compressedBytes>520*1024){
-          for(const q of [.72,.70]){
-            compressedURL=canvas.toDataURL('image/jpeg',q);
-            compressedBytes=getDataURLBytes(compressedURL);
-            if(compressedBytes<=520*1024) break;
-          }
-        }
-        const originalBytes=file.size||getDataURLBytes(originalURL);
-        const result={url:compressedURL,originalURL,originalBytes,compressedBytes,width,height,quality,ms:Math.round(performance.now()-start)};
-        logFoodAI('imageCompress',{
-          ms:result.ms,
-          originalBytes:result.originalBytes,
-          compressedBytes:result.compressedBytes,
-          originalSize:formatBytes(result.originalBytes),
-          compressedSize:formatBytes(result.compressedBytes),
-          width,
-          height
-        });
-        resolve(result);
-      };
-      img.src=originalURL;
-    };
-    reader.readAsDataURL(file);
-  });
-}
 function parseAIJsonArray(text){
   const raw=String(text||'').trim();
   const match=raw.match(/\[[\s\S]*\]/);
@@ -1734,15 +1676,18 @@ function parseAIJsonArray(text){
   try{return JSON.parse(match[0])}catch(e){return []}
 }
 function findNutritionReference(name){
-  // findLocalFoodByName already checks aliases, this fallback adds canonical-name fuzzy match
-  return findLocalFoodByName(name)||getFoodDB().find(f=>String(name||'').includes(f.name)||f.name.includes(String(name||'')))||null;
+  // Only reuse a database entry when the normalized full name resolves to it.
+  // Compound drinks must never inherit the unit of a contained fruit name.
+  const normalized=normalizeFoodName(name);
+  return getFoodDB().find(f=>normalizeFoodName(f.name)===normalized)||null;
 }
 function normalizePhotoFoodItem(item,phase='quick'){
   const name=String(item?.food||item?.name||'未知食物').trim()||'未知食物';
   const ref=findNutritionReference(name);
-  const estimatedWeight=Number(item?.estimatedWeight??item?.weight??item?.estimated_weight??item?.amount);
+  const cat=item?.cat||item?.category||ref?.category||ref?.cat||'其他';
+  const estimatedWeight=Number(item?.referenceAmount??item?.estimatedWeight??item?.weight??item?.estimated_weight);
   const weightStep=estimatedWeight<100?5:10;
-  const amount=Number.isFinite(estimatedWeight)&&estimatedWeight>0?Math.max(weightStep,Math.round(estimatedWeight/weightStep)*weightStep):(ref?getFoodBaseAmount(ref):100);
+  const refGrams=Number.isFinite(estimatedWeight)&&estimatedWeight>0?Math.max(weightStep,Math.round(estimatedWeight/weightStep)*weightStep):(ref?getFoodBaseAmount(ref):100);
   const per100={
     cal:Number(item?.calories_per_100g??item?.calPer100g??item?.caloriesPer100g),
     pro:Number(item?.protein_per_100g??item?.proteinPer100g),
@@ -1756,11 +1701,29 @@ function normalizePhotoFoodItem(item,phase='quick'){
     carb:Number.isFinite(per100.carb)?per100.carb:0,fib:Number.isFinite(per100.fib)?per100.fib:0
   }:(ref?{cal:ref.cal,pro:ref.pro,fat:ref.fat,carb:ref.carb,fib:ref.fib}: {cal:0,pro:0,fat:0,carb:0,fib:0});
   const baseAmount=hasPer100?100:(ref?getFoodBaseAmount(ref):100);
-  return prepareFoodPortion({
+  const measure=validateAIFoodReferenceMeasure(name,getCanonicalFoodMeasureSuggestion(name,cat,{
+    ...(ref||{}),
+    ...item,
+    unit:item?.unit||ref?.unit,
+    amount:item?.amount??ref?.amount,
+    referenceAmount:item?.referenceAmount??item?.estimatedMl??item?.volume_ml??item?.volumeMl??item?.portionAmount??item?.portion_ml??estimatedWeight??ref?.referenceAmount,
+    referenceUnit:item?.referenceUnit||item?.portionUnit||ref?.referenceUnit
+  }));
+  const draft=prepareFoodPortion({
     ...(ref||{}),
     name,
-    cat:item?.cat||item?.category||ref?.cat||'AI识别',
-    unit:'g',
+    category:measure.category,
+    cat:measure.category,
+    unit:measure.unit,
+    amount:measure.amount,
+    defaultUnit:measure.unit,
+    defaultAmount:measure.amount,
+    referenceAmount:measure.referenceAmount,
+    referenceUnit:measure.referenceUnit,
+    unitWeight:measure.referenceAmount&&measure.amount?measure.referenceAmount/measure.amount:null,
+    unitWeightUnit:measure.referenceUnit,
+    referenceMode:'auto',
+    measureModelVersion:2,
     source:'ai_photo',
     base_amount:baseAmount,
     base_weight:baseAmount,
@@ -1769,13 +1732,16 @@ function normalizePhotoFoodItem(item,phase='quick'){
     fat:base.fat,
     carb:base.carb,
     fib:base.fib,
-    amount,
-    estimatedWeight:amount,
+    estimatedWeight:measure.referenceUnit==='g'?measure.referenceAmount:null,
+    aiReferenceAdjusted:measure.aiReferenceAdjusted,
     confidence:['low','medium','high'].includes(String(item?.confidence||'').toLowerCase())?String(item.confidence).toLowerCase():'medium',
     estimateReason:item?.reason||item?.estimateReason||'图片估算重量可能存在误差，请按实际份量修正',
     aiAdvice:item?.advice||item?.aiAdvice||item?.suggestion||'图片估算重量可能存在误差，请按实际份量修正',
-    aiStage:phase
+    aiStage:phase,
+    recordAmount:{value:measure.amount,unit:measure.unit},
+    referenceWeight:{value:measure.referenceAmount,unit:measure.referenceUnit}
   });
+  return draft;
 }
 async function callFoodVisionAI(photoURL,promptText,aiCfg,stage){
   const aiStart=performance.now();
@@ -1792,29 +1758,49 @@ async function callFoodVisionAI(photoURL,promptText,aiCfg,stage){
     })
   });
   const data=await response.json().catch(()=>({}));
-  const aiMs=Math.round(performance.now()-aiStart);
-  logFoodAI('AI',{stage,ms:aiMs,ok:response.ok});
+  const clientMs=Math.round(performance.now()-aiStart);
+  const serverMs=Number(data?.meta?.ms);
+  const modelMs=Number.isFinite(serverMs)?serverMs:clientMs;
+  const uploadMs=Number.isFinite(serverMs)?Math.max(0,clientMs-serverMs):null;
+  logFoodAI('AI',{stage,ms:clientMs,modelMs,uploadMs,ok:response.ok,provider:data?.meta?.provider||'',fallback:!!data?.meta?.fallback});
   if(!response.ok){
     const msg=data?.error||data?.message||`请求失败：HTTP ${response.status}`;
     throw new Error(msg);
   }
-  return data?.text||'';
+  return {
+    text:data?.text||'',
+    meta:{
+      provider:data?.meta?.provider||'',
+      fallback:!!data?.meta?.fallback,
+      modelMs,
+      uploadMs,
+      clientMs
+    }
+  };
 }
 async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileId||getHealthWriteProfile()?.id||''){
   aiAnalysisTargetProfileId=targetProfileId;
   foodDraft=[];
   foodDraftSession=null;
-  const modal=document.getElementById('aiModal');
-  const content=document.getElementById('aiModalContent');
-  modal.classList.add('show');
-  GlassScrollLock.lock('modal:aiModal');
+
+  if(typeof openFoodSubPage!=='function'){
+    console.error('[AI] openFoodSubPage missing');
+    return;
+  }
+  openFoodSubPage(typeof FOOD_SUBPAGE_IDS!=='undefined'?FOOD_SUBPAGE_IDS.AI_FLOW:'food_ai_flow','食物识别',{
+    render(shell){
+      shell.innerHTML='<div class="ai-scanning"><div class="ai-scan-ring"></div><div class="ai-scan-text">准备识别…</div></div>';
+    }
+  });
+  let content=typeof getFoodFlowContent==='function'?getFoodFlowContent():null;
 
   const aiCfg=getAIConfig();
   const totalStart=performance.now();
+  const speedCtx=window.__foodAISpeedCtx||{};
+  window.__foodAISpeedCtx=null;
 
   // Check if real API is configured
   if(aiCfg.apiKey&&aiCfg.modelId){
-    // Real Bailian (Qwen-VL) API call
     content.innerHTML=`
       <div class="ai-scanning">
         <img src="${photoURL}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px">
@@ -1823,19 +1809,49 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
       </div>`;
 
     try{
-      const promptText='请一次完成图片中的菜品识别、份量估算和营养估算，只返回严格JSON数组，不要Markdown或解释。每项必须包含：food(食物名称)、category(主食/菜肴/肉类/水果/饮品/其他)、estimatedWeight(合理取整的估算克数)、confidence(low/medium/high)、calories_per_100g、protein_per_100g、fat_per_100g、carbs_per_100g、fiber_per_100g、reason、advice。根据餐盘占比、常见盛装方式和常规份量估算重量；不要生成假精确重量，无法判断时使用合理的粗粒度整数并将confidence降为low；营养值按该菜品常见做法的每100g数值估算；reason简短说明图片判断依据；advice提醒用户可按实际食用量调整。';
+      // Compact prompt: structured fields only — reason/advice filled by frontend template.
+      const promptText='识别图中食物，只返回严格JSON数组，无Markdown/解释。每项必须返回：food,category(主食/菜肴/肉类/水果/饮品/甜品/其他),unit(杯/瓶/碗/个/颗/根/块/片/份),amount(初始数量，离散单位为整数),referenceAmount(参考重量或容量数字),referenceUnit(g或ml),confidence(low|medium|high),calories_per_100g,protein_per_100g,fat_per_100g,carbs_per_100g,fiber_per_100g。饮品必须使用杯/瓶且referenceUnit=ml，禁止饮品使用块或默认g；甜品优先块；水果优先个/颗/根。';
+      const apiStart=performance.now();
+      const vision=await callFoodVisionAI(photoURL,promptText,aiCfg,'complete');
+      const text=typeof vision==='string'?vision:vision.text;
+      const meta=(vision&&vision.meta)||{};
       const parseStart=performance.now();
-      const text=await callFoodVisionAI(photoURL,promptText,aiCfg,'complete');
       const foods=parseAIJsonArray(text);
-      logFoodAI('parse',{stage:'complete',ms:Math.round(performance.now()-parseStart),count:foods.length});
+      const parseMs=Math.round(performance.now()-parseStart);
+      logFoodAI('parse',{stage:'complete',ms:parseMs,count:foods.length});
       if(!foods.length) throw new Error('无法解析AI返回结果');
       foodDraft=foods.map(f=>normalizePhotoFoodItem(f,'complete'));
-      logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
+      const renderStart=performance.now();
       renderAIResults(photoURL,targetProfileId,{detailReady:true});
+      const renderMs=Math.round(performance.now()-renderStart);
+      const totalMs=Math.round(performance.now()-totalStart)+(Number(speedCtx.compressMs)||0);
+      logFoodAI('total',{ms:Math.round(performance.now()-totalStart)});
+      if(typeof logFoodAISpeed==='function') logFoodAISpeed({
+        compress:speedCtx.compressMs??null,
+        upload:meta.uploadMs??null,
+        model:meta.modelMs??Math.round(performance.now()-apiStart),
+        parse:parseMs,
+        render:renderMs,
+        total:totalMs,
+        originalSize:speedCtx.originalSize||'',
+        compressedSize:speedCtx.compressedSize||formatBytes(getDataURLBytes(photoURL)),
+        provider:meta.provider||'',
+        fallback:!!meta.fallback
+      });
       return;
     }catch(err){
       console.error('Bailian API error:',err);
       logFoodAI('total',{ms:Math.round(performance.now()-totalStart),failed:true});
+      if(typeof logFoodAISpeed==='function') logFoodAISpeed({
+        compress:speedCtx.compressMs??null,
+        upload:null,
+        model:null,
+        parse:null,
+        render:null,
+        total:Math.round(performance.now()-totalStart)+(Number(speedCtx.compressMs)||0),
+        originalSize:speedCtx.originalSize||'',
+        compressedSize:speedCtx.compressedSize||''
+      });
       content.innerHTML=`
         <div style="text-align:center;padding:20px">
           <div style="font-size:14px;color:var(--red);margin-bottom:8px">AI识别失败</div>
@@ -1900,11 +1916,20 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
   foodDraft=foodDraft.map(prepareFoodPortion);
   const prevEdit=foodDraftSession?.editingIndex??null;
   foodDraftSession={mode:'ai',phase:'review',editingIndex:prevEdit,pendingFood:null,photoURL,targetProfileId,detailReady};
-  if(!document.getElementById('aiFoodDraftHost')||!document.querySelector('#aiModalContent .meal-seg')){
+  if(!document.getElementById('aiFoodDraftHost')||!document.querySelector('.meal-seg')){
     mealSelectionTouched=false;
     currentMeal=getMealTypeByDateTime(toLocalDateTimeValue());
   }
-  const content=document.getElementById('aiModalContent');
+  let content=typeof getFoodFlowContent==='function'?getFoodFlowContent():null;
+  if(!content){
+    if(typeof openFoodSubPage==='function'){
+      openFoodSubPage(typeof FOOD_SUBPAGE_IDS!=='undefined'?FOOD_SUBPAGE_IDS.AI_FLOW:'food_ai_flow','食物识别',{
+        render(shell){content=shell;}
+      });
+      content=typeof getFoodFlowContent==='function'?getFoodFlowContent():content;
+    }
+  }
+  if(!content) return;
   const statusText=detailReady?'重量和营养已补全，可查看详情或修正重量':'已快速识别食物，正在后台估算重量和营养...';
   content.innerHTML=`
     <img src="${photoURL}" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-bottom:10px">
@@ -1926,14 +1951,24 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
     onCancel:()=>{
       foodDraft=[];
       foodDraftSession=null;
-      closeModal('aiModal');
+      if(typeof closeFoodSubPageAll==='function') closeFoodSubPageAll();
       clearPhotoZone();
     },
     onConfirm:()=>confirmFoodDraft({mode:'ai',targetProfileId})
   });
-  document.getElementById('aiRescanBtn').addEventListener('click',()=>{
+  const rescanBtn=content.querySelector('#aiRescanBtn')||document.getElementById('aiRescanBtn');
+  rescanBtn?.addEventListener('click',()=>{
     foodDraft=[];
     foodDraftSession=null;
     startAIAnalysis(photoURL,targetProfileId);
   });
 }
+
+/* Phase 5: explicit window exports so lazy gates are replaced (esp. Android WebView). */
+window.parseHealthText=parseHealthText;
+window.startAIAnalysis=startAIAnalysis;
+window.callFoodVisionAI=callFoodVisionAI;
+window.renderAIResults=renderAIResults;
+window.runDemoAIAnalysis=runDemoAIAnalysis;
+window.normalizePhotoFoodItem=normalizePhotoFoodItem;
+window.parseAIJsonArray=parseAIJsonArray;

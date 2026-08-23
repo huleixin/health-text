@@ -162,6 +162,17 @@
   /* --- Touch targets (mobile-first) --- */
   --touch-min:44px;
   --touch-min-sm:40px;
+  /* --- Overlay z-index scale (mobile shell) --- */
+  --z-bottom-nav:1200;
+  --z-subpage-host:1250;
+  --z-sheet-overlay:1300;
+  --z-sheet:1301;
+  --z-modal-overlay:3000;
+  --z-edit-popover:4200;
+  --z-picker-overlay:4700;
+  --z-toast:5200;
+  --subpage-enter-ms:220ms;
+  --subpage-ease:cubic-bezier(0.32,0.72,0,1);
   /* --- Semantic accent (maps legacy; no destructive merge) --- */
   --accent:var(--gold);
   --accent-text:var(--gold-l);
@@ -361,10 +372,11 @@
 /* --- Button variant aliases (canonical names) --- */
 /* Primary: .btn-gold | Tonal: .btn-tonal / .btn-tonal-gold | Ghost: .btn-ghost | Small: .btn-sm */
 
-/* --- Modal / Sheet standard (Phase 1A: spec only, no migration) ---
-   Overlay → Modal/Sheet → Header → Scrollable Body → Optional Sticky Footer
-   Requirements: safe-area, scroll body, sticky footer, keyboard, close, stack-top.
-   Reference implementation: #quickAddPanel (bottom sheet), .modal-overlay + .modal (dialogs). */
+/* --- Modal / Sheet / SubPage standard (Phase 1) ---
+   SubPage: .app-subpage* + js/subpage.js (full-screen business pages)
+   Sheet: .app-sheet* or #quickAddPanel (simple records / pickers)
+   Dialog: .app-dialog* or .modal-overlay + .modal (confirm / alert only)
+   Requirements: safe-area, scroll body, sticky footer, keyboard, close, stack-top. */
 
 body{
   background:var(--bg);color:var(--txt);
@@ -519,6 +531,172 @@ html.android-app .app{padding-top:calc(6px + var(--safe-top,0px))}
 .sub-page-empty{font-size:13px;color:var(--txt3);line-height:1.65;padding:12px 2px;text-align:center}
 /* LEGACY empty: migrate to .empty-state in Phase 1B */
 
+/* =========================================================
+   MOBILE SUBPAGE SHELL — Phase 1 (canonical overlay sub-page)
+   Full-screen business sub-pages above primary tabs, below modals.
+   API: openSubPage / closeSubPage / getCurrentSubPage (js/subpage.js)
+   ========================================================= */
+.app-subpage-host{
+  position:fixed;inset:0;z-index:var(--z-subpage-host);
+  pointer-events:none;overflow:hidden;
+  max-width:100vw;
+}
+.app-subpage-host:not([hidden]){pointer-events:auto}
+.app-subpage{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  background:var(--bg);color:var(--txt);
+  max-width:100vw;overflow:hidden;
+  transform:translate3d(100%,0,0);opacity:0;
+  transition:transform var(--subpage-enter-ms) var(--subpage-ease),opacity var(--subpage-enter-ms) ease;
+  will-change:transform,opacity;
+}
+.app-subpage.is-visible{transform:translate3d(0,0,0);opacity:1}
+.app-subpage.is-leaving{transform:translate3d(18%,0,0);opacity:0}
+.app-subpage__header{
+  flex:0 0 auto;display:flex;align-items:center;gap:var(--space-sm);
+  min-height:var(--touch-min);
+  padding:calc(var(--space-sm) + var(--safe-top,0px)) var(--space-md) var(--space-sm);
+  border-bottom:1px solid var(--card-border);
+  background:var(--bg);
+}
+.app-subpage__back{
+  flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  min-width:var(--touch-min);min-height:var(--touch-min);
+  margin:0;padding:0 var(--space-sm);
+  border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--gold-l);
+  font-size:15px;font-weight:650;line-height:1;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.app-subpage__back:active{opacity:.82;transform:scale(.98)}
+.app-subpage__title{
+  flex:1;min-width:0;margin:0;
+  font-size:17px;font-weight:750;line-height:1.25;color:var(--txt);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.app-subpage__action,
+.app-subpage__action-spacer{
+  flex:0 0 auto;min-width:var(--touch-min);min-height:var(--touch-min);
+}
+.app-subpage__action{
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--gold-l);
+  font-size:13px;font-weight:650;cursor:pointer;
+  padding:0 var(--space-sm);
+}
+.app-subpage__content{
+  flex:1 1 auto;min-height:0;min-width:0;
+  overflow-x:hidden;overflow-y:auto;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  padding:var(--space-md);
+}
+.app-subpage__footer{
+  flex:0 0 auto;display:flex;gap:var(--space-sm);
+  padding:var(--space-md) var(--space-md) calc(var(--space-md) + var(--safe-bottom,0px));
+  border-top:1px solid var(--card-border);
+  background:var(--bg);
+}
+.app-subpage__footer .btn{flex:1;min-height:48px}
+.app-subpage-test-lead{font-size:15px;font-weight:650;color:var(--txt);margin:0 0 var(--space-md)}
+.app-subpage-test-line{font-size:13px;color:var(--txt2);line-height:1.65;margin:0 0 var(--space-sm)}
+.app-subpage__content .food-draft-footer{
+  position:sticky;bottom:0;z-index:2;
+  margin-top:var(--space-md);padding-top:var(--space-sm);
+  background:linear-gradient(180deg,transparent,var(--bg) 28%);
+}
+.app-subpage__content .food-sync-modal-scroll{max-height:none;padding-bottom:var(--space-sm)}
+.app-subpage[data-subpage-id="food_sync"] .ledger-modal-footer{
+  position:sticky;bottom:0;z-index:2;background:var(--bg);
+  padding-top:var(--space-sm);margin-top:var(--space-sm);
+  border-top:1px solid var(--card-border);
+}
+/* Food flow on SubPage — reuse qa-modal-section spacing inside content scroll */
+.food-flow-shell.qa-modal-section{padding:0}
+.food-management-sub .meal-group,.food-management-sub .log-total{margin-bottom:var(--space-sm)}
+.food-management-sub .record-detail-add{margin-top:var(--space-md)}
+body.app-subpage-active .app{padding-bottom:calc(var(--space-xl) + var(--safe-bottom,0px))!important}
+body.app-subpage-active .toast-container{bottom:max(var(--toast-bottom-gap,12px),var(--safe-bottom,0px))}
+@media (prefers-reduced-motion:reduce){
+  .app-subpage{transition:none!important}
+}
+
+/* ===== APP SHEET (canonical bottom sheet — Phase 1 spec) =====
+   Use for: water/weight/steps/exercise/sleep, date/time pickers, unit pickers, user switch.
+   Reference impl: #quickAddPanel (.quick-add-panel). New sheets: .app-sheet on .app-sheet-overlay.
+   Structure: Header → Scroll Content → Footer. No nested large modals inside sheets. */
+.app-sheet-overlay{
+  position:fixed;inset:0;z-index:var(--z-sheet-overlay);
+  background:rgba(0,0,0,0.45);
+  opacity:0;pointer-events:none;
+  transition:opacity .22s ease;
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+}
+.app-sheet-overlay.is-open{opacity:1;pointer-events:auto}
+.app-sheet{
+  position:fixed;left:50%;bottom:0;z-index:var(--z-sheet);
+  transform:translate3d(-50%,100%,0);
+  width:min(440px,100vw);max-width:100vw;
+  max-height:min(88dvh,calc(100dvh - var(--safe-top,0px) - 24px));
+  display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid var(--card-border);border-bottom:none;
+  border-radius:22px 22px 0 0;
+  background:var(--bg2);
+  box-shadow:var(--shadow-modal);
+  transition:transform .28s var(--subpage-ease);
+  padding-bottom:calc(var(--space-md) + var(--safe-bottom,0px));
+}
+.app-sheet.is-open{transform:translate3d(-50%,0,0)}
+.app-sheet__header{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  gap:var(--space-sm);min-height:var(--touch-min);
+  padding:var(--space-sm) var(--space-lg) var(--space-sm);
+}
+.app-sheet__title{font-size:16px;font-weight:700;color:var(--txt)}
+.app-sheet__content{
+  flex:1 1 auto;min-height:0;min-width:0;
+  overflow-x:hidden;overflow-y:auto;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:0 var(--space-lg) var(--space-md);
+}
+.app-sheet__footer{
+  flex:0 0 auto;display:flex;gap:var(--space-sm);
+  padding:var(--space-sm) var(--space-lg) 0;
+}
+.app-sheet__footer .btn{flex:1;min-height:48px}
+/* Align legacy quick-add sheet with canonical height */
+.quick-add-panel{max-height:min(88dvh,calc(100dvh - var(--safe-top,0px) - 24px))}
+
+/* ===== APP DIALOG (confirm / alert only — Phase 1 spec) =====
+   Use for: delete/clear/overwrite confirm, permission prompts, dangerous actions.
+   NOT for: food edit, AI results, recipes, long forms, long lists.
+   Legacy: .modal-overlay + .modal remains in use; new confirms may use .app-dialog. */
+.app-dialog-overlay{
+  position:fixed;inset:0;z-index:var(--z-modal-overlay);
+  display:none;align-items:center;justify-content:center;
+  padding:max(14px,env(safe-area-inset-top,0px)) var(--space-lg) max(14px,env(safe-area-inset-bottom,0px));
+  background:rgba(0,0,0,0.68);backdrop-filter:blur(8px);
+}
+.app-dialog-overlay.is-open{display:flex}
+.app-dialog{
+  width:min(360px,calc(100vw - 32px));max-width:100%;
+  border-radius:var(--radius-card);
+  border:1px solid var(--card-border-h);
+  background:var(--bg2);
+  box-shadow:var(--shadow-modal);
+  padding:var(--space-lg);
+}
+.app-dialog__title{
+  margin:0 0 var(--space-sm);font-size:16px;font-weight:700;color:var(--gold-l);
+}
+.app-dialog__body{
+  font-size:13px;line-height:1.65;color:var(--txt2);margin-bottom:var(--space-lg);
+}
+.app-dialog__actions{display:flex;gap:var(--space-sm)}
+.app-dialog__actions .btn{flex:1;min-height:var(--touch-min)}
+
 /* Health compare detail page — inherits the established sub-page/card system. */
 .health-compare-score-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
 .health-compare-person{min-width:0;padding:4px 14px 10px;text-align:center}
@@ -611,6 +789,34 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .sr-supp-reason{margin-top:8px;font-size:12px;color:var(--txt2);line-height:1.65}
 .sr-supp-note{margin-top:10px;font-size:11px;color:var(--txt3);line-height:1.6}
 .sr-recipe-card{padding:14px;border-radius:var(--home-small-radius,14px);background:var(--home-metric-bg);border:1px solid var(--home-metric-border);min-width:0}
+.sr-recipe-visual{margin-bottom:12px}
+.sr-recipe-visual.is-compact{margin-bottom:0;flex-shrink:0}
+.sr-recipe-visual-frame{
+  position:relative;border-radius:12px;overflow:hidden;
+  aspect-ratio:16/10;max-height:200px;min-height:120px;
+  background:rgba(0,0,0,0.06);border:1px solid var(--home-metric-border);
+}
+.sr-recipe-visual.is-compact .sr-recipe-visual-frame{
+  width:72px;height:72px;max-height:72px;aspect-ratio:1;border-radius:10px;
+}
+.sr-recipe-visual-img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  opacity:0;transition:opacity .25s ease;
+}
+.sr-recipe-visual-img.is-loaded{opacity:1}
+.sr-recipe-visual-placeholder{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--txt3);background:rgba(0,0,0,0.04);pointer-events:none;
+}
+.sr-recipe-visual-placeholder.hidden{display:none}
+.sr-recipe-visual-actions{
+  position:absolute;right:8px;bottom:8px;z-index:2;
+  display:flex;gap:6px;align-items:center;
+}
+.sr-fav-row--visual{display:flex;align-items:flex-start;gap:10px}
+.sr-fav-row--visual .sr-fav-main{flex:1;min-width:0}
+.sr-fav-row--visual .sr-fav-actions{flex-shrink:0;align-self:center}
+[data-theme="light"] .sr-recipe-visual-frame{background:rgba(0,0,0,0.03)}
 .sr-recipe-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .sr-recipe-title{margin-top:10px;font-size:18px;font-weight:750;color:var(--txt);line-height:1.35;word-break:break-word}
 .sr-recipe-kcal{margin-top:8px;font-size:22px;font-weight:750;color:var(--gold-l);line-height:1.1}
@@ -646,6 +852,68 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .sr-method-desc{font-size:12px;color:var(--txt2);line-height:1.65;margin-top:4px;word-break:break-word}
 .sr-method-empty{font-size:13px;color:var(--txt3);line-height:1.65}
 .sr-detail-note{font-size:13px;color:var(--txt2);line-height:1.65;padding:10px 12px;border-radius:var(--home-small-radius,14px);background:rgba(212,175,55,0.04);border:1px solid rgba(212,175,55,0.12)}
+/* Smart recipe — dish inspiration gallery */
+.sr-gallery-section{margin-top:0}
+.sr-gallery{
+  position:relative;border-radius:var(--home-small-radius,14px);
+  border:1px solid var(--home-metric-border);background:var(--home-metric-bg);
+  overflow:hidden;
+}
+.sr-gallery-viewport{
+  position:relative;overflow:hidden;touch-action:pan-y;
+  aspect-ratio:16/10;max-height:220px;background:rgba(0,0,0,0.08);
+}
+.sr-gallery-track{
+  display:flex;height:100%;will-change:transform;
+}
+.sr-gallery-track.is-dragging{transition:none}
+.sr-gallery-track.is-snapping{
+  transition:transform .28s cubic-bezier(0.32,0.72,0,1);
+}
+.sr-gallery-slide{
+  flex:0 0 100%;width:100%;height:100%;position:relative;
+}
+.sr-gallery-slide img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  background:linear-gradient(135deg,rgba(212,175,55,0.08),rgba(0,0,0,0.06));
+}
+.sr-gallery-placeholder{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  color:var(--txt3);font-size:13px;padding:16px;text-align:center;line-height:1.5;
+}
+.sr-gallery-float-actions{
+  position:absolute;right:10px;bottom:10px;z-index:3;
+  display:flex;gap:8px;align-items:center;
+}
+.sr-gallery-btn{
+  width:36px;height:36px;border-radius:50%;border:0;padding:0;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:rgba(8,8,12,0.42);color:rgba(255,255,255,0.92);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 2px 10px rgba(0,0,0,0.18);
+  transition:transform .15s ease,background .15s ease,color .15s ease;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+.sr-gallery-btn .ui-icon{width:18px;height:18px}
+.sr-gallery-btn:active{transform:scale(0.92)}
+.sr-gallery-btn.is-like.is-active{background:rgba(212,175,55,0.88);color:#fff}
+.sr-gallery-btn.is-dislike.is-active{background:rgba(239,68,68,0.75);color:#fff}
+[data-theme="light"] .sr-gallery-btn{background:rgba(255,255,255,0.82);color:var(--txt)}
+[data-theme="light"] .sr-gallery-btn.is-like.is-active{background:rgba(166,111,0,0.88);color:#fff}
+[data-theme="light"] .sr-gallery-btn.is-dislike.is-active{background:rgba(220,38,38,0.82);color:#fff}
+.sr-gallery-dots{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 12px 12px;min-height:14px;
+}
+.sr-gallery-dots[hidden]{display:none}
+.sr-gallery-dot{
+  width:5px;height:5px;border-radius:50%;border:0;padding:0;cursor:pointer;
+  background:rgba(212,175,55,0.22);transition:background .2s,transform .2s;
+}
+.sr-gallery-dot.active{background:rgba(212,175,55,0.72);transform:scale(1.15)}
+.sr-gallery-loading{
+  padding:28px 16px;text-align:center;font-size:13px;color:var(--txt3);line-height:1.5;
+}
 .sr-detail-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 .sr-detail-actions .da-action-btn{width:100%;margin-top:0}
 .sr-tab-seg .meal-seg-btn{font-size:11px;padding:6px 1px}
@@ -814,7 +1082,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 
 .bottom-tab-nav{
   position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
-  z-index:80;width:min(520px,calc(100vw - 20px));
+  z-index:var(--z-bottom-nav,80);width:min(520px,calc(100vw - 20px));
   display:grid;grid-template-columns:repeat(5,1fr);gap:5px;
   padding:7px;border-radius:24px;
   background:linear-gradient(145deg,rgba(255,255,255,0.11),rgba(255,255,255,0.035));
@@ -888,7 +1156,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .quick-add-overlay{
   position:fixed;inset:0;
   background:rgba(0,0,0,0.45);
-  z-index:1300;
+  z-index:var(--z-sheet-overlay,1300);
   opacity:0;pointer-events:none;
   transition:opacity .25s ease;
   -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
@@ -900,7 +1168,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   left:50%;bottom:0;
   transform:translate3d(-50%,100%,0);
   width:min(440px,100vw);
-  max-height:80vh;
+  max-height:min(88dvh,calc(100dvh - var(--safe-top,0px) - 24px));
   overflow-x:hidden;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
@@ -909,7 +1177,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   border-bottom:none;
   border-radius:22px 22px 0 0;
   box-shadow:0 -8px 40px rgba(0,0,0,0.3);
-  z-index:1301;
+  z-index:var(--z-sheet,1301);
   transition:transform .32s cubic-bezier(0.32,0.72,0,1);
   padding:0 18px calc(16px + env(safe-area-inset-bottom,0px));
   overscroll-behavior:contain;
@@ -980,10 +1248,104 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .qa-main-sub{font-size:12px;color:var(--txt2);margin-top:2px}
 .qa-main-arrow{color:var(--gold-l);flex-shrink:0}
 .qa-main-arrow .ui-icon{width:18px;height:18px;transform:rotate(0deg)}
+/* AI智能识别入口 — compact priority entry; food left, order follows split */
+.qa-smart-record-host{margin-bottom:0;width:100%;min-width:0;box-sizing:border-box}
+.ai-record-main{
+  width:100%;min-width:0;box-sizing:border-box;margin-bottom:12px;padding:9px 11px 11px;
+  border-radius:16px;border:1px solid rgba(212,175,55,0.26);
+  background:linear-gradient(135deg,rgba(212,175,55,0.14),rgba(244,209,96,0.05));
+  box-shadow:0 4px 14px rgba(0,0,0,0.12);overflow:hidden;
+}
+.ai-record-main-header{display:flex;align-items:center;margin-bottom:7px}
+.ai-record-main-header-title{
+  font-size:12px;font-weight:650;letter-spacing:.04em;color:var(--txt2,#c8c2b4);opacity:.8;white-space:nowrap;
+}
+.ai-record-stage{
+  position:relative;width:100%;height:56px;min-height:56px;box-sizing:border-box;
+  --ai-pad:6px;--ai-icon:48px;--ai-gap:6px;--ai-split-x:0px;
+  --ai-order-inset:14px;
+  --ai-food-text:1;--ai-order-text:0;
+  touch-action:pan-y;
+}
+.ai-record-stage.is-dragging{touch-action:none;user-select:none;-webkit-user-select:none}
+.ai-anchor{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:5;
+  width:var(--ai-icon);height:var(--ai-icon);padding:0;margin:0;border:0;background:transparent;
+  cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;
+  display:flex;align-items:center;justify-content:center;
+}
+.ai-anchor-food{left:var(--ai-pad);right:auto}
+.ai-anchor-order{left:calc(var(--ai-split-x) + var(--ai-order-inset));right:auto}
+.ai-record-main.is-split .ai-card-icon{
+  width:48px!important;height:48px!important;border-radius:13px!important;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:linear-gradient(135deg,var(--gold,#d4af37),var(--gold-l,#f4d160));color:#fff;
+  box-shadow:0 2px 10px rgba(212,175,55,.24);
+}
+.ai-record-main.is-split .ai-card-icon .ui-icon{width:22px!important;height:22px!important}
+.ai-text{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  overflow:hidden;white-space:nowrap;pointer-events:auto;cursor:pointer;
+}
+.ai-text-food{
+  left:calc(var(--ai-pad) + var(--ai-icon) + var(--ai-gap));
+  right:calc(100% - var(--ai-split-x) + 10px);
+  opacity:var(--ai-food-text,1);
+  text-align:left;
+}
+.ai-text-order{
+  left:calc(var(--ai-split-x) + var(--ai-order-inset) + var(--ai-icon) + var(--ai-gap));
+  right:var(--ai-pad);
+  opacity:var(--ai-order-text,0);
+  text-align:left;
+}
+.ai-card-title{
+  display:block;font-size:20px;font-weight:700;line-height:1.18;
+  color:var(--gold-l,#f4d160);letter-spacing:.01em;
+}
+.ai-card-sub{
+  display:block;margin-top:2px;font-size:14px;font-weight:500;line-height:1.28;
+  color:rgba(232,224,208,0.88);
+}
+.ai-record-split-handle{
+  position:absolute;top:0;bottom:0;left:var(--ai-split-x);width:22px;margin:0;padding:0;border:0;
+  transform:translateX(-50%);background:transparent;cursor:col-resize;touch-action:none;z-index:6;
+  display:flex;align-items:center;justify-content:center;-webkit-user-select:none;user-select:none;
+}
+.ai-record-split-line{
+  width:1px;height:70%;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(212,175,55,.42),transparent);
+}
+.ai-record-split-grip{
+  position:absolute;width:3px;height:16px;border-radius:2px;pointer-events:none;
+  background:rgba(212,175,55,.4);opacity:.65;
+}
+.ai-record-split-handle.is-dragging .ai-record-split-grip{opacity:1;background:rgba(212,175,55,.85)}
+.ai-hit{
+  position:absolute;top:0;bottom:0;z-index:2;background:transparent;cursor:pointer;
+}
+.ai-hit-food{left:0;width:var(--ai-split-x)}
+.ai-hit-order{left:var(--ai-split-x);right:0}
+[data-theme="light"] .ai-record-main{
+  background:linear-gradient(135deg,rgba(212,175,55,0.11),rgba(255,255,255,0.56));
+  border-color:rgba(166,111,0,0.18);
+}
+[data-theme="light"] .ai-card-sub,
+[data-theme="light"] #qaSmartRecordHost .ai-card-sub{
+  color:#6B5A30;
+}
+@media(max-width:430px){
+  .ai-record-main{padding:8px 10px 10px}
+  .ai-record-stage{height:54px;min-height:54px;--ai-icon:48px;--ai-pad:5px;--ai-gap:5px}
+  .ai-record-main.is-split .ai-card-icon{width:48px!important;height:48px!important;border-radius:13px!important}
+  .ai-record-main.is-split .ai-card-icon .ui-icon{width:22px!important;height:22px!important}
+  .ai-card-title{font-size:20px;font-weight:700}
+  .ai-card-sub{font-size:14px}
+}
 .quick-add-carousel-viewport{
   overflow:hidden;
   margin-bottom:6px;
-  touch-action:none;
+  touch-action:pan-y;
 }
 .quick-add-carousel-track{
   display:flex;
@@ -1023,28 +1385,33 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   margin-bottom:14px;
 }
 .qa-item{
-  border:1px solid var(--card-border);
+  border:1px solid var(--glass-border);
   border-radius:14px;
-  background:rgba(255,255,255,0.03);
+  background:var(--glass-field);
+  box-shadow:0 4px 14px rgba(0,0,0,0.08);
   padding:14px 6px 12px;
   display:flex;flex-direction:column;align-items:center;gap:8px;
   cursor:pointer;
-  transition:background .15s,transform .1s,border-color .15s;
+  transition:background .15s,transform .1s,border-color .15s,box-shadow .15s;
   color:var(--txt);
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
 }
-[data-theme="light"] .qa-item{background:rgba(166,111,0,0.03)}
+[data-theme="light"] .qa-item{background:rgba(166,111,0,0.04);box-shadow:0 4px 12px rgba(76,55,12,0.06)}
 .qa-item:hover{
-  background:rgba(212,175,55,0.08);
-  border-color:rgba(212,175,55,0.2);
+  background:var(--accent-tonal);
+  border-color:var(--glass-border-gold);
+  box-shadow:0 6px 16px rgba(212,175,55,0.12);
 }
 .qa-item:active{transform:scale(0.95)}
 .qa-item-icon{
-  width:38px;height:38px;
-  border-radius:10px;
-  background:rgba(212,175,55,0.1);
-  border:1px solid rgba(212,175,55,0.15);
+  width:40px;height:40px;
+  border-radius:12px;
+  background:rgba(212,175,55,0.12);
+  border:1px solid rgba(212,175,55,0.22);
   display:flex;align-items:center;justify-content:center;
   color:var(--gold-l);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .qa-item-icon .ui-icon{width:20px;height:20px}
 .qa-item-label{
@@ -1085,14 +1452,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .qa-more-icon{display:flex;align-items:center}
 .qa-more-icon .ui-icon{width:16px;height:16px}
 
-/* ===== Quick Action Modal ===== */
-.quick-action-modal{
-  max-width:400px;
-  padding:18px 18px calc(16px + env(safe-area-inset-bottom,0px));
-  touch-action:pan-y;
-}
-.quick-action-modal #quickActionContent{min-height:0}
-.quick-action-modal h2{margin-bottom:12px;font-size:16px}
+/* ===== Quick record form (SubPage record flows) ===== */
 .qa-modal-section{margin-bottom:14px}
 .qa-modal-label{font-size:12px;color:var(--txt2);margin-bottom:5px;display:block;font-weight:600}
 .qa-modal-input{
@@ -1182,7 +1542,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   touch-action:pan-y;
 }
 @media(max-width:640px){
-  #quickActionModal.modal-overlay--stack-top .qa-search-results{
+  .app-subpage__content .qa-search-results{
     max-height:min(240px,calc(100dvh - 260px - env(safe-area-inset-bottom,0px)));
   }
 }
@@ -1228,6 +1588,14 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
   margin-bottom:5px;font-size:12px;color:var(--txt);
 }
 [data-theme="light"] .qa-draft-item{background:rgba(0,0,0,0.03)}
+.qa-draft-food-group{padding:8px;min-width:0;overflow-x:hidden}
+.qa-draft-food-select{
+  min-height:44px;display:flex;align-items:center;gap:8px;padding:0 4px;
+  color:var(--txt2);font-size:11px;font-weight:650;cursor:pointer;
+}
+.qa-draft-food-select input{width:20px;height:20px;flex:0 0 20px}
+.qa-draft-food-list{min-width:0}
+.qa-draft-food-list .food-portion-card{padding-right:2px;padding-left:2px}
 .qa-more-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .qa-more-item{
   padding:14px;border-radius:12px;
@@ -1466,12 +1834,6 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 .health-goal-mini-bar{height:5px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:7px}
 .health-goal-mini-fill{height:100%;border-radius:999px;background:var(--gold-grad);transition:width .45s ease}
 [data-theme="light"] .health-goal-mini-strip{background:linear-gradient(135deg,rgba(166,111,0,.10),rgba(255,255,255,.40))}
-.record-detail-modal{width:min(560px,100%);max-height:min(86vh,760px);padding:0;display:flex;flex-direction:column;overflow:hidden}
-.record-detail-head{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px 12px;background:var(--bg2);border-bottom:1px solid var(--card-border)}
-.record-detail-title{font-size:16px;font-weight:900;color:var(--gold-l)}
-.record-detail-sub{font-size:11px;color:var(--txt3);margin-top:2px}
-.record-detail-content{padding:14px 18px 18px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-.record-detail-modal .modal-close{position:static;flex:0 0 auto}
 .record-detail-summary-line{margin-bottom:10px;padding:9px 10px;border-radius:12px;border:1px solid rgba(212,175,55,.10);background:rgba(255,255,255,.025);font-size:12px;color:var(--txt2);line-height:1.5}
 .record-detail-add{
   display:flex;align-items:center;justify-content:center;
@@ -3028,6 +3390,7 @@ button.settings-list-row{cursor:pointer}
   -webkit-tap-highlight-color:transparent;transition:color .12s;
 }
 .food-draft-action-btn:hover,.food-draft-action-btn:active{color:var(--accent-text)}
+.food-draft-action-btn.ds-hit{min-height:var(--touch-min)}
 .food-draft-inline-edit{margin:0 0 4px;padding:0}
 .food-draft-totals{
   padding:10px 0;border-radius:0;border:0;border-top:1px solid rgba(212,175,55,0.08);
@@ -3052,33 +3415,77 @@ button.settings-list-row{cursor:pointer}
   text-align:left;
 }
 .food-portion-card:last-child{border-bottom:0}
-.food-portion-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.food-portion-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.food-portion-head-main{flex:1;min-width:0}
+.food-portion-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.food-portion-title-row .food-portion-name{flex:1;min-width:0}
+.food-portion-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
 .food-portion-name{font-size:13px;color:var(--txt);font-weight:700;line-height:1.3}
-.food-portion-meta{font-size:10px;color:var(--txt3);margin-top:1px}
+.food-portion-meta{font-size:10px;color:var(--txt3);margin-top:2px}
 .food-portion-kcal{font-size:13px;color:var(--accent-text);font-weight:750;white-space:nowrap}
-.food-portion-nutrients{font-size:10px;color:var(--txt3);margin-top:1px;text-align:right}
+.food-portion-nutrients{font-size:10px;color:var(--txt3);text-align:right}
+/* FoodQuantityEditor layout — controls use the canonical form, dropdown and stepper components. */
+.fq-editor-shell{width:100%;max-width:100%;box-sizing:border-box}
+.fq-editor{
+  display:flex;flex-direction:column;gap:14px;width:100%;max-width:100%;box-sizing:border-box;
+}
+.fq-field{width:100%;min-width:0;margin:0}
+.fq-reference-controls{grid-template-columns:minmax(0,1fr) minmax(88px,.42fr)}
+.fq-reference-controls>*{min-width:0}
+.fq-editor .form-input{min-height:44px}
+.fq-editor .glass-dropdown{width:100%}
+.fq-editor .glass-trigger{min-height:44px}
+.fq-editor .ds-stepper{
+  display:flex;align-items:center;justify-content:center;
+  height:44px;min-height:44px;
+}
+.fq-editor .ds-stepper-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:44px;min-width:44px;height:44px;min-height:44px;
+  padding:0;line-height:1;
+}
+.fq-editor .ds-stepper-input-wrap{
+  display:flex;align-items:center;justify-content:center;
+  height:44px;min-height:44px;margin:0;padding-top:0;padding-bottom:0;
+}
+.fq-editor .ds-stepper-input,
+.fq-editor .ds-stepper-input:hover,
+.fq-editor .ds-stepper-input:focus,
+.fq-editor .ds-stepper-input:focus-visible,
+.fq-editor .ds-stepper-input:active{
+  display:block;height:44px!important;min-height:44px!important;
+  margin:0;padding-top:0!important;padding-bottom:0!important;
+  line-height:44px!important;vertical-align:middle;
+}
 .food-portion-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 28px;gap:6px;align-items:end}
 .food-portion-field{min-width:0}
 .food-portion-field>label{display:block;font-size:9px;color:var(--txt3);margin:0 0 3px}
-/* LEGACY: AI food-portion stepper (two-row layout: quantity + grams). Structure
-   differs from ds-stepper pill; retain until food-portion-card is redesigned. */
+.edit-food-row--measure{display:block;width:100%;min-width:0;padding:10px 0;border-bottom:1px solid var(--glass-border)}
+.edit-food-row--measure:last-child{border-bottom:0}
+.edit-food-name{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:8px}
 .food-serving-stepper,.food-grams-control{
-  box-sizing:border-box;height:40px;display:flex;align-items:center;
+  box-sizing:border-box;height:44px;min-height:44px;display:flex;align-items:center;
   border:1px solid var(--accent-border);border-radius:var(--radius-pill);
   background:var(--glass-field);
   box-shadow:none;
   overflow:visible;transition:border-color .15s ease,box-shadow .15s ease;
 }
+.food-portion-select{
+  width:100%;height:44px;min-height:44px;padding:0 12px;border:1px solid var(--accent-border);
+  border-radius:var(--radius-pill);background:var(--glass-field);color:var(--txt1);font-size:14px;
+  box-sizing:border-box;
+}
+.food-portion-select--sm{width:auto;min-width:72px;flex-shrink:0}
 .food-serving-stepper:focus-within,.food-grams-control:focus-within{
   border-color:rgba(212,175,55,.5);
   box-shadow:var(--accent-focus-ring);
 }
 .food-portion-btn{
-  flex:0 0 32px;flex-shrink:0;width:32px;height:32px;margin:3px;border-radius:var(--radius-pill);
+  flex:0 0 44px;flex-shrink:0;width:44px;height:44px;margin:0;border-radius:var(--radius-pill);
   border:0;background:transparent;color:var(--accent-text);
-  box-shadow:none;font-size:16px;line-height:1;
+  box-shadow:none;font-size:18px;line-height:1;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  min-width:40px;min-height:40px;
+  min-width:44px;min-height:44px;
   transition:background .15s ease,color .15s ease,transform .1s ease;
   -webkit-tap-highlight-color:transparent;
 }
@@ -3094,19 +3501,19 @@ button.settings-list-row{cursor:pointer}
 }
 .food-portion-input::-webkit-inner-spin-button,.food-portion-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .food-portion-unit{padding-right:5px;padding-left:2px;font-size:11px;font-weight:600;color:var(--txt2);white-space:nowrap;flex:0 0 auto}
-.food-grams-control{border-radius:var(--radius-pill);padding-left:4px}
+.food-grams-control{border-radius:var(--radius-pill);padding-left:8px}
 .food-portion-del{
-  align-self:end;width:28px;height:28px;min-width:40px;min-height:40px;
-  margin:0 0 4px;border-radius:var(--radius-pill);
-  border:0;cursor:pointer;
-  background:transparent;color:var(--txt3);font-size:14px;
+  flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;
+  margin:0;padding:0;border-radius:var(--radius-pill);
+  border:0;cursor:pointer;position:static;top:auto;right:auto;transform:none;z-index:auto;
+  background:transparent;color:var(--txt3);font-size:16px;
   box-shadow:none;
   display:flex;align-items:center;justify-content:center;
-  transition:background .15s ease,transform .1s ease,color .15s ease;
+  transition:background .15s ease,color .15s ease;
   -webkit-tap-highlight-color:transparent;
 }
 .food-portion-del:hover{background:rgba(248,113,113,.1);color:var(--red)}
-.food-portion-del:active{transform:scale(.93);color:var(--red)}
+.food-portion-del:active{background:rgba(248,113,113,.15);color:var(--red)}
 .food-portion-ai-note{
   margin:0 0 6px;padding:6px 8px;border-radius:var(--radius-sm);
   background:var(--accent-tonal);border:0;color:var(--txt2);font-size:10px;line-height:1.45;
@@ -3122,7 +3529,7 @@ button.settings-list-row{cursor:pointer}
   display:flex;align-items:center;justify-content:center;min-height:32px;border-radius:var(--radius-pill);
   background:var(--accent-tonal);color:var(--accent-text);font-size:11px;font-weight:750;
 }
-.food-detail-toggle{width:100%;margin-top:6px;border:0;background:transparent;color:var(--txt3);font-size:11px;font-weight:600}
+.food-detail-toggle{width:100%;min-height:var(--touch-min);margin-top:6px;border:0;background:transparent;color:var(--txt3);font-size:11px;font-weight:600}
 .food-detail-panel{
   margin-top:6px;padding:8px;border-radius:var(--radius-sm);background:rgba(255,255,255,.025);
   border:0;border-top:1px solid rgba(212,175,55,.06);display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;
@@ -3148,13 +3555,10 @@ button.settings-list-row{cursor:pointer}
   .ai-search-kcal{font-size:13px}
   .ai-food-details{padding:7px}
   .food-portion-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 28px;gap:6px}
-  .food-serving-stepper,.food-grams-control{height:40px}
-  .food-portion-btn{flex-basis:30px;flex-shrink:0;width:30px;height:30px;margin:3px}
-  .food-portion-input{font-size:12px}
-  .food-portion-del{margin-bottom:6px}
   .food-detail-panel{grid-template-columns:1fr}
   .edit-food-row{grid-template-columns:minmax(0,1fr) 120px;gap:6px}
   .edit-food-row .glass-stepper.compact{grid-template-columns:28px minmax(40px,1fr) 28px;min-height:34px;padding:2px}
+  .fq-reference-controls{grid-template-columns:minmax(0,1fr) minmax(88px,.42fr);gap:8px}
 }
 .ai-note{
   font-size:10px;color:var(--txt3);text-align:center;
@@ -3396,6 +3800,12 @@ button.settings-list-row{cursor:pointer}
 .sleep-time-compact .glass-trigger{font-size:14px;font-weight:800;justify-content:center}
 .sleep-time-compact .glass-trigger-label{flex:0 1 auto}
 .sleep-time-compact .time-compact-select .glass-trigger{min-height:40px}
+.sleep-duration-row{margin-bottom:8px}
+.sleep-duration-inputs{display:flex;align-items:center;gap:6px}
+.sleep-duration-num{width:64px;min-width:64px;text-align:center;font-weight:700}
+.sleep-duration-unit{font-size:12px;color:var(--txt2);font-weight:600;flex-shrink:0}
+.edit-field .sleep-duration-inputs{margin-top:4px}
+.edit-field .meal-seg{margin:0}
 .edit-field .time-compact-select{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
 .sleep-quality-field .glass-dropdown,.sleep-quality-field select{width:100%}
 .health-input-line{display:flex;gap:8px;margin-bottom:8px;align-items:center}
@@ -3478,12 +3888,11 @@ button.settings-list-row{cursor:pointer}
 
 /* ===== Modal ===== */
 .modal-overlay{
-  position:fixed;inset:0;z-index:3000;
+  position:fixed;inset:0;z-index:var(--z-modal-overlay,3000);
   background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);
   display:none;align-items:center;justify-content:center;padding:20px;
 }
 .modal-overlay.show{display:flex}
-.modal-overlay.modal-overlay--stack-top{z-index:3200}
 .modal{
   background:var(--bg2);border:1px solid var(--card-border-h);
   border-radius:16px;padding:20px;width:100%;max-width:440px;
@@ -3596,8 +4005,6 @@ button.settings-list-row{cursor:pointer}
   .health-record-management-note{text-align:left}
   .health-record-entry{grid-template-columns:auto minmax(0,1fr) auto auto;padding:10px}
   .body-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-  .record-detail-modal{width:100%;max-width:none;max-height:calc(100vh - env(safe-area-inset-top) - 18px);border-radius:18px 18px 0 0;margin-top:auto}
-  .modal-overlay.record-detail-overlay{align-items:flex-end;padding:18px 10px calc(10px + env(safe-area-inset-bottom))}
   .record-management-split{grid-template-columns:1fr}
   .card{padding:12px;border-radius:12px}
   .card-title{font-size:13px;letter-spacing:.6px;margin-bottom:12px}
@@ -6648,7 +7055,9 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover{
   padding-bottom:0!important;
 }
 body.child-page-active #dateNavigator,
-body.child-page-active #bottomTabNav{
+body.child-page-active #bottomTabNav,
+body.app-subpage-active #dateNavigator,
+body.app-subpage-active #bottomTabNav{
   display:none!important;
 }
 body.child-page-active .app{
@@ -6788,17 +7197,17 @@ body.child-page-active .app{
 }
 
 /* ===== Child Page Design System: form / overlay / state primitives ===== */
-.modal h2,.record-detail-title,.quick-action-modal h2{font-family:inherit;font-weight:750;letter-spacing:0;color:var(--txt)}
+.modal h2,.app-subpage__title{font-family:inherit;font-weight:750;letter-spacing:0;color:var(--txt)}
 .form-group label,.qa-modal-label{font-family:inherit;font-weight:600;color:var(--txt2)}
-.form-input,.form-select,.form-readonly-val,.quick-action-modal input,.quick-action-modal select,.quick-action-modal textarea{font-family:inherit;border-radius:var(--surface-control-radius,14px);border-color:var(--card-border);background:var(--home-metric-bg);color:var(--txt)}
-.form-input:focus,.form-select:focus,.quick-action-modal input:focus,.quick-action-modal select:focus,.quick-action-modal textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,175,55,.12)}
-.form-hint,.settings-modal-subtitle,.record-detail-sub{color:var(--txt3);line-height:1.5}
+.form-input,.form-select,.form-readonly-val,.app-subpage__content input,.app-subpage__content select,.app-subpage__content textarea{font-family:inherit;border-radius:var(--surface-control-radius,14px);border-color:var(--card-border);background:var(--home-metric-bg);color:var(--txt)}
+.form-input:focus,.form-select:focus,.app-subpage__content input:focus,.app-subpage__content select:focus,.app-subpage__content textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,175,55,.12)}
+.form-hint,.settings-modal-subtitle{color:var(--txt3);line-height:1.5}
 .settings-edit-footer{position:sticky;bottom:0;z-index:3;padding-top:12px;padding-bottom:calc(4px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,transparent,var(--bg2) 28%)}
 .modal-overlay{font-family:inherit}
 .modal-overlay.show .modal{animation:childSurfaceIn .18s ease-out both}
 @keyframes childSurfaceIn{from{opacity:.82;transform:translateY(8px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
-.record-detail-content .ex-empty,.record-detail-content .app-page-note,.ai-empty,.daily-plan-empty,.qf-empty{color:var(--txt3);line-height:1.6;text-align:center}
-.record-detail-content .ex-empty,.qf-empty{padding:18px 10px}
+.record-management-sub .ex-empty,.app-page-note,.ai-empty,.daily-plan-empty,.qf-empty{color:var(--txt3);line-height:1.6;text-align:center}
+.record-management-sub .ex-empty,.qf-empty{padding:18px 10px}
 .modal button,.sub-page-content button{font-family:inherit}
 @media(max-width:430px){
   .sub-page-header{min-height:48px;padding-bottom:8px}
@@ -7229,68 +7638,44 @@ body.child-page-active .app{
   height:15px;
 }
 
-/* 记录详情是同一套 Sheet 家族：饮食 / 体重 / 饮水 / 运动 / 睡眠 / 步数 */
-.modal.record-detail-modal{
-  padding:0!important;
-  border-radius:var(--surface-sheet-radius)!important;
-  overflow:hidden!important;
-  clip-path:inset(0 round var(--surface-sheet-radius));
-  background-clip:padding-box;
-}
-.record-detail-modal::before{
-  border-radius:inherit;
-}
-.record-detail-head{
-  flex:0 0 auto;
-  border-radius:var(--surface-sheet-radius) var(--surface-sheet-radius) 0 0;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012)),
-    rgba(9,9,16,0.42);
-  background-clip:padding-box;
-}
-.record-detail-content{
-  flex:1 1 auto;
-  min-height:86px;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.018),rgba(255,255,255,0.006));
-}
-.record-detail-content>.ex-empty:only-child,
-.record-detail-content>.ex-empty:first-child{
-  min-height:86px;
-  display:grid;
-  place-items:center;
-  padding:16px 10px;
-  margin:0;
-  color:var(--txt3);
-  background:transparent;
+/* Record management SubPages — list layout (replaces legacy record-detail modal shell) */
+.record-management-sub .ex-empty:only-child,
+.record-management-sub .ex-empty:first-child{
+  min-height:86px;display:grid;place-items:center;padding:16px 10px;margin:0;
 }
 .record-detail-summary-line,
-.record-detail-content .log-item,
-.record-detail-content .ex-item,
-.record-detail-content .health-record-item,
-.record-detail-content .log-total{
+.record-management-sub .log-item,
+.record-management-sub .ex-item,
+.record-management-sub .health-record-item,
+.record-management-sub .log-total{
   border-radius:var(--surface-control-radius);
 }
-.record-detail-content .meal-group-header{
-  margin-bottom:6px;
-  padding:0 1px 5px;
-}
-.record-detail-modal .modal-close{
-  position:static;
-  flex:0 0 auto;
-  width:34px;
-  height:34px;
-}
+.record-management-sub .meal-group-header{margin-bottom:6px;padding:0 1px 5px}
+.record-management-sub .log-item,
+.record-management-sub .ex-item,
+.record-management-sub .health-record-item{min-width:0;gap:8px}
+.record-management-sub .li-left,
+.record-management-sub .ex-item>div:first-child,
+.record-management-sub .health-record-item>div:first-child{flex:1 1 auto;min-width:0}
+.record-management-sub .li-name,
+.record-management-sub .li-nutri,
+.record-management-sub .exi-name,
+.record-management-sub .exi-detail,
+.record-management-sub .health-record-item strong,
+.record-management-sub .hr-time{overflow-wrap:anywhere;word-break:break-word}
+.record-management-sub .li-right,
+.record-management-sub .ex-item>div:last-child,
+.record-management-sub .health-record-actions{flex:0 0 auto;min-width:0}
+.record-management-sub .li-cal,
+.record-management-sub .exi-cal{white-space:nowrap}
 
-/* Quick Action 族保持同一外壳，不裁掉内部滚动内容和搜索结果 */
-.modal.quick-action-modal{
-  border-radius:var(--surface-sheet-radius);
-  background-clip:padding-box;
-}
-.quick-action-modal .qa-modal-section,
-.quick-action-modal .qa-portion-card,
-.quick-action-modal .qa-search-item,
-.quick-action-modal .qa-draft-item,
+/* Legacy quick-action shell removed — SubPage flows use record-flow-shell / food-flow-shell */
+.record-flow-shell .qa-portion-card,
+.record-flow-shell .qa-search-item,
+.record-flow-shell .qa-draft-item,
+.food-flow-shell .qa-portion-card,
+.food-flow-shell .qa-search-item,
+.food-flow-shell .qa-draft-item,
 .quick-add-main-card,
 .qa-item{
   border-radius:var(--surface-inner-radius);
@@ -7317,47 +7702,10 @@ body.child-page-active .app{
   background-clip:padding-box;
 }
 
-[data-theme="light"] .record-detail-head{
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.70),rgba(255,255,255,0.36)),
-    rgba(255,253,247,0.72);
-}
-[data-theme="light"] .record-detail-content{
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.36),rgba(255,255,255,0.16));
-}
-
-@media(max-width:640px){
-  .modal-close,
-  .record-detail-modal .modal-close{
-    width:36px;
-    height:36px;
-  }
-  .modal.record-detail-modal{
-    width:calc(100vw - 24px)!important;
-    max-width:calc(100vw - 24px)!important;
-    max-height:calc(100dvh - 28px - env(safe-area-inset-bottom,0px))!important;
-    border-radius:var(--surface-sheet-radius)!important;
-  }
-  .record-detail-head{
-    padding:15px 16px 12px;
-  }
-  .record-detail-content{
-    padding:13px 16px calc(16px + env(safe-area-inset-bottom,0px));
-  }
-}
-
-/* ===== Unified long-content modal scrolling =====
-   Record details, AI result/history, weekly details and quick actions share
-   one bounded shell with a native touch-scroll region. */
+/* ===== Unified long-content modal scrolling ===== */
 .modal-overlay{
   padding-top:max(14px,env(safe-area-inset-top,0px));
   padding-bottom:max(14px,env(safe-area-inset-bottom,0px));
-}
-[data-theme="light"] .record-detail-head{
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.70),rgba(255,255,255,0.36)),
-    rgba(255,253,247,0.72);
 }
 .modal{
   max-height:calc(100vh - 40px);
@@ -7384,59 +7732,6 @@ body.child-page-active .app{
   touch-action:pan-y;
   scrollbar-gutter:stable;
 }
-.modal.record-detail-modal{
-  height:auto;
-  max-height:min(760px,calc(100vh - 40px))!important;
-  max-height:min(760px,calc(100svh - 40px))!important;
-  max-height:min(760px,calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)))!important;
-}
-.record-detail-head{
-  position:relative;
-  min-width:0;
-}
-.record-detail-head>div:first-child{
-  min-width:0;
-}
-.record-detail-sub{
-  overflow-wrap:anywhere;
-}
-.record-detail-content{
-  flex:1 1 auto;
-  min-height:0!important;
-  overflow-y:auto!important;
-  padding-bottom:max(18px,calc(14px + env(safe-area-inset-bottom,0px)));
-}
-.record-detail-content .log-item,
-.record-detail-content .ex-item,
-.record-detail-content .health-record-item{
-  min-width:0;
-  gap:8px;
-}
-.record-detail-content .li-left,
-.record-detail-content .ex-item>div:first-child,
-.record-detail-content .health-record-item>div:first-child{
-  flex:1 1 auto;
-  min-width:0;
-}
-.record-detail-content .li-name,
-.record-detail-content .li-nutri,
-.record-detail-content .exi-name,
-.record-detail-content .exi-detail,
-.record-detail-content .health-record-item strong,
-.record-detail-content .hr-time{
-  overflow-wrap:anywhere;
-  word-break:break-word;
-}
-.record-detail-content .li-right,
-.record-detail-content .ex-item>div:last-child,
-.record-detail-content .health-record-actions{
-  flex:0 0 auto;
-  min-width:0;
-}
-.record-detail-content .li-cal,
-.record-detail-content .exi-cal{
-  white-space:nowrap;
-}
 .edit-popover{
   display:flex;
   flex-direction:column;
@@ -7457,22 +7752,6 @@ body.child-page-active .app{
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
   touch-action:pan-y;
-}
-@media(max-width:640px){
-  .modal-overlay.record-detail-overlay{
-    align-items:flex-end;
-    padding: max(12px,env(safe-area-inset-top,0px)) 10px max(12px,env(safe-area-inset-bottom,0px));
-  }
-  .modal.record-detail-modal{
-    width:calc(100vw - 20px)!important;
-    max-width:calc(100vw - 20px)!important;
-    max-height:calc(100vh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;
-    max-height:calc(100svh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;
-    max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;
-  }
-  .record-detail-content{
-    padding-bottom:max(18px,calc(12px + env(safe-area-inset-bottom,0px)));
-  }
 }
 
 /* ===== Health Record Delete Button Unification =====
@@ -7784,8 +8063,7 @@ body.health-compare-page-active .app{
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding-bottom:8px;
 }
-#coupleLedgerModal .modal,#foodSyncModal .modal{width:min(480px,100%)}
-#coupleLedgerForm,#foodSyncForm{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+[data-ledger-form],[data-food-sync-form]{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
 .ledger-modal-section{display:flex;flex-direction:column;gap:0;padding-bottom:4px}
 .ledger-modal-footer{
   flex:0 0 auto;position:relative;z-index:3;margin-top:0;padding:10px 0 max(8px,calc(8px + env(safe-area-inset-bottom,0px)));

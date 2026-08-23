@@ -1,4 +1,4 @@
-const CACHE_NAME = 'health-assistant-v6';
+const CACHE_NAME = 'health-assistant-v12';
 
 const STATIC_ASSETS = [
   '/',

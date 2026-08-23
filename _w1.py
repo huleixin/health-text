@@ -1,0 +1,93 @@
+﻿# -*- coding: utf-8 -*-
+from pathlib import Path
+import re, shutil
+
+ROOT = Path(r"c:\Users\东北大妞\Desktop\health-main-1")
+
+CRITICAL = r"""<style id="ai-record-entry-critical">
+#qaSmartRecordHost .ai-record-main{
+  width:100%;min-width:0;box-sizing:border-box;margin-bottom:12px;padding:10px 12px 12px;
+  border-radius:16px;border:1px solid rgba(212,175,55,0.24);
+  background:linear-gradient(135deg,rgba(212,175,55,0.14),rgba(244,209,96,0.05));
+  box-shadow:0 4px 16px rgba(0,0,0,0.12);overflow:hidden;
+}
+#qaSmartRecordHost .ai-record-main-header{display:flex;align-items:center;margin-bottom:6px}
+#qaSmartRecordHost .ai-record-main-header-title{
+  font-size:12px;font-weight:650;letter-spacing:.04em;color:var(--txt2,#c8c2b4);opacity:.78;white-space:nowrap;
+}
+#qaSmartRecordHost .ai-record-stage{
+  position:relative;width:100%;height:56px;min-height:56px;box-sizing:border-box;
+  --ai-pad:8px;--ai-icon:36px;--ai-gap:10px;--ai-split-x:72%;
+  --ai-food-text:1;--ai-order-text:0;
+  touch-action:pan-y;
+}
+#qaSmartRecordHost .ai-record-stage.is-dragging{touch-action:none;user-select:none;-webkit-user-select:none}
+#qaSmartRecordHost .ai-anchor{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:5;
+  width:var(--ai-icon);height:var(--ai-icon);padding:0;margin:0;border:0;background:transparent;
+  cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;
+  display:flex;align-items:center;justify-content:center;
+}
+#qaSmartRecordHost .ai-anchor-food{left:var(--ai-pad);right:auto}
+#qaSmartRecordHost .ai-anchor-order{right:var(--ai-pad);left:auto}
+#qaSmartRecordHost .ai-record-main.is-split .ai-card-icon{
+  width:36px!important;height:36px!important;border-radius:11px!important;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  background:linear-gradient(135deg,var(--gold,#d4af37),var(--gold-l,#f4d160));color:#fff;
+  box-shadow:0 2px 8px rgba(212,175,55,.2);
+}
+#qaSmartRecordHost .ai-record-main.is-split .ai-card-icon .ui-icon{width:18px!important;height:18px!important}
+#qaSmartRecordHost .ai-text{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  overflow:hidden;white-space:nowrap;pointer-events:auto;cursor:pointer;
+  transition:opacity .18s ease;
+}
+#qaSmartRecordHost .ai-record-stage.is-dragging .ai-text{transition:none!important}
+#qaSmartRecordHost .ai-record-stage.is-easing .ai-record-split-handle{transition:left .18s ease}
+#qaSmartRecordHost .ai-record-stage.is-dragging .ai-record-split-handle{transition:none!important}
+#qaSmartRecordHost .ai-text-food{
+  left:calc(var(--ai-pad) + var(--ai-icon) + var(--ai-gap));
+  right:calc(100% - var(--ai-split-x) + 14px);
+  opacity:var(--ai-food-text,1);
+  text-align:left;
+}
+#qaSmartRecordHost .ai-text-order{
+  left:calc(var(--ai-split-x) + 14px);
+  right:calc(var(--ai-pad) + var(--ai-icon) + var(--ai-gap));
+  opacity:var(--ai-order-text,0);
+  text-align:left;
+}
+#qaSmartRecordHost .ai-card-title{display:block;font-size:15px;font-weight:800;line-height:1.2;color:var(--gold-l,#f4d160)}
+#qaSmartRecordHost .ai-card-sub{display:block;margin-top:2px;font-size:12px;line-height:1.3;color:var(--txt2,#c8c2b4)}
+#qaSmartRecordHost .ai-record-split-handle{
+  position:absolute;top:0;bottom:0;left:var(--ai-split-x);width:22px;margin:0;padding:0;border:0;
+  transform:translateX(-50%);background:transparent;cursor:col-resize;touch-action:none;z-index:6;
+  display:flex;align-items:center;justify-content:center;-webkit-user-select:none;user-select:none;
+}
+#qaSmartRecordHost .ai-record-split-line{
+  width:1px;height:70%;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(212,175,55,.42),transparent);
+}
+#qaSmartRecordHost .ai-record-split-grip{
+  position:absolute;width:3px;height:16px;border-radius:2px;pointer-events:none;
+  background:rgba(212,175,55,.4);opacity:.65;
+}
+#qaSmartRecordHost .ai-record-split-handle.is-dragging .ai-record-split-grip{opacity:1;background:rgba(212,175,55,.8)}
+#qaSmartRecordHost .ai-hit{
+  position:absolute;top:0;bottom:0;z-index:2;background:transparent;cursor:pointer;
+}
+#qaSmartRecordHost .ai-hit-food{left:0;width:var(--ai-split-x)}
+#qaSmartRecordHost .ai-hit-order{left:var(--ai-split-x);right:0}
+@media(max-width:430px){
+  #qaSmartRecordHost .ai-record-main{padding:8px 10px 10px}
+  #qaSmartRecordHost .ai-record-stage{height:52px;min-height:52px;--ai-icon:34px;--ai-pad:6px;--ai-gap:8px}
+  #qaSmartRecordHost .ai-record-main.is-split .ai-card-icon{width:34px!important;height:34px!important}
+  #qaSmartRecordHost .ai-record-main.is-split .ai-card-icon .ui-icon{width:17px!important;height:17px!important}
+  #qaSmartRecordHost .ai-card-title{font-size:14px}
+  #qaSmartRecordHost .ai-card-sub{font-size:11px}
+}
+</style>"""
+
+print("critical len", len(CRITICAL))
+Path("_ai_critical.txt").write_text(CRITICAL, encoding="utf-8")
+print("wrote critical ok")

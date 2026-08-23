@@ -141,19 +141,6 @@ function formatNearestHolidayDays(holiday){
   if(holiday.days===0) return `今天是${holiday.name}`;
   return `还有 ${holiday.days} 天`;
 }
-function compareAnniversaryOrder(a,b){
-  const ao=Number.isFinite(Number(a?.sortOrder))?Number(a.sortOrder):null;
-  const bo=Number.isFinite(Number(b?.sortOrder))?Number(b.sortOrder):null;
-  if(ao!==null||bo!==null){
-    if(ao===null) return 1;
-    if(bo===null) return -1;
-    if(ao!==bo) return ao-bo;
-  }
-  const ad=daysUntilDate(getNextAnnualDate(a?.date))||9999;
-  const bd=daysUntilDate(getNextAnnualDate(b?.date))||9999;
-  if(ad!==bd) return ad-bd;
-  return String(a?.date||'').localeCompare(String(b?.date||''));
-}
 function getSortedAnniversaries(){
   const cs=getCoupleSpace();
   const all=[];

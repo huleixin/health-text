@@ -203,11 +203,11 @@ currentDateTime=${currentDateTime}
 2. 不要返回 profileId、我、伴侣、用户身份等字段；记录对象由前端决定。
 3. 只提取用户明确表达或能够可靠理解的信息，不要虚构体重、步数、运动时长、睡眠时长、食物数量、饮水量。
 4. 如果没有明确日期，默认使用 baseDate。
-5. 如果没有明确时间，可以使用 currentDateTime 的时间，并设置 timeDefaulted:true。
+5. 如果没有明确时间，可以使用 currentDateTime 的时间，并设置 timeDefaulted:true。对睡眠事件：当用户是在醒来后补记（如“记录睡眠”“记录昨晚睡眠”）且未给出具体时刻时，dateTime 表示起床/睡眠结束时间，不要当成入睡开始时间。
 6. 支持中文自然时间：今天、昨天、前天、昨晚、今早、上午、中午、下午、晚上、凌晨、7点半、7点20、七点二十分、8月8日、8月8号、2026年8月8日。
 7. 食物事件只返回吃了什么、数量、单位和餐次；不要返回热量和营养。
 8. 运动事件只返回运动名称和持续分钟数；不要返回卡路里和MET。
-9. 睡眠 duration 使用分钟；quality 只能是 good、normal、poor，未提到质量默认 normal。
+9. 睡眠 duration 使用分钟；quality 只能是 good、normal、poor，未提到质量默认 normal。用户明确说了时长才填写 duration；未说明时长时 duration 返回 null（由前端按默认时长倒推开始时间），不要虚构。若同时提到几点睡到几点，dateTime 用结束/起床时间，duration 用对应分钟数。
 10. 如果一句话包含多条记录，必须拆成多条事件，例如早中晚三餐拆成三条 food，早晚两次运动拆成两条 exercise。
 11. 饮水事件只返回喝水时间和饮水量 amount，单位统一为 ml；1L=1000ml，1.5升=1500ml，2000毫升=2000ml。
 12. 如果用户只说“一杯水”“一大杯水”“半瓶水”“一瓶水”等无法可靠换算的表达，不要猜固定毫升，返回 amount:null, needConfirm:true。
