@@ -581,12 +581,12 @@ html:not([data-boot-ready]) .app{
 <div class="toast-container" id="toastContainer"></div>
 <div id="appSubPageHost" class="app-subpage-host" hidden aria-hidden="true"></div>
 
-<script src="./js/subpage.js?v=mobile-phase4"></script>
-<script src="./js/sheet.js?v=mobile-phase4"></script>
-<script src="./js/dialog.js?v=mobile-phase4"></script>
-<script src="./js/food-subpage.js?v=mobile-phase4"></script>
-<script src="./js/record-subpage.js?v=mobile-phase4"></script>
-<script src="./js/ledger-subpage.js?v=mobile-phase4"></script>
+<script src="./js/subpage.js?v=mobile-phase4b"></script>
+<script src="./js/sheet.js?v=mobile-phase4b"></script>
+<script src="./js/dialog.js?v=mobile-phase4b"></script>
+<script src="./js/food-subpage.js?v=mobile-phase4b"></script>
+<script src="./js/record-subpage.js?v=mobile-phase4b"></script>
+<script src="./js/ledger-subpage.js?v=mobile-phase4b"></script>
 <script>
 // App-like: suppress context menu (long-press copy/select/share) on non-editable UI.
 // Input/textarea/contenteditable are excluded so paste/select still works. (req 17)
@@ -7900,9 +7900,10 @@ function showAIRecognitionError(msg){
   renderIcons(shell);
 }
 function closeAIRecognitionLoading(){
-  if(getCurrentSubPage()?.id===RECORD_SUBPAGE_IDS.ORDER_RECOGNITION){
-    closeRecordSubPageIfTop(RECORD_SUBPAGE_IDS.ORDER_RECOGNITION);
-  }
+  // Loading is an in-page state of order_recognition / food_ai_flow.
+  // Do NOT close the SubPage here — that empties the stack, flashes home, and
+  // leaves an opacity:0 leaving layer that can intercept taps (freeze).
+  // Success paths must replaceTop or update shell content instead.
 }
 async function routeFoodPhotoRecognition(file){
   if(!file) return;
@@ -8072,8 +8073,8 @@ function showFoodOrderPurposeSelection(result,mode){
   const merchant=result.expense?.merchant||'';
   const amount=result.expense?.amount;
   const amtText=amount!=null?`¥${(Number(amount)).toFixed(2)}`:'未识别';
-  closeAIRecognitionLoading();
-  ensureFoodSyncSubPage('餐饮订单');
+  // Replace order_recognition (or reuse food_sync) without emptying the stack.
+  ensureFoodSyncSubPage('餐饮订单',{replace:true});
   const form=getFoodSyncFormHost();
   if(!form) return;
   let btns=`<button type="button" class="btn btn-ghost" data-food-order-cancel>取消</button>`;
@@ -8102,8 +8103,8 @@ function chooseFoodOrderPurpose(purpose){
   if(!session){closeFoodSyncModal();return}
   const result=session.result;
   const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
-  closeFoodSyncModal();
   if(purpose==='diet_only'){
+    // Stay on food_sync — startFoodOnlySync reuses the top page.
     startFoodOnlySync(orderItems,result.expense?.occurredAt,result.expense?.merchant);
   }else if(purpose==='both'){
     routeToExpenseEditorWithAI(result,true);
@@ -8218,17 +8219,22 @@ function routeToExpenseEditorWithAI(result,withDiet){
   _ledgerAIPendingDiet=!!withDiet;
   const session=_aiRecognitionSession;
   const sourceImageURL=session?.imageURL||null;
-  openCoupleLedgerEditor();
-  setTimeout(()=>{
-    const form=getLedgerFormHost();
-    if(!form) return;
-    const aiEntry=form.querySelector('#ledgerAIEntry');
-    const aiStatus=form.querySelector('#ledgerAIStatus');
-    if(aiEntry) aiEntry.style.display='none';
-    if(aiStatus){aiStatus.style.display='';aiStatus.textContent='AI已智能填充，请确认';aiStatus.style.color='var(--gold-l)';}
-    prefillLedgerEditorFromAI(result,form,sourceImageURL);
-    if(aiEntry) aiEntry.style.display='';
-  },150);
+  const topId=getCurrentSubPage()?.id;
+  const shouldReplace=topId===RECORD_SUBPAGE_IDS.ORDER_RECOGNITION
+    ||topId===FOOD_SUBPAGE_IDS.SYNC
+    ||topId===FOOD_SUBPAGE_IDS.AI_FLOW;
+  openLedgerEntrySubPage('记一笔',{
+    replace:shouldReplace,
+    render(form){
+      mountCoupleLedgerEditorForm(form,null,false);
+      const aiEntry=form.querySelector('#ledgerAIEntry');
+      const aiStatus=form.querySelector('#ledgerAIStatus');
+      if(aiEntry) aiEntry.style.display='none';
+      if(aiStatus){aiStatus.style.display='';aiStatus.textContent='AI已智能填充，请确认';aiStatus.style.color='var(--gold-l)';}
+      prefillLedgerEditorFromAI(result,form,sourceImageURL);
+      if(aiEntry) aiEntry.style.display='';
+    }
+  });
 }
 function openLedgerAllCategories(){
   const modal=document.getElementById('coupleLedgerAllCatsModal');
@@ -16644,12 +16650,18 @@ function renderQuickRecordBack(){
   return '<button class="qa-more-btn" type="button" data-quick-record-back><span class="qa-more-icon">←</span><span>返回更多记录</span></button>';
 }
 function bindQuickRecordBack(shell){
-  shell?.querySelector('[data-quick-record-back]')?.addEventListener('click',()=>{
+  const btn=shell?.querySelector('[data-quick-record-back]');
+  if(!btn||btn.dataset.boundQuickBack==='1') return;
+  btn.dataset.boundQuickBack='1';
+  btn.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
     const cur=getCurrentSubPage();
-    if(cur&&cur.id!==RECORD_SUBPAGE_IDS.MORE){
-      closeSubPage();
-    }
+    if(!cur||cur.id===RECORD_SUBPAGE_IDS.MORE) return;
+    // Only pop once. Parent more_records (if present) must be revealed — never re-pushed.
+    closeSubPage();
     if(getCurrentSubPage()?.id!==RECORD_SUBPAGE_IDS.MORE){
+      // Opened from quick-add without more_records underneath.
       renderMoreModal();
     }
     logQuickRecordDebug('back','more-records',getCurrentSubPage()?.id===RECORD_SUBPAGE_IDS.MORE);
@@ -17987,7 +17999,7 @@ function finishAppBoot(){
 /* Phase 5: on-demand / idle module loader — does not block first paint */
 const APP_MODULE_SRCS={
   recipe:'./js/recipe.js?measure-v2',
-  ai:'./js/ai.js?measure-v4',
+  ai:'./js/ai.js?measure-v4b',
   couple:'./js/couple.js',
   sync:'./js/sync.js',
   healthConnect:'./js/healthConnectSync.js'

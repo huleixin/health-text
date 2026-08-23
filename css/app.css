@@ -552,7 +552,10 @@ html.android-app .app{padding-top:calc(6px + var(--safe-top,0px))}
   will-change:transform,opacity;
 }
 .app-subpage.is-visible{transform:translate3d(0,0,0);opacity:1}
-.app-subpage.is-leaving{transform:translate3d(18%,0,0);opacity:0}
+.app-subpage.is-leaving{
+  transform:translate3d(18%,0,0);opacity:0;
+  pointer-events:none!important;
+}
 .app-subpage__header{
   flex:0 0 auto;display:flex;align-items:center;gap:var(--space-sm);
   min-height:var(--touch-min);

@@ -188,11 +188,15 @@
     return el;
   }
 
-  function showSubPage(el) {
+  function showSubPage(el, { animateEnter = true } = {}) {
     stack.forEach((entry) => {
       if (entry.el !== el) entry.el.hidden = true;
     });
     el.hidden = false;
+    if (!animateEnter || el.classList.contains('is-visible')) {
+      el.classList.add('is-visible');
+      return;
+    }
     requestAnimationFrame(() => {
       el.classList.add('is-visible');
     });
@@ -228,9 +232,46 @@
     return el;
   }
 
+  /**
+   * Replace the top SubPage without emptying the stack or flashing the primary app.
+   * Used for AI/order handoff: order_recognition → ledger_entry / food_sync.
+   */
+  function replaceSubPage(options = {}) {
+    if (!stack.length) return openSubPage(options);
+
+    const host = ensureHost();
+    const outgoing = stack.pop();
+    if (typeof outgoing.options.onClose === 'function') {
+      try { outgoing.options.onClose(outgoing.el); } catch (err) { console.error('[SubPage] onClose failed:', err); }
+    }
+    outgoing.el.classList.add('is-leaving');
+    outgoing.el.style.pointerEvents = 'none';
+    outgoing.el.remove();
+
+    const id = String(options.id || `subpage_${Date.now()}`);
+    const el = buildSubPageEl({ ...options, id });
+    host.appendChild(el);
+    stack.push({ id, el, options });
+
+    setBodyActive(true);
+    lockScroll();
+    host.hidden = false;
+    host.setAttribute('aria-hidden', 'false');
+
+    hydrate(el);
+    showSubPage(el);
+
+    if (typeof options.onOpen === 'function') {
+      try { options.onOpen(el); } catch (err) { console.error('[SubPage] onOpen failed:', err); }
+    }
+
+    return el;
+  }
+
   function removeSubPageEl(entry, { animate = true } = {}) {
     return new Promise((resolve) => {
       const el = entry.el;
+      el.style.pointerEvents = 'none';
       if (!animate || global.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         el.remove();
         resolve();
@@ -278,7 +319,8 @@
     if (hasRemaining) {
       const prev = stack[stack.length - 1];
       prev.el.hidden = false;
-      showSubPage(prev.el);
+      // Parent was only hidden — restore without replaying enter animation (avoids flash).
+      showSubPage(prev.el, { animateEnter: false });
     }
 
     return true;
@@ -406,6 +448,7 @@
 
   const api = {
     openSubPage,
+    replaceSubPage,
     closeSubPage,
     closeAllSubPages,
     getCurrentSubPage,
@@ -416,6 +459,7 @@
   };
 
   global.openSubPage = openSubPage;
+  global.replaceSubPage = replaceSubPage;
   global.closeSubPage = closeSubPage;
   global.closeAllSubPages = closeAllSubPages;
   global.getCurrentSubPage = getCurrentSubPage;

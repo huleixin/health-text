@@ -50,7 +50,10 @@
       if (typeof options.onOpen === 'function') options.onOpen(top.el);
       return top.el;
     }
-    return global.openSubPage({
+    const openFn = options.replace && typeof global.replaceSubPage === 'function'
+      ? global.replaceSubPage
+      : global.openSubPage;
+    return openFn({
       id,
       title,
       render(contentEl, pageEl) {
@@ -62,10 +65,8 @@
       },
       footer: options.footer,
       onOpen(el) {
-        if (typeof options.render === 'function') {
-          const shell = el?.querySelector('[data-food-flow-content]') || el?.querySelector('.app-subpage__content');
-          if (shell) options.render(shell, el);
-        }
+        // Do not re-run options.render here — build already rendered once.
+        // Re-rendering duplicates listeners and flashes content.
         if (typeof options.onOpen === 'function') options.onOpen(el);
       },
       onClose: options.onClose,
@@ -106,11 +107,18 @@
     return ensureFoodSyncSubPage(title || '餐饮订单饮食同步');
   }
 
-  function ensureFoodSyncSubPage(title) {
+  function ensureFoodSyncSubPage(title, options = {}) {
     const t = title || '餐饮订单饮食确认';
     const top = getCurrent();
-    if (top?.id === IDS.SYNC) return top.el;
+    if (top?.id === IDS.SYNC) {
+      if (options.title !== false) {
+        const titleEl = top.el?.querySelector('.app-subpage__title');
+        if (titleEl && t) titleEl.textContent = t;
+      }
+      return top.el;
+    }
     return openFoodSubPage(IDS.SYNC, t, {
+      replace: !!options.replace,
       render(shell) {
         if (!shell.querySelector('[data-food-sync-form]')) {
           shell.innerHTML = '<div class="food-sync-form-shell" data-food-sync-form></div>';

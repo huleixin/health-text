@@ -1944,10 +1944,30 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
   const host=document.getElementById('aiFoodDraftHost');
   host.innerHTML=renderFoodDraftReviewHTML();
   const refreshAI=()=>renderAIResults(photoURL,targetProfileId,{detailReady});
+  const refreshDraftOnly=()=>{
+    const draftHost=document.getElementById('aiFoodDraftHost');
+    if(!draftHost||!foodDraftSession||foodDraftSession.mode!=='ai'){
+      refreshAI();
+      return;
+    }
+    draftHost.innerHTML=renderFoodDraftReviewHTML();
+    bindFoodDraftReview(draftHost,{
+      mode:'ai',
+      onRefresh:refreshAI,
+      onAddMore:()=>openFoodDraftSearchOverlay({onJoined:refreshDraftOnly}),
+      onCancel:()=>{
+        foodDraft=[];
+        foodDraftSession=null;
+        if(typeof closeFoodSubPageAll==='function') closeFoodSubPageAll();
+        clearPhotoZone();
+      },
+      onConfirm:()=>confirmFoodDraft({mode:'ai',targetProfileId})
+    });
+  };
   bindFoodDraftReview(host,{
     mode:'ai',
     onRefresh:refreshAI,
-    onAddMore:()=>openFoodDraftSearchOverlay({onJoined:refreshAI}),
+    onAddMore:()=>openFoodDraftSearchOverlay({onJoined:refreshDraftOnly}),
     onCancel:()=>{
       foodDraft=[];
       foodDraftSession=null;

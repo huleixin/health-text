@@ -34,7 +34,10 @@
       if (typeof options.onOpen === 'function') options.onOpen(top.el);
       return top.el;
     }
-    return global.openSubPage({
+    const openFn = options.replace && typeof global.replaceSubPage === 'function'
+      ? global.replaceSubPage
+      : global.openSubPage;
+    return openFn({
       id,
       title,
       render(contentEl, pageEl) {
@@ -46,10 +49,7 @@
       },
       footer: options.footer,
       onOpen(el) {
-        if (typeof options.render === 'function') {
-          const shell = el?.querySelector('[data-ledger-form]') || el?.querySelector('.app-subpage__content');
-          if (shell) options.render(shell, el);
-        }
+        // Single render only — avoid wiping the form and duplicating listeners.
         if (typeof options.onOpen === 'function') options.onOpen(el);
       },
       onClose: options.onClose,
