@@ -581,12 +581,12 @@ html:not([data-boot-ready]) .app{
 <div class="toast-container" id="toastContainer"></div>
 <div id="appSubPageHost" class="app-subpage-host" hidden aria-hidden="true"></div>
 
-<script src="./js/subpage.js?v=mobile-phase4b"></script>
-<script src="./js/sheet.js?v=mobile-phase4b"></script>
-<script src="./js/dialog.js?v=mobile-phase4b"></script>
-<script src="./js/food-subpage.js?v=mobile-phase4b"></script>
-<script src="./js/record-subpage.js?v=mobile-phase4b"></script>
-<script src="./js/ledger-subpage.js?v=mobile-phase4b"></script>
+<script src="./js/subpage.js?v=mobile-phase4c"></script>
+<script src="./js/sheet.js?v=mobile-phase4c"></script>
+<script src="./js/dialog.js?v=mobile-phase4c"></script>
+<script src="./js/food-subpage.js?v=mobile-phase4c"></script>
+<script src="./js/record-subpage.js?v=mobile-phase4c"></script>
+<script src="./js/ledger-subpage.js?v=mobile-phase4c"></script>
 <script>
 // App-like: suppress context menu (long-press copy/select/share) on non-editable UI.
 // Input/textarea/contenteditable are excluded so paste/select still works. (req 17)
@@ -5842,6 +5842,59 @@ let _ledgerAIDetectedOrders=[];
 let _ledgerAISelectedOrderIdx=0;
 let _ledgerAIImageType='unknown';
 let _ledgerAIEditIdx=null;
+/** Cached normalized expense recognition — one parse per session. */
+let _expenseRecognitionNormalizedCache=null;
+let _expenseRecognitionNormalizedSource=null;
+function resetLedgerAIEditorState(){
+  _ledgerAIResult=null;
+  _ledgerAIToken++;
+  _ledgerAISourceImageURL=null;
+  _ledgerAIDetectedOrders=[];
+  _ledgerAISelectedOrderIdx=0;
+  _ledgerAIImageType='unknown';
+  _ledgerAIEditIdx=null;
+}
+/** Return normalized expense result; parse at most once per raw object reference. */
+function getExpenseRecognitionNormalized(raw){
+  if(!raw||typeof raw!=='object') return null;
+  if(raw===_expenseRecognitionNormalizedSource&&_expenseRecognitionNormalizedCache){
+    return _expenseRecognitionNormalizedCache;
+  }
+  const already=raw.expense!=null&&Array.isArray(raw.orderItems)&&raw.imageType!=null;
+  const normalized=already?raw:normalizeExpenseRecognitionResult(raw);
+  if(!normalized) return null;
+  _expenseRecognitionNormalizedSource=raw;
+  _expenseRecognitionNormalizedCache=normalized;
+  return normalized;
+}
+function clearExpenseRecognitionNormalizedCache(){
+  _expenseRecognitionNormalizedSource=null;
+  _expenseRecognitionNormalizedCache=null;
+}
+/** Resolve paid amount from order / expense / line items / source text. */
+function resolveExpensePaidAmount(order,expense,orderItems,sourceText){
+  let amount=parseExpenseMoneyValue(order?.amount);
+  if(amount==null||amount===0) amount=parseExpenseMoneyValue(expense?.amount);
+  if((amount==null||amount===0)&&sourceText){
+    const paidMatch=String(sourceText).match(/(?:订单实付|实付|支付金额|实付款|合计|应付)\s*[:：]?\s*[￥¥]?\s*(\d+(?:\.\d{1,2})?)/);
+    if(paidMatch){
+      const n=parseExpenseMoneyValue(paidMatch[1]);
+      if(n!=null&&n>0) amount=n;
+    }
+  }
+  if((amount==null||amount===0)&&Array.isArray(orderItems)&&orderItems.length>0){
+    const sum=orderItems.filter(oi=>oi&&!isFeeOrderItem(oi.name)).reduce((s,oi)=>{
+      const line=parseExpenseMoneyValue(oi.lineTotal);
+      const unit=parseExpenseMoneyValue(oi.unitPrice);
+      const qty=Math.max(1,Number(oi.quantity)||1);
+      if(line!=null) return s+line;
+      if(unit!=null) return s+unit*qty;
+      return s+(parseExpenseMoneyValue(oi.amount)||0);
+    },0);
+    if(sum>0) amount=sum;
+  }
+  return amount;
+}
 function formatLedgerDateGroup(dateStr){
   if(!dateStr) return '';
   const d=dateStr.slice(0,10);
@@ -6020,31 +6073,298 @@ async function callExpenseRecognitionAI(imageURL,signal){
   callExpenseRecognitionAI.lastMeta=data?.meta||null;
   return data?.text||'';
 }
+/** Parse money-like values: 20.5 / "20.50" / "¥20.50" / "20.50元" → number or null. */
+function parseExpenseMoneyValue(raw){
+  if(raw==null||raw==='') return null;
+  if(typeof raw==='number') return Number.isFinite(raw)&&raw>=0?raw:null;
+  const cleaned=String(raw).replace(/[￥¥,\s元]/g,'').trim();
+  if(!cleaned) return null;
+  const n=Number(cleaned);
+  return Number.isFinite(n)&&n>=0?n:null;
+}
+/** Pick the first usable money field; skip empty / null / non-numeric. Prefer positive paid amounts over placeholder 0. */
+function pickExpenseAmount(raw){
+  if(!raw||typeof raw!=='object') return null;
+  const keys=[
+    'paidAmount','paid_amount','actualPaid','actual_paid','paymentAmount','payment_amount',
+    'realPay','real_pay','payAmount','pay_amount',
+    'amount','totalAmount','total_amount','total','orderAmount','order_amount'
+  ];
+  let zeroFallback=null;
+  for(const key of keys){
+    if(raw[key]==null||raw[key]==='') continue;
+    const n=parseExpenseMoneyValue(raw[key]);
+    if(n==null) continue;
+    if(n>0) return n;
+    if(zeroFallback==null) zeroFallback=n;
+  }
+  return zeroFallback;
+}
+function firstDefinedValue(obj,keys){
+  if(!obj||typeof obj!=='object') return undefined;
+  for(const key of keys){
+    if(obj[key]!=null&&obj[key]!=='') return obj[key];
+  }
+  return undefined;
+}
+function mapExpenseImageType(raw){
+  const t=String(raw||'').trim().toLowerCase().replace(/-/g,'_');
+  const map={
+    food_order:'food_order',foodorder:'food_order',order:'food_order',meal_order:'food_order',takeaway:'food_order',restaurant:'food_order',
+    food_photo:'food_photo',foodphoto:'food_photo',food:'food_photo',meal_photo:'food_photo',
+    payment:'payment',pay:'payment',receipt:'payment',bill:'payment',
+    hotel_order:'hotel_order',hotelorder:'hotel_order',hotel:'hotel_order',
+    transport_order:'transport_order',transportorder:'transport_order',transport:'transport_order',
+    shopping_order:'shopping_order',shoppingorder:'shopping_order',shopping:'shopping_order',
+    other_order:'other_order',otherorder:'other_order',other:'other_order',
+    unknown:'unknown'
+  };
+  return map[t]||(t||'unknown');
+}
+function mapExpenseCategoryKey(raw){
+  const s=String(raw||'').trim();
+  if(!s) return '';
+  const lower=s.toLowerCase();
+  const labelMap={
+    '餐饮':'food','食物':'food','外卖':'food','food':'food','meal':'food','restaurant':'food','catering':'food','takeaway':'food',
+    '奶茶咖啡':'drinks','饮品':'drinks','drinks':'drinks','drink':'drinks','coffee':'drinks',
+    '零食甜品':'snacks','snacks':'snacks','snack':'snacks',
+    '酒店住宿':'hotel','hotel':'hotel',
+    '交通出行':'transport','transport':'transport',
+    '门票景点':'tickets','tickets':'tickets','ticket':'tickets',
+    '娱乐休闲':'entertainment','entertainment':'entertainment',
+    '购物':'shopping','shopping':'shopping',
+    '生活日用':'daily','daily':'daily',
+    '礼物':'gift','gift':'gift',
+    '美容护理':'beauty','beauty':'beauty',
+    '医疗健康':'healthcare','healthcare':'healthcare',
+    '会员订阅':'subscription','subscription':'subscription',
+    '其他':'other','other':'other'
+  };
+  if(labelMap[s]||labelMap[lower]) return resolveLedgerCategory(labelMap[s]||labelMap[lower]);
+  return resolveLedgerCategory(lower);
+}
+function normalizeExpenseOrderItem(raw){
+  if(!raw||typeof raw!=='object') return null;
+  const name=String(firstDefinedValue(raw,['name','title','productName','product_name','dishName','dish_name','itemName','item_name'])||'').trim();
+  if(!name) return null;
+  const quantity=Math.max(1,Number(firstDefinedValue(raw,['quantity','qty','count','num','number']))||1);
+  const lineRaw=firstDefinedValue(raw,['lineTotal','line_total','total','amount','subtotal','subTotal','paidAmount','paid_amount']);
+  const unitRaw=firstDefinedValue(raw,['unitPrice','unit_price','price','unit_amount']);
+  let lineTotal=parseExpenseMoneyValue(lineRaw);
+  let unitPrice=parseExpenseMoneyValue(unitRaw);
+  if(unitPrice==null&&lineTotal!=null&&quantity>0) unitPrice=lineTotal/quantity;
+  if(lineTotal==null&&unitPrice!=null) lineTotal=unitPrice*quantity;
+  return{
+    name,
+    spec:firstDefinedValue(raw,['spec','specs','sku','option','options'])||null,
+    quantity,
+    unitPrice:unitPrice!=null?Number(unitPrice):null,
+    lineTotal:lineTotal!=null?Number(lineTotal):null,
+    amount:lineTotal!=null?Number(lineTotal):(unitPrice!=null?Number(unitPrice):null)
+  };
+}
+function normalizeExpenseOrder(raw,fallbackItems){
+  if(!raw||typeof raw!=='object') return null;
+  const amount=pickExpenseAmount(raw);
+  const merchant=String(firstDefinedValue(raw,[
+    'merchant','store','shopName','shop_name','merchantName','merchant_name','storeName','store_name','brand','seller'
+  ])||'').trim();
+  const categoryKey=mapExpenseCategoryKey(firstDefinedValue(raw,[
+    'categoryKey','category_key','category','categoryId','category_id','cate'
+  ]));
+  const occurredAt=firstDefinedValue(raw,[
+    'occurredAt','occurred_at','dateTime','datetime','paidAt','paid_at','time','orderTime','order_time'
+  ])||null;
+  let orderItems=firstDefinedValue(raw,['orderItems','order_items','items','products','dishes','goods','lineItems','line_items']);
+  if(!Array.isArray(orderItems)) orderItems=Array.isArray(fallbackItems)?fallbackItems:[];
+  const normalizedItems=orderItems.map(normalizeExpenseOrderItem).filter(Boolean);
+  return{
+    amount,
+    merchant,
+    categoryKey:categoryKey||'',
+    occurredAt:occurredAt?String(occurredAt):null,
+    orderItems:normalizedItems,
+    confidence:raw.confidence||null
+  };
+}
+/**
+ * Single source of truth for expense/order AI results.
+ * Summary card, ledger form and Food Sync all read this shape.
+ */
+function normalizeExpenseRecognitionResult(raw){
+  if(!raw||typeof raw!=='object') return null;
+  const imageType=mapExpenseImageType(raw.imageType||raw.image_type||raw.type);
+  const topItemsRaw=firstDefinedValue(raw,['orderItems','order_items','items','products','dishes']);
+  const topItems=Array.isArray(topItemsRaw)?topItemsRaw:[];
+  let orders=Array.isArray(raw.orders)?raw.orders.map(o=>normalizeExpenseOrder(o,topItems)).filter(Boolean):[];
+  const expenseRaw=raw.expense&&typeof raw.expense==='object'?raw.expense:null;
+  if(orders.length===0&&expenseRaw){
+    const fromExpense=normalizeExpenseOrder(expenseRaw,topItems);
+    if(fromExpense) orders=[fromExpense];
+  }
+  if(orders.length===0&&(topItems.length>0||pickExpenseAmount(raw)!=null||firstDefinedValue(raw,['merchant','store']))){
+    const synthetic=normalizeExpenseOrder(raw,topItems);
+    if(synthetic) orders=[synthetic];
+  }
+  // If top-level orderItems empty, lift from first order.
+  let orderItems=topItems.map(normalizeExpenseOrderItem).filter(Boolean);
+  if(orderItems.length===0&&orders[0]?.orderItems?.length) orderItems=orders[0].orderItems.slice();
+  const primary=orders[0]||null;
+  const categoryKey=primary?.categoryKey||mapExpenseCategoryKey(firstDefinedValue(raw,['categoryKey','category_key','category']))||'';
+  const foodCategories=new Set(['food','drinks','snacks']);
+  // Fallback: extract 实付/支付金额 from source text only when structured amount missing.
+  const sourceText=String(raw.sourceText||raw.summary||raw.text||'');
+  if(primary&&(primary.amount==null||primary.amount===0)&&sourceText){
+    const paidMatch=sourceText.match(/(?:订单实付|实付|支付金额|实付款|合计|应付)\s*[:：]?\s*[￥¥]?\s*(\d+(?:\.\d{1,2})?)/);
+    if(paidMatch){
+      const n=parseExpenseMoneyValue(paidMatch[1]);
+      if(n!=null&&n>0) primary.amount=n;
+    }
+  }
+  // Split "商家·餐品" only when merchant looks merged and no items exist.
+  if(primary&&primary.merchant&&(!primary.orderItems||primary.orderItems.length===0)){
+    const parts=primary.merchant.split(/[·•・|｜]/);
+    if(parts.length>=2){
+      const maybeMerchant=parts[0].trim();
+      const maybeDish=parts.slice(1).join('·').trim();
+      if(maybeMerchant&&maybeDish&&maybeDish.length>=2){
+        primary.merchant=maybeMerchant;
+        const dishAmount=primary.amount;
+        primary.orderItems=[{name:maybeDish,spec:null,quantity:1,unitPrice:dishAmount,lineTotal:dishAmount,amount:dishAmount}];
+        orderItems=primary.orderItems.slice();
+      }
+    }
+  }
+  orderItems=orderItems.map(normalizeExpenseOrderItem).filter(Boolean);
+  if(primary) primary.orderItems=orderItems.slice();
+  const resolvedCategoryKey=primary?.categoryKey||categoryKey;
+  const isFoodOrderFinal=imageType==='food_order'
+    ||foodCategories.has(resolvedCategoryKey)
+    ||(orderItems.length>0&&(imageType==='food_order'||imageType==='payment'||foodCategories.has(resolvedCategoryKey)));
+  const finalExpense=primary?{
+    amount:primary.amount,
+    merchant:primary.merchant,
+    occurredAt:primary.occurredAt,
+    categoryKey:resolvedCategoryKey
+  }:(expenseRaw?{
+    amount:pickExpenseAmount(expenseRaw),
+    merchant:String(firstDefinedValue(expenseRaw,['merchant','store','shopName'])||'').trim(),
+    occurredAt:expenseRaw.occurredAt||null,
+    categoryKey:mapExpenseCategoryKey(expenseRaw.categoryKey||expenseRaw.category)||''
+  }:null);
+  return{
+    ok:raw.ok!==false,
+    imageType,
+    isFoodOrder:!!isFoodOrderFinal,
+    orders,
+    expense:finalExpense,
+    orderItems,
+    confidence:raw.confidence||null,
+    warnings:Array.isArray(raw.warnings)?raw.warnings:[],
+    sourceText:sourceText||null
+  };
+}
 function parseExpenseAIResult(text){
   const raw=String(text||'').trim();
-  try{return JSON.parse(raw)}catch(e){}
-  const match=raw.match(/\{[\s\S]*\}/);
-  if(match){try{return JSON.parse(match[0])}catch(e){}}
-  return null;
+  let parsed=null;
+  try{parsed=JSON.parse(raw)}catch(e){}
+  if(!parsed){
+    const match=raw.match(/\{[\s\S]*\}/);
+    if(match){try{parsed=JSON.parse(match[0])}catch(e){}}
+  }
+  if(!parsed) return null;
+  if(!parsed.sourceText&&!parsed.summary) parsed.sourceText=raw;
+  return getExpenseRecognitionNormalized(parsed);
+}
+function applyLedgerFormFields(form,{amount,merchant,categoryKey,occurredAt}){
+  if(!form) return;
+  const amountVal=parseExpenseMoneyValue(amount);
+  const amountInput=form.querySelector('#ledgerExpAmount');
+  if(amountInput&&amountVal!=null) amountInput.value=amountVal.toFixed(2);
+  const catKey=categoryKey?resolveLedgerCategory(mapExpenseCategoryKey(categoryKey)||categoryKey):'';
+  if(catKey){
+    const catSelect=form.querySelector('#ledgerExpCategory');
+    if(catSelect) catSelect.value=catKey;
+  }
+  const merchantStr=String(merchant||'').trim();
+  if(merchantStr){
+    const merchantInput=form.querySelector('#ledgerExpMerchant');
+    if(merchantInput) merchantInput.value=merchantStr.slice(0,40);
+  }
+  if(occurredAt){
+    const dt=String(occurredAt).slice(0,16);
+    if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dt)){
+      const dtInput=form.querySelector('#ledgerExpDatetime');
+      if(dtInput) dtInput.value=dt;
+    }
+  }
+  refreshLedgerEditorDisplays(form);
+}
+function applyLedgerFormFromRecognition(normalized,form,imageURL){
+  if(!normalized||!form) return;
+  if(imageURL) _ledgerAISourceImageURL=imageURL;
+  _ledgerAIImageType=normalized.imageType||'unknown';
+  _ledgerAIDetectedOrders=Array.isArray(normalized.orders)?normalized.orders.filter(o=>o&&typeof o==='object'):[];
+  if(_ledgerAISourceImageURL) renderLedgerAISourceImage(form,_ledgerAISourceImageURL);
+  const expense=normalized.expense&&typeof normalized.expense==='object'?normalized.expense:null;
+  let orderItems=Array.isArray(normalized.orderItems)?normalized.orderItems.map(normalizeExpenseOrderItem).filter(Boolean):[];
+  const primary=_ledgerAIDetectedOrders[0]||null;
+  if(primary){
+    if(!primary.orderItems||!primary.orderItems.length) primary.orderItems=orderItems.slice();
+    else orderItems=primary.orderItems.map(normalizeExpenseOrderItem).filter(Boolean);
+    const paid=resolveExpensePaidAmount(primary,expense,orderItems,normalized.sourceText);
+    if(paid!=null&&paid>0) primary.amount=paid;
+    if(expense?.merchant&&!primary.merchant) primary.merchant=expense.merchant;
+    if(expense?.categoryKey&&!primary.categoryKey) primary.categoryKey=expense.categoryKey;
+    orderItems=primary.orderItems.map(normalizeExpenseOrderItem).filter(Boolean);
+  }
+  const draftAmount=resolveExpensePaidAmount(primary,expense,orderItems,normalized.sourceText);
+  const draftMerchant=primary?.merchant||expense?.merchant||'';
+  const draftCategory=primary?.categoryKey||expense?.categoryKey||'';
+  const draftTime=primary?.occurredAt||expense?.occurredAt||null;
+  applyLedgerFormFields(form,{amount:draftAmount,merchant:draftMerchant,categoryKey:draftCategory,occurredAt:draftTime});
+  const normalizedItems=orderItems.map(oi=>normalizeOrderItem(oi)).filter(oi=>oi.name);
+  const foodCategories=new Set(['food','drinks','snacks']);
+  const resolvedCat=resolveLedgerCategory(draftCategory);
+  const isFoodOrder=!!normalized.isFoodOrder
+    ||_ledgerAIImageType==='food_order'
+    ||foodCategories.has(resolvedCat)
+    ||(normalizedItems.length>0&&(_ledgerAIImageType==='food_order'||_ledgerAIImageType==='payment'||foodCategories.has(resolvedCat)));
+  const isOrderType=_ledgerAIImageType==='food_order'||_ledgerAIImageType==='hotel_order'||_ledgerAIImageType==='transport_order'||_ledgerAIImageType==='shopping_order'||_ledgerAIImageType==='other_order';
+  _ledgerAIResult={
+    source:isOrderType?'ai_order':'ai_payment',
+    orderItems:normalizedItems,
+    imageType:_ledgerAIImageType,
+    isFoodOrder:!!isFoodOrder
+  };
+  const ordersArea=form.querySelector('#ledgerAIOrdersArea');
+  const itemsArea=form.querySelector('#ledgerAIItemsArea');
+  if(_ledgerAIDetectedOrders.length>0){
+    renderLedgerAIOrders(form);
+    selectLedgerAIOrder(0,form,normalized);
+  }else if(ordersArea) ordersArea.style.display='none';
+  if(itemsArea){
+    if(normalizedItems.length>0){
+      itemsArea.style.display='';
+      itemsArea.classList.remove('collapsed');
+      const list=itemsArea.querySelector('#ledgerAIItemsList');
+      if(list){
+        list.innerHTML=renderEditableOrderItems(normalizedItems);
+        bindOrderItemEdits(itemsArea);
+        updateLedgerAISubtotal(itemsArea);
+      }
+    }else{
+      itemsArea.style.display='none';
+    }
+  }
+  refreshLedgerEditorDisplays(form);
 }
 function prefillLedgerEditorFromAI(result,form,imageURL){
-  if(!result) return;
-  if(imageURL) _ledgerAISourceImageURL=imageURL;
-  _ledgerAIImageType=result.imageType||'unknown';
-  _ledgerAIDetectedOrders=Array.isArray(result.orders)?result.orders.filter(o=>o&&typeof o==='object'):[];
-  if(_ledgerAISourceImageURL){
-    renderLedgerAISourceImage(form,_ledgerAISourceImageURL);
-  }
-  if(_ledgerAIDetectedOrders.length===0){
-    const ordersArea=form.querySelector('#ledgerAIOrdersArea');
-    if(ordersArea) ordersArea.style.display='none';
-    const itemsArea=form.querySelector('#ledgerAIItemsArea');
-    if(itemsArea) itemsArea.style.display='none';
-    _ledgerAIResult=null;
-    return;
-  }
-  renderLedgerAIOrders(form);
-  selectLedgerAIOrder(0);
+  if(!result||!form) return;
+  const normalized=getExpenseRecognitionNormalized(result)||result;
+  if(!normalized) return;
+  applyLedgerFormFromRecognition(normalized,form,imageURL);
 }
 function renderLedgerAISourceImage(form,imageURL){
   const area=form.querySelector('#ledgerAISourceImgArea');
@@ -6067,7 +6387,8 @@ function renderLedgerAIOrders(form){
   const count=_ledgerAIDetectedOrders.length;
   let html=count>1?`<div class="ledger-ai-orders-header">识别到 ${count} 笔订单，请选择</div>`:'';
   _ledgerAIDetectedOrders.forEach((order,i)=>{
-    const amount=order.amount!=null&&!isNaN(Number(order.amount))?`¥${Number(order.amount).toFixed(2)}`:'¥—';
+    const amt=parseExpenseMoneyValue(order.amount);
+    const amount=amt!=null?`¥${amt.toFixed(2)}`:'¥—';
     const merchant=order.merchant||'未知商家';
     const selected=i===_ledgerAISelectedOrderIdx;
     if(count===1){
@@ -6089,16 +6410,17 @@ function renderLedgerAIOrders(form){
   area.querySelectorAll('.ledger-ai-order-card').forEach(card=>{
     card.addEventListener('click',()=>{
       const idx=Number(card.dataset.orderIdx);
-      selectLedgerAIOrder(idx);
+      selectLedgerAIOrder(idx,form,_expenseRecognitionNormalizedCache);
     });
   });
 }
-function selectLedgerAIOrder(idx){
+function selectLedgerAIOrder(idx,formRef,normalizedFallback){
   if(idx<0||idx>=_ledgerAIDetectedOrders.length) return;
   _ledgerAISelectedOrderIdx=idx;
   _ledgerAIEditIdx=null;
   const order=_ledgerAIDetectedOrders[idx];
-  const form=getLedgerFormHost();
+  const expenseFb=normalizedFallback?.expense;
+  const form=formRef||getLedgerFormHost();
   if(!form) return;
   const cards=form.querySelectorAll('.ledger-ai-order-card');
   cards.forEach((card,i)=>{
@@ -6106,31 +6428,42 @@ function selectLedgerAIOrder(idx){
     if(i===idx){card.classList.add('selected');if(btn)btn.textContent='当前使用'}
     else{card.classList.remove('selected');if(btn)btn.textContent='使用这笔'}
   });
-  if(order.amount!=null&&!isNaN(Number(order.amount))){
+  const orderItems=Array.isArray(order.orderItems)?order.orderItems:[];
+  const amount=resolveExpensePaidAmount(order,expenseFb,orderItems,normalizedFallback?.sourceText);
+  if(amount!=null&&amount>0) order.amount=amount;
+  if(amount!=null){
     const amountInput=form.querySelector('#ledgerExpAmount');
-    if(amountInput) amountInput.value=(Number(order.amount)).toFixed(2);
+    if(amountInput) amountInput.value=amount.toFixed(2);
   }
-  if(order.categoryKey){
+  const categoryKey=order.categoryKey||order.category||expenseFb?.categoryKey||expenseFb?.category||'';
+  if(categoryKey){
     const catSelect=form.querySelector('#ledgerExpCategory');
-    if(catSelect) catSelect.value=resolveLedgerCategory(order.categoryKey);
+    if(catSelect) catSelect.value=resolveLedgerCategory(mapExpenseCategoryKey(categoryKey)||categoryKey);
   }
-  if(order.merchant){
+  const merchant=order.merchant||expenseFb?.merchant||'';
+  if(merchant){
     const merchantInput=form.querySelector('#ledgerExpMerchant');
-    if(merchantInput) merchantInput.value=String(order.merchant).slice(0,40);
+    if(merchantInput) merchantInput.value=String(merchant).slice(0,40);
   }
-  if(order.occurredAt){
-    const dt=String(order.occurredAt).slice(0,16);
+  if(order.occurredAt||expenseFb?.occurredAt){
+    const dt=String(order.occurredAt||expenseFb?.occurredAt).slice(0,16);
     if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dt)){
       const dtInput=form.querySelector('#ledgerExpDatetime');
       if(dtInput) dtInput.value=dt;
     }
   }
   refreshLedgerEditorDisplays(form);
-  const items=Array.isArray(order.orderItems)?order.orderItems:[];
+  const items=orderItems.length>0?orderItems:(Array.isArray(normalizedFallback?.orderItems)?normalizedFallback.orderItems:[]);
   const isOrderType=_ledgerAIImageType==='food_order'||_ledgerAIImageType==='hotel_order'||_ledgerAIImageType==='transport_order'||_ledgerAIImageType==='shopping_order'||_ledgerAIImageType==='other_order';
   const source=isOrderType?'ai_order':'ai_payment';
-  const normalizedItems=items.map(oi=>normalizeOrderItem(oi));
-  _ledgerAIResult={source,orderItems:normalizedItems,imageType:_ledgerAIImageType};
+  const normalizedItems=items.map(oi=>normalizeOrderItem(oi)).filter(oi=>oi.name);
+  const foodCategories=new Set(['food','drinks','snacks']);
+  const resolvedCat=resolveLedgerCategory(categoryKey);
+  const isFoodOrder=!!(normalizedFallback?.isFoodOrder)
+    ||_ledgerAIImageType==='food_order'
+    ||foodCategories.has(resolvedCat)
+    ||(normalizedItems.length>0&&(_ledgerAIImageType==='food_order'||_ledgerAIImageType==='payment'||foodCategories.has(resolvedCat)));
+  _ledgerAIResult={source,orderItems:normalizedItems,imageType:_ledgerAIImageType,isFoodOrder:!!isFoodOrder};
   const itemsArea=form.querySelector('#ledgerAIItemsArea');
   if(itemsArea){
     if(normalizedItems.length>0){
@@ -6166,17 +6499,17 @@ function normalizeOrderItem(oi){
   const name=String(oi.name||'').trim();
   const fee=isFeeOrderItem(name);
   const quantity=Math.max(1,Number(oi.quantity)||1);
-  let unitPrice=Number(oi.unitPrice);
-  let lineTotal=Number(oi.lineTotal);
-  const amount=Number(oi.amount);
-  if(isNaN(unitPrice)){
-    if(!isNaN(lineTotal)&&quantity>0){unitPrice=lineTotal/quantity}
-    else if(!isNaN(amount)){unitPrice=fee?amount:amount/quantity}
+  let unitPrice=parseExpenseMoneyValue(oi.unitPrice);
+  let lineTotal=parseExpenseMoneyValue(oi.lineTotal);
+  const amount=parseExpenseMoneyValue(oi.amount);
+  if(unitPrice==null){
+    if(lineTotal!=null&&quantity>0){unitPrice=lineTotal/quantity}
+    else if(amount!=null){unitPrice=fee?amount:amount/quantity}
     else{unitPrice=0}
   }
-  if(isNaN(lineTotal)){lineTotal=fee?(unitPrice||amount||0):unitPrice*quantity}
-  if(isNaN(lineTotal))lineTotal=0;
-  return{name,spec:oi.spec||null,quantity:fee?1:quantity,unitPrice:Number(unitPrice.toFixed(2)),lineTotal:Number(lineTotal.toFixed(2)),isFee:fee};
+  if(lineTotal==null){lineTotal=fee?(unitPrice||amount||0):unitPrice*quantity}
+  if(lineTotal==null)lineTotal=0;
+  return{name,spec:oi.spec||null,quantity:fee?1:quantity,unitPrice:Number(Number(unitPrice).toFixed(2)),lineTotal:Number(Number(lineTotal).toFixed(2)),isFee:fee};
 }
 function renderEditableOrderItems(items){
   let html='';
@@ -6415,8 +6748,10 @@ function openCoupleLedgerEditor(expenseId){
     render(form){mountCoupleLedgerEditorForm(form,expenseId,isEdit);}
   });
 }
-function mountCoupleLedgerEditorForm(form,expenseId,isEdit){
+function mountCoupleLedgerEditorForm(form,expenseId,isEdit,opts){
   if(!form) return;
+  const preserveAI=!!(opts&&opts.preserveAIState);
+  if(!preserveAI) resetLedgerAIEditorState();
   const lg=getLedger();
   const existing=isEdit?(lg.expenses||[]).find(e=>e.id===expenseId):null;
   const owner=getDeviceOwnerProfile();
@@ -6426,13 +6761,6 @@ function mountCoupleLedgerEditorForm(form,expenseId,isEdit){
   const activePeriod=getActivePeriod();
   const now=new Date();
   const defaultDatetime=existing?.occurredAt||`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  _ledgerAIResult=null;
-  _ledgerAIToken++;
-  _ledgerAISourceImageURL=null;
-  _ledgerAIDetectedOrders=[];
-  _ledgerAISelectedOrderIdx=0;
-  _ledgerAIImageType='unknown';
-  _ledgerAIEditIdx=null;
   let defaultPeriodId=existing?.periodId;
   if(defaultPeriodId===undefined){
     defaultPeriodId=(activePeriod&&isDateInRange(defaultDatetime,activePeriod.startDate,activePeriod.endDate))?activePeriod.id:(activePeriod?activePeriod.id:null);
@@ -6813,7 +7141,17 @@ function saveCoupleLedgerExpense(){
   if(!form) return;
   const saveBtn=form.querySelector('#ledgerExpSave');
   const id=saveBtn?.dataset.ledgerExpId||'';
-  const amount=parseLedgerAmountInput(form.querySelector('#ledgerExpAmount').value);
+  let amount=parseLedgerAmountInput(form.querySelector('#ledgerExpAmount').value);
+  if(!amount){
+    const norm=_expenseRecognitionNormalizedCache;
+    const fallbackAmt=resolveExpensePaidAmount(norm?.orders?.[0],norm?.expense,norm?.orderItems,norm?.sourceText);
+    if(fallbackAmt!=null&&fallbackAmt>0){
+      const amountInput=form.querySelector('#ledgerExpAmount');
+      if(amountInput) amountInput.value=fallbackAmt.toFixed(2);
+      refreshLedgerEditorDisplays(form);
+      amount=parseLedgerAmountInput(fallbackAmt);
+    }
+  }
   if(!amount){showToast('请输入有效金额','error');return}
   const paidByProfileId=form.querySelector('#ledgerExpPayer').value;
   if(!paidByProfileId){showToast('请选择付款人','error');return}
@@ -6843,11 +7181,21 @@ function saveCoupleLedgerExpense(){
     savedExpenseId=exp.id;
   }
   const aiResultForSync=_ledgerAIResult;
+  const normForSync=_expenseRecognitionNormalizedCache;
+  if(aiResultForSync&&(!Array.isArray(aiResultForSync.orderItems)||aiResultForSync.orderItems.length===0)&&normForSync){
+    const lifted=(normForSync.orderItems||[]).map(oi=>normalizeOrderItem(oi)).filter(oi=>oi.name);
+    if(lifted.length>0) aiResultForSync.orderItems=lifted;
+  }
   _ledgerAIPendingDiet=false;
   closeLedgerEditor();
   saveAndRefreshLedger();
   showToast(id?'账单已更新':'账单已保存','success');
-  if(savedExpenseId&&aiResultForSync&&aiResultForSync.imageType==='food_order'&&Array.isArray(aiResultForSync.orderItems)&&aiResultForSync.orderItems.length>0){
+  const foodCats=new Set(['food','drinks','snacks']);
+  const shouldFoodSync=!!aiResultForSync
+    &&(aiResultForSync.isFoodOrder||aiResultForSync.imageType==='food_order'||foodCats.has(resolveLedgerCategory(category)))
+    &&Array.isArray(aiResultForSync.orderItems)
+    &&aiResultForSync.orderItems.length>0;
+  if(savedExpenseId&&shouldFoodSync){
     setTimeout(()=>showFoodSyncPrompt(savedExpenseId,aiResultForSync.orderItems),350);
   }
 }
@@ -7966,7 +8314,7 @@ async function routeOrderOnlyRecognition(file){
       logOrderAISpeed({...speedBase,render:Math.round(performance.now()-renderStart),total:Math.round(performance.now()-totalStart)});
       return;
     }
-    if(result.imageType==='food_order'){
+    if(result.imageType==='food_order'||result.isFoodOrder){
       _aiRecognitionSession={result,imageURL,token};
       const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
       const hasItems=orderItems.length>0;
@@ -8031,7 +8379,7 @@ async function routeImageRecognition(file){
       startAIAnalysis(imageURL,null);
       return;
     }
-    if(result.imageType==='food_order'){
+    if(result.imageType==='food_order'||result.isFoodOrder){
       _aiRecognitionSession={result,imageURL,token};
       const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
       const hasItems=orderItems.length>0;
@@ -8069,10 +8417,11 @@ async function routeImageRecognition(file){
   }
 }
 function showFoodOrderPurposeSelection(result,mode){
-  const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
-  const merchant=result.expense?.merchant||'';
-  const amount=result.expense?.amount;
-  const amtText=amount!=null?`¥${(Number(amount)).toFixed(2)}`:'未识别';
+  const normalized=getExpenseRecognitionNormalized(result);
+  const orderItems=Array.isArray(normalized?.orderItems)?normalized.orderItems:[];
+  const merchant=normalized?.expense?.merchant||normalized?.orders?.[0]?.merchant||'';
+  const amount=resolveExpensePaidAmount(normalized?.orders?.[0],normalized?.expense,orderItems,normalized?.sourceText);
+  const amtText=amount!=null?`¥${amount.toFixed(2)}`:'未识别';
   // Replace order_recognition (or reuse food_sync) without emptying the stack.
   ensureFoodSyncSubPage('餐饮订单',{replace:true});
   const form=getFoodSyncFormHost();
@@ -8096,23 +8445,24 @@ function showFoodOrderPurposeSelection(result,mode){
 }
 function cancelFoodOrderPurpose(){
   _aiRecognitionSession=null;
+  clearExpenseRecognitionNormalizedCache();
   closeFoodSyncModal();
 }
 function chooseFoodOrderPurpose(purpose){
   const session=_aiRecognitionSession;
   if(!session){closeFoodSyncModal();return}
-  const result=session.result;
-  const orderItems=Array.isArray(result.orderItems)?result.orderItems:[];
+  const normalized=getExpenseRecognitionNormalized(session.result);
+  if(!normalized){closeFoodSyncModal();return}
+  const orderItems=(Array.isArray(normalized.orderItems)?normalized.orderItems:[]).map(oi=>normalizeOrderItem(oi)).filter(oi=>oi.name);
   if(purpose==='diet_only'){
-    // Stay on food_sync — startFoodOnlySync reuses the top page.
-    startFoodOnlySync(orderItems,result.expense?.occurredAt,result.expense?.merchant);
+    startFoodOnlySync(orderItems,normalized.expense?.occurredAt,normalized.expense?.merchant,session.imageURL,normalized.sourceText);
   }else if(purpose==='both'){
-    routeToExpenseEditorWithAI(result,true);
+    routeToExpenseEditorWithAI(normalized,true);
   }else if(purpose==='ledger_only'){
-    routeToExpenseEditorWithAI(result,false);
+    routeToExpenseEditorWithAI(normalized,false);
   }
 }
-function startFoodOnlySync(orderItems,occurredAt,merchant){
+function startFoodOnlySync(orderItems,occurredAt,merchant,sourceImageURL,sourceText){
   if(!orderItems||orderItems.length===0){
     showToast('未识别到菜品信息','error');
     return;
@@ -8218,6 +8568,8 @@ function confirmImageChoice(choice){
 function routeToExpenseEditorWithAI(result,withDiet){
   _ledgerAIPendingDiet=!!withDiet;
   const session=_aiRecognitionSession;
+  const normalized=getExpenseRecognitionNormalized(session?.result||result);
+  if(!normalized){showToast('识别结果无效','error');return;}
   const sourceImageURL=session?.imageURL||null;
   const topId=getCurrentSubPage()?.id;
   const shouldReplace=topId===RECORD_SUBPAGE_IDS.ORDER_RECOGNITION
@@ -8226,12 +8578,12 @@ function routeToExpenseEditorWithAI(result,withDiet){
   openLedgerEntrySubPage('记一笔',{
     replace:shouldReplace,
     render(form){
-      mountCoupleLedgerEditorForm(form,null,false);
+      mountCoupleLedgerEditorForm(form,null,false,{preserveAIState:true});
       const aiEntry=form.querySelector('#ledgerAIEntry');
       const aiStatus=form.querySelector('#ledgerAIStatus');
       if(aiEntry) aiEntry.style.display='none';
       if(aiStatus){aiStatus.style.display='';aiStatus.textContent='AI已智能填充，请确认';aiStatus.style.color='var(--gold-l)';}
-      prefillLedgerEditorFromAI(result,form,sourceImageURL);
+      applyLedgerFormFromRecognition(normalized,form,sourceImageURL);
       if(aiEntry) aiEntry.style.display='';
     }
   });
