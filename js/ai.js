@@ -1823,6 +1823,8 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
         try{_aiRecognitionAbort.abort();}catch(_){}
       }
     });
+    // Hide footer during scanning (shown again in renderAIResults)
+    content.closest('.app-subpage')?.querySelector('.app-subpage__footer')?.style.setProperty('display','none');
 
     try{
       // Compact prompt: structured fields only — reason/advice filled by frontend template.
@@ -1888,6 +1890,7 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
       <div class="ai-scan-ring"></div>
       <div class="ai-scan-text">AI 正在识别食物（演示模式）...</div>
     </div>`;
+  content.closest('.app-subpage')?.querySelector('.app-subpage__footer')?.style.setProperty('display','none');
   runDemoAIAnalysis(photoURL,targetProfileId,totalStart);
 }
 
@@ -1951,11 +1954,20 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
     <div style="font-size:12px;color:var(--gold);margin-bottom:4px">AI识别结果（可查看详情并修正重量）</div>
     <div data-ai-detail-status style="font-size:10px;color:var(--txt3);margin-bottom:8px">${statusText}</div>
     ${mealSelectorHTML()}
-    <div id="aiFoodDraftHost"></div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-ghost" id="aiRescanBtn" style="flex:1">重新识别</button>
-    </div>`;
+    <div id="aiFoodDraftHost"></div>`;
   bindMealSelector(content);
+  // Ensure SubPage footer exists with 重新识别 + 确认添加
+  const pageEl=content.closest('.app-subpage');
+  let footer=pageEl?.querySelector('.app-subpage__footer');
+  if(!footer){
+    footer=document.createElement('footer');
+    footer.className='app-subpage__footer';
+    pageEl?.appendChild(footer);
+  }
+  footer.style.display='';
+  footer.innerHTML=`
+    <button class="btn btn-ghost" type="button" id="aiRescanBtn">重新识别</button>
+    <button class="btn btn-gold" type="button" data-draft-confirm>确认添加</button>`;
   const host=document.getElementById('aiFoodDraftHost');
   host.innerHTML=renderFoodDraftReviewHTML();
   const refreshAI=()=>renderAIResults(photoURL,targetProfileId,{detailReady});
@@ -1993,7 +2005,7 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
     },
     onConfirm:()=>confirmFoodDraft({mode:'ai',targetProfileId})
   });
-  const rescanBtn=content.querySelector('#aiRescanBtn')||document.getElementById('aiRescanBtn');
+  const rescanBtn=footer?.querySelector('#aiRescanBtn')||document.getElementById('aiRescanBtn');
   rescanBtn?.addEventListener('click',()=>{
     foodDraft=[];
     foodDraftSession=null;

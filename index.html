@@ -8243,6 +8243,7 @@ function showAIRecognitionLoading(kind='food'){
     if(cur?.id===FOOD_SUBPAGE_IDS.AI_FLOW){
       const shell=getFoodFlowContent();
       if(shell) shell.innerHTML=loadingHtml;
+      cur.el?.querySelector('.app-subpage__footer')?.style.setProperty('display','none');
     }else{
       openFoodSubPage(FOOD_SUBPAGE_IDS.AI_FLOW,'食物识别',{
         render(shell){shell.innerHTML=loadingHtml;}
