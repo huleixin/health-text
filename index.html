@@ -15580,16 +15580,26 @@ function openSleepEditor(trigger,p,record){
   applyMode('range');
 }
 function showToast(msg,type='success'){
+  _toastQueue.push({msg,type});
+  if(!_toastShowing) _processToastQueue();
+}
+let _toastQueue=[];
+let _toastShowing=false;
+function _processToastQueue(){
+  if(_toastQueue.length===0){_toastShowing=false;return;}
+  _toastShowing=true;
+  const {msg,type}=_toastQueue.shift();
   const container=document.getElementById('toastContainer');
+  if(!container){_toastShowing=false;return;}
   const toast=document.createElement('div');
   toast.className=`toast ${type}`;
   toast.textContent=msg;
   container.appendChild(toast);
-  setTimeout(()=>toast.classList.add('show'),10);
+  requestAnimationFrame(()=>toast.classList.add('show'));
   setTimeout(()=>{
     toast.classList.remove('show');
-    setTimeout(()=>toast.remove(),300);
-  },2800);
+    setTimeout(()=>{toast.remove();_processToastQueue();},280);
+  },2400);
 }
 
 // ==================== QUICK ADD PANEL ====================
