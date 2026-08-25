@@ -70,6 +70,7 @@
         if (typeof options.onOpen === 'function') options.onOpen(el);
       },
       onClose: options.onClose,
+      onBack: options.onBack,
       rightAction: options.rightAction
     });
   }

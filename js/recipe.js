@@ -1,4 +1,4 @@
-﻿/* Phase 4 extracted module — globals shared with index.html */
+/* Phase 4 extracted module — globals shared with index.html */
 const AI_SMART_RECIPE_CACHE_KEY = 'healthTrackerSmartRecipeAI_v1';
 
 /* Smart Recipe — schema version & preference defaults (P1, no AI) */
@@ -1428,7 +1428,7 @@ async function requestSmartRecipeSearch(query,{force=false}={}){
     const cached=readSmartRecipeAICache(p,currentViewDate,'search',q);
     if(cached) return normalizeSmartRecipeForUI(cached,'search');
   }
-  const response=await fetch(getApiUrl('/api/recipe-search'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/recipe-search'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -1445,7 +1445,7 @@ async function requestSmartRecipeSearch(query,{force=false}={}){
   return recipe;
 }
 async function requestSmartRecipeIngredientsPhoto(image){
-  const response=await fetch(getApiUrl('/api/recipe-ingredients-photo'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/recipe-ingredients-photo'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({image})
@@ -1474,7 +1474,7 @@ async function requestSmartRecipeFromIngredients(ingredients,{force=false}={}){
     const cached=readSmartRecipeAICache(p,currentViewDate,'ingredients',inputKey);
     if(cached) return normalizeSmartRecipeForUI(cached,'ingredients');
   }
-  const response=await fetch(getApiUrl('/api/recipe-from-ingredients'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/recipe-from-ingredients'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({

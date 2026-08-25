@@ -248,7 +248,7 @@ async function callWeeklyReportAI(profile,date=currentViewDate){
   const aiCfg=getAIConfig();
   if(!aiCfg.apiKey||!aiCfg.modelId) return normalizeWeeklyReport(null,input);
   const prompt=`你是健康App里的个人AI健康周报分析师。请基于过去7天真实数据和health_goal生成一份个人健康总结报告。要求：1. 必须先按用户目标评价“是否接近目标”，不要只评价体重变化，例如减脂要判断下降是否符合计划，增肌要结合蛋白质和力量训练。2. 不要只复述数据，要发现问题、趋势和下周优先级。3. 如果数据不足，明确指出哪些数据不足，并给出具体补记录建议，不要空泛。4. 睡眠、饮水、饮食、运动建议必须围绕目标具体到时间、频次或动作。5. 健康评分是本周综合评分，不等于今日健康评分，也不等于AI每日计划完成率。6. 只返回严格JSON，不要Markdown，不要解释。JSON格式：{"week_summary":"","health_score":0,"body":{"weight_change":"","summary":""},"diet":{"score":0,"summary":"","advice":""},"exercise":{"score":0,"summary":"","advice":""},"sleep":{"score":0,"summary":"","advice":""},"water":{"score":0,"summary":"","advice":""},"next_week_plan":[""]}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch(getApiUrl('/api/weekly-report'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/weekly-report'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({prompt})
@@ -269,13 +269,15 @@ async function generateWeeklyReport(profile,date=currentViewDate,{manual=false}=
   if(aiWeeklyReportInFlight[inflightKey]) return aiWeeklyReportInFlight[inflightKey];
   aiWeeklyReportInFlight[inflightKey]=(async()=>{
     let report;
+    let isFallback=false;
     try{
       report=await callWeeklyReportAI(profile,date);
     }catch(err){
       console.warn('AI健康周报调用失败，使用本地兜底周报：',err);
       report=normalizeWeeklyReport(null,buildWeeklyReportInput(profile,date));
+      isFallback=true;
     }
-    return setWeeklyReportDayCache(profile,date,{report,generatedAt:Date.now(),source_signature:signature,source:'ai'});
+    return setWeeklyReportDayCache(profile,date,{report,generatedAt:Date.now(),source_signature:signature,source:isFallback?'local_fallback':'ai'});
   })().finally(()=>{
     delete aiWeeklyReportInFlight[inflightKey];
     renderWeeklyReportCard(profile,date);
@@ -371,6 +373,7 @@ function renderWeeklyReportCard(profile,date=currentViewDate){
     weak:{title:`需要改善 · ${weak}`,content:weakSummary||`${weak}需要重点改善。`},
     advice:{title:'AI建议',content:aiAdvice}
   };
+  const isFallback=dayCache.source==='local_fallback';
   wrap.innerHTML=`
     <section class="ai-weekly-report-card">
       <div class="ai-report-header">
@@ -380,6 +383,7 @@ function renderWeeklyReportCard(profile,date=currentViewDate){
         </div>
         <button class="ai-regenerate-btn" id="weeklyReportRefreshBtn" type="button" ${loading?'disabled':''}>${loading?'生成中':'重新生成'}</button>
       </div>
+      ${isFallback?'<div class="ai-fallback-hint">AI暂不可用，当前显示本地分析</div>':''}
       <div class="ai-report-main">
         <div class="ai-score-block">
           <div class="ai-score-ring">
@@ -715,7 +719,7 @@ async function callHealthProfileAI(profile,date=currentViewDate){
   const aiCfg=getAIConfig();
   if(!aiCfg.apiKey||!aiCfg.modelId) return {content:normalizeHealthProfile(null,input),input};
   const prompt=`你是健康App里的AI个人健康画像分析师。请基于最近30天长期健康数据和health_goal，为用户生成动态个人健康画像。要求：1. 不是单日总结，要发现长期规律，例如工作日睡眠不足、运动类型单一、饮食记录不规律、饮水稳定等。2. 必须输出goal_match_pct，表示当前行为与目标的匹配度或完成度，减脂/增肌要结合目标进度、饮食蛋白和运动，睡眠目标要重点看睡眠时长与规律。3. 数据不足时必须说明可信度较低，并给出继续记录建议。4. profile_type由你根据数据和目标自动判断，不限于健康保持型、减脂改善型、增肌提升型、久坐改善型、睡眠优化型、饮食调整型。5. 改善方向必须有原因和优先级。6. 只返回严格JSON，不要Markdown，不要解释。JSON格式：{"profile_type":"","profile_title":"","health_summary":"","strengths":[""],"improvements":[{"title":"","reason":"","priority":"high"}],"habits":[{"name":"","level":"good"}],"long_term_goal":"","next_month_focus":[""],"confidence":0,"goal_match_pct":0}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch(getApiUrl('/api/health-profile'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/health-profile'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({prompt})
@@ -739,12 +743,14 @@ async function generateHealthProfile(profile,date=currentViewDate,{manual=false}
   if(aiHealthProfileInFlight[pkey]) return aiHealthProfileInFlight[pkey];
   aiHealthProfileInFlight[pkey]=(async()=>{
     let result;
+    let isFallback=false;
     try{
       result=await callHealthProfileAI(profile,date);
     }catch(err){
       console.warn('AI健康画像调用失败，使用本地兜底画像：',err);
       const input=buildHealthProfileInput(profile,date);
       result={content:normalizeHealthProfile(null,input),input};
+      isFallback=true;
     }
     const range=result.input.range;
     const saved=setHealthProfileCacheItem(profile,{
@@ -756,6 +762,7 @@ async function generateHealthProfile(profile,date=currentViewDate,{manual=false}
       content:result.content,
       data_completeness:result.input.data_completeness,
       source_signature:signature,
+      source:isFallback?'local_fallback':'ai',
       updatedAt:Date.now()
     });
     return saved;
@@ -787,11 +794,13 @@ function renderHealthProfileCard(profile,date=currentViewDate){
   }
   const levelLabel={good:'良好',normal:'一般',poor:'待改善'};
   const summaryText=String(content.health_summary||'').slice(0,96);
+  const isFallback=entry.source==='local_fallback';
   wrap.innerHTML=`
     <div class="health-profile-head">
       <div><div class="health-profile-title">${icon('dna')} 我的健康画像</div><div class="health-profile-sub">最近30天 · ${entry.data_range||'长期健康状态'}${stale?' · 建议更新':''}</div></div>
       <button class="health-profile-refresh" id="healthProfileRefreshBtn" type="button" ${loading||!!cooldown?'disabled':''}>${loading?'生成中':(cooldown||'重新分析')}</button>
     </div>
+    ${isFallback?'<div class="ai-fallback-hint">AI暂不可用，当前显示本地分析</div>':''}
     <div class="health-profile-hero">
       <div class="health-profile-type">${escapeHTML(content.profile_type)}</div>
       <div class="health-profile-label">${escapeHTML(content.profile_title)}</div>
@@ -1141,7 +1150,7 @@ async function callHealthCoachAI(profile,date,slot){
 ${calStatusText}
 
 不要返回health_score字段，健康评分由系统统一计算。建议必须服从用户目标：减脂关注热量、蛋白和饭后活动；增肌关注蛋白和力量训练；睡眠目标关注入睡时间、时长和规律；体能目标关注运动频率和活动量。建议要温和、具体、可执行，不要医疗诊断。当前分析阶段：${slot}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch(getApiUrl('/api/health-coach'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/health-coach'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({prompt})
@@ -1601,7 +1610,7 @@ async function callDailyTasksAI(profile,date){
 ${calStatusText}
 
 只返回严格JSON，不要Markdown，不要解释。JSON格式：{"summary":"","tasks":[{"id":"","type":"water|food|exercise|sleep|habit","title":"","description":"","short_reason":"","reason":"","current_data":"","suggestion":"","priority":"high|medium|low","action":"","completed":false}]}。输入数据：${JSON.stringify(input)}`;
-  const response=await fetch(getApiUrl('/api/daily-tasks'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/daily-tasks'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({prompt})
@@ -1658,7 +1667,7 @@ function triggerDailyTasksAuto(profile,date=currentViewDate){
 }
 
 async function parseHealthText(text){
-  const response=await fetch(getApiUrl('/api/health-parse'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/health-parse'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({text,baseDate:currentViewDate,currentDateTime:toLocalDateTimeValue()})
@@ -1743,11 +1752,11 @@ function normalizePhotoFoodItem(item,phase='quick'){
   });
   return draft;
 }
-async function callFoodVisionAI(photoURL,promptText,aiCfg,stage){
+async function callFoodVisionAI(photoURL,promptText,aiCfg,stage,signal){
   const aiStart=performance.now();
   const uploadBytes=getDataURLBytes(photoURL);
   logFoodAI('upload',{stage,uploadBytes,uploadSize:formatBytes(uploadBytes)});
-  const response=await fetch(getApiUrl('/api/food-photo'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/food-photo'),{
     method:'POST',
     headers:{
       'Content-Type':'application/json',
@@ -1755,7 +1764,8 @@ async function callFoodVisionAI(photoURL,promptText,aiCfg,stage){
     body:JSON.stringify({
       prompt:promptText,
       image:photoURL
-    })
+    }),
+    signal
   });
   const data=await response.json().catch(()=>({}));
   const clientMs=Math.round(performance.now()-aiStart);
@@ -1806,13 +1816,19 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
         <img src="${photoURL}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:8px">
         <div class="ai-scan-ring"></div>
         <div class="ai-scan-text">正在识别食物并估算营养...</div>
+        <button type="button" class="btn btn-ghost btn-sm" id="aiCancelBtn" style="margin-top:12px">取消识别</button>
       </div>`;
+    document.getElementById('aiCancelBtn')?.addEventListener('click',()=>{
+      if(typeof _aiRecognitionAbort!=='undefined'&&_aiRecognitionAbort){
+        try{_aiRecognitionAbort.abort();}catch(_){}
+      }
+    });
 
     try{
       // Compact prompt: structured fields only — reason/advice filled by frontend template.
       const promptText='识别图中食物，只返回严格JSON数组，无Markdown/解释。每项必须返回：food,category(主食/菜肴/肉类/水果/饮品/甜品/其他),unit(杯/瓶/碗/个/颗/根/块/片/份),amount(初始数量，离散单位为整数),referenceAmount(参考重量或容量数字),referenceUnit(g或ml),confidence(low|medium|high),calories_per_100g,protein_per_100g,fat_per_100g,carbs_per_100g,fiber_per_100g。饮品必须使用杯/瓶且referenceUnit=ml，禁止饮品使用块或默认g；甜品优先块；水果优先个/颗/根。';
       const apiStart=performance.now();
-      const vision=await callFoodVisionAI(photoURL,promptText,aiCfg,'complete');
+      const vision=await callFoodVisionAI(photoURL,promptText,aiCfg,'complete',typeof _aiRecognitionAbort!=='undefined'?_aiRecognitionAbort?.signal:null);
       const text=typeof vision==='string'?vision:vision.text;
       const meta=(vision&&vision.meta)||{};
       const parseStart=performance.now();
@@ -1840,6 +1856,11 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
       });
       return;
     }catch(err){
+      // BUG-004: User-initiated cancel (AbortError) — return to photo selection silently, no error.
+      if(err&&err.name==='AbortError'){
+        if(typeof renderPhotoModal==='function') renderPhotoModal('food');
+        return;
+      }
       console.error('Bailian API error:',err);
       logFoodAI('total',{ms:Math.round(performance.now()-totalStart),failed:true});
       if(typeof logFoodAISpeed==='function') logFoodAISpeed({
@@ -1852,16 +1873,10 @@ async function startAIAnalysis(photoURL,targetProfileId=aiAnalysisTargetProfileI
         originalSize:speedCtx.originalSize||'',
         compressedSize:speedCtx.compressedSize||''
       });
-      content.innerHTML=`
-        <div style="text-align:center;padding:20px">
-          <div style="font-size:14px;color:var(--red);margin-bottom:8px">AI识别失败</div>
-          <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">${err.message||'网络错误或API配置问题'}</div>
-          <div style="font-size:11px;color:var(--txt3);margin-bottom:12px">可能原因：<br>1. 网络连接异常<br>2. 未开通通义千问VL模型权限<br>3. 浏览器跨域限制(CORS)<br>4. 图片过大或格式不支持<br><br>建议：请检查网络连接，或稍后重试。</div>
-          <button class="btn btn-gold btn-sm" id="aiFallbackBtn">使用演示模式</button>
-        </div>`;
-      document.getElementById('aiFallbackBtn').addEventListener('click',()=>{
-        runDemoAIAnalysis(photoURL,targetProfileId);
-      });
+      // BUG-005: Use unified error UI with 关闭 / 重新选择 buttons
+      if(typeof showAIRecognitionError==='function'){
+        showAIRecognitionError(err.message||'网络错误或API配置问题');
+      }
       return;
     }
   }
@@ -1958,6 +1973,7 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
       onCancel:()=>{
         foodDraft=[];
         foodDraftSession=null;
+        editingFoodRecordId=null;
         if(typeof closeFoodSubPageAll==='function') closeFoodSubPageAll();
         clearPhotoZone();
       },
@@ -1971,6 +1987,7 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
     onCancel:()=>{
       foodDraft=[];
       foodDraftSession=null;
+      editingFoodRecordId=null;
       if(typeof closeFoodSubPageAll==='function') closeFoodSubPageAll();
       clearPhotoZone();
     },

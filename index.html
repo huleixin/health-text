@@ -1021,6 +1021,51 @@ function getApiUrl(path){
   return path;
 }
 
+/* ---- Unified AI fetch with timeout ----
+   - Default 30s timeout; throws user-friendly Error on timeout.
+   - Composes with caller's existing AbortSignal (options.signal):
+     user-initiated abort and timeout abort do not conflict.
+   - Does not replace caller's AbortController; creates a child controller. */
+var AI_REQUEST_TIMEOUT_MS = 30000;
+function fetchWithTimeout(url, options, timeoutMs){
+  if(timeoutMs === undefined) timeoutMs = AI_REQUEST_TIMEOUT_MS;
+  options = options || {};
+  var controller = new AbortController();
+  var externalSignal = options.signal || null;
+  var timedOut = false;
+  var timerId = null;
+
+  var cleanup = function(){
+    if(timerId !== null){ clearTimeout(timerId); timerId = null; }
+  };
+
+  if(externalSignal){
+    if(externalSignal.aborted){
+      controller.abort();
+    }else{
+      externalSignal.addEventListener('abort', function(){
+        if(!timedOut) controller.abort();
+      }, { once: true });
+    }
+  }
+
+  timerId = setTimeout(function(){
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  var fetchOptions = {};
+  for(var k in options){ if(options.hasOwnProperty(k)) fetchOptions[k] = options[k]; }
+  fetchOptions.signal = controller.signal;
+
+  return fetch(url, fetchOptions).finally(cleanup).catch(function(err){
+    if(timedOut){
+      throw new Error('请求超时，请检查网络后重试');
+    }
+    throw err;
+  });
+}
+
 function getDefaultData(){
   return {
     appMode:'single',
@@ -2352,7 +2397,7 @@ function cancelPendingExerciseSearch(){
   aiExerciseSearchRequestId++;
 }
 async function searchExerciseWithAI(query){
-  const response=await fetch(getApiUrl('/api/exercise-search'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/exercise-search'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({query})
@@ -6060,7 +6105,7 @@ function renderCoupleLedgerPage(){
   wrap.querySelector('#ledgerAllCatsBtn')?.addEventListener('click',openLedgerAllCategories);
 }
 async function callExpenseRecognitionAI(imageURL,signal){
-  const response=await fetch(getApiUrl('/api/recognize-expense'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/recognize-expense'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({image:imageURL}),
@@ -7205,7 +7250,7 @@ const _foodSyncNutritionCache=new Map();
 async function estimateOrderNutrition(items){
   const cacheKey=items.map(i=>`${i.name||''}|${i.spec||''}`).join('||');
   if(_foodSyncNutritionCache.has(cacheKey)) return _foodSyncNutritionCache.get(cacheKey);
-  const response=await fetch(getApiUrl('/api/estimate-nutrition'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/estimate-nutrition'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({items})
@@ -9417,8 +9462,10 @@ function renderDailyAdvicePage(profile,date){
       actions.push('安排 15-30 分钟运动');
     }
     if(actions.length===0) actions.push('保持当前健康习惯');
+    const coachFallback=!!(aiAdvice&&aiAdvice.fallback);
     focusSection=`<section class="sub-page-section"><div class="da-focus">${escapeHTML(focusCalorieText)}</div>`+
-      `<div style="font-size:13px;color:var(--txt2);line-height:1.7;margin-top:10px">${escapeHTML(summary.lead)}</div></section>`;
+      `<div style="font-size:13px;color:var(--txt2);line-height:1.7;margin-top:10px">${escapeHTML(summary.lead)}</div>`+
+      (coachFallback?'<div class="ai-fallback-hint">AI暂不可用，当前显示本地建议</div>':'')+`</section>`;
     actionsSection=`<section class="sub-page-section"><div class="sub-page-section-title">${icon('lightbulb')} 建议你这样做</div><div class="da-action-list">`+
       actions.slice(0,4).map((a,i)=>`<div class="da-action-item"><span class="da-action-num">${i+1}</span><span>${escapeHTML(a)}</span></div>`).join('')+
       `</div></section>`;
@@ -10554,7 +10601,7 @@ function foodQuantityEditorHTML(food,index=0){
       <div class="ds-stepper" role="group" aria-label="数量">
         <button class="ds-stepper-btn" type="button" data-portion-action="minus" aria-label="减少">−</button>
         <label class="ds-stepper-input-wrap">
-          <input class="ds-stepper-input" data-portion-quantity data-glass-enhanced="stepper" type="number" min="0.1" step="0.1" inputmode="decimal" value="${normalizeFoodQuantityAmount(amt.value)}" aria-label="数量">
+          <input class="ds-stepper-input" data-portion-quantity data-glass-enhanced="stepper" type="number" min="${quantityMode?1:0.1}" step="${quantityMode?1:0.1}" inputmode="${quantityMode?'numeric':'decimal'}" value="${normalizeFoodQuantityAmount(amt.value)}" aria-label="数量">
         </label>
         <button class="ds-stepper-btn" type="button" data-portion-action="plus" aria-label="增加">+</button>
       </div>
@@ -10562,7 +10609,7 @@ function foodQuantityEditorHTML(food,index=0){
     <div class="form-group fq-field">
       <label data-reference-label>${escapeHTML(refLabel)}</label>
       <div class="form-row fq-reference-controls">
-        <input class="form-input" data-reference-weight data-glass-enhanced="portion" type="number" min="0" step="1" inputmode="numeric" value="${refValue}" placeholder="约" aria-label="参考数值">
+        <input class="form-input" data-reference-weight data-glass-enhanced="portion" type="number" min="0.1" step="0.1" inputmode="decimal" value="${refValue}" placeholder="约" aria-label="参考数值">
         <select class="form-select" data-reference-unit aria-label="参考单位">${refUnitOptions}</select>
       </div>
     </div>
@@ -10903,13 +10950,18 @@ function bindFoodQuantityEditor(root,foods,idx,options={}){
   });
   editor.querySelector('[data-portion-action="minus"]')?.addEventListener('click',()=>{
     const amt=getFoodRecordAmount(foods[idx]);
-    const step=isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1;
-    updateQuantity(Math.max(0.01,+(amt.value-step).toFixed(2)));
+    const discrete=isDiscreteFoodMeasureUnit(amt.unit);
+    const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
+    const minVal=discrete?1:0.1;
+    const decimals=discrete?0:2;
+    updateQuantity(Math.max(minVal,+(amt.value-step).toFixed(decimals)));
   });
   editor.querySelector('[data-portion-action="plus"]')?.addEventListener('click',()=>{
     const amt=getFoodRecordAmount(foods[idx]);
-    const step=isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1;
-    updateQuantity(+(amt.value+step).toFixed(2));
+    const discrete=isDiscreteFoodMeasureUnit(amt.unit);
+    const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
+    const decimals=discrete?0:2;
+    updateQuantity(+(amt.value+step).toFixed(decimals));
   });
   if(card){
     card.querySelector('[data-portion-action="detail"]')?.addEventListener('click',e=>{
@@ -11072,7 +11124,14 @@ function renderFoodDraftEditView(container,pendingFood,options={}){
 function refreshFoodManagementSubPage(){
   if(isFoodSubPageActive()&&getCurrentSubPage()?.id===FOOD_SUBPAGE_IDS.MANAGEMENT){
     const host=document.getElementById('foodRecordDetailHost');
-    if(host) renderFoodRecordDetailInto(host);
+    if(!host) return false;
+    // BUG-002: preserve scroll position across re-render
+    const content=host.closest('.app-subpage__content');
+    const savedScroll=content?content.scrollTop:0;
+    renderFoodRecordDetailInto(host);
+    if(content){
+      requestAnimationFrame(()=>{content.scrollTop=savedScroll;});
+    }
     return true;
   }
   return false;
@@ -11098,7 +11157,7 @@ function renderFoodDraftShell(target){
       mode:'search',
       onRefresh:renderFoodDraftShell,
       onAddMore:()=>{s.phase='search';s.pendingFood=null;renderFoodDraftShell();},
-      onCancel:()=>{foodDraft=[];foodDraftSession=null;closeFoodSearchSubPage();},
+      onCancel:()=>{foodDraft=[];foodDraftSession=null;editingFoodRecordId=null;closeFoodSearchSubPage();},
       onConfirm:()=>confirmFoodDraft({mode:'search',dateTime:()=>recordEntryDateTime(s.recordDate||currentViewDate),onConfirmed:()=>closeFoodSearchSubPage()})
     });
     return;
@@ -12625,6 +12684,15 @@ function showSearchResults(wrap){
   // 食物搜索结果是页面内联下拉层，不应锁定整个 body。
   // 旧版本曾使用 food-search-results token；这里主动释放一次，避免残留导致移动端无法滑动。
   GlassScrollLock.unlock('food-search-results');
+  // BUG-009: after results appear, scroll SubPage content so first result is visible (keyboard may overlap)
+  requestAnimationFrame(()=>{
+    const content=wrap.closest('.app-subpage__content');
+    if(!content) return;
+    const wrapRect=wrap.getBoundingClientRect();
+    const contentRect=content.getBoundingClientRect();
+    const offset=wrapRect.top-contentRect.top+content.scrollTop-12;
+    if(offset>0) content.scrollTop=offset;
+  });
 }
 function hideSearchResults(wrap){
   if(!wrap) return;
@@ -12732,6 +12800,8 @@ function cancelPendingFoodSearch(){
     aiFoodSearchController=null;
   }
   aiFoodSearchRequestId++;
+  // BUG-010: ensure edit-mode flag is cleared on any cancel path
+  editingFoodRecordId=null;
 }
 function resolveFoodSearchContext(options={}){
   const input=options.input||document.getElementById('foodSearch');
@@ -12751,7 +12821,7 @@ function logFoodSearchDebug(stage,context,data={}){
   });
 }
 async function searchFoodWithAI(query,signal){
-  const response=await fetch(getApiUrl('/api/food-search'),{
+  const response=await fetchWithTimeout(getApiUrl('/api/food-search'),{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     signal,
@@ -16632,6 +16702,16 @@ function renderFoodSearchModal(options={}){
   currentMeal=getMealTypeByDateTime(recordEntryDateTime(foodDraftSession.recordDate));
   openFoodSubPage(FOOD_SUBPAGE_IDS.SEARCH,'搜索食物',{
     render(shell){renderFoodDraftShell(shell);},
+    onBack(){
+      // BUG-001: In edit phase, Header back returns to search/review instead of closing entire flow
+      if(foodDraftSession?.mode==='search'&&foodDraftSession.phase==='edit'){
+        foodDraftSession.phase=foodDraft.length?'review':'search';
+        foodDraftSession.pendingFood=null;
+        renderFoodDraftShell();
+      }else{
+        closeSubPage();
+      }
+    },
     onClose(){
       if(foodDraftSession?.mode==='search'){
         cancelPendingFoodSearch();
@@ -16998,27 +17078,6 @@ function saveVoiceDraft(draft,ui={}){
 }
 
 // --- More Records Modal ---
-function renderQuickRecordBack(){
-  return '<button class="qa-more-btn" type="button" data-quick-record-back><span class="qa-more-icon">←</span><span>返回更多记录</span></button>';
-}
-function bindQuickRecordBack(shell){
-  const btn=shell?.querySelector('[data-quick-record-back]');
-  if(!btn||btn.dataset.boundQuickBack==='1') return;
-  btn.dataset.boundQuickBack='1';
-  btn.addEventListener('click',e=>{
-    e.preventDefault();
-    e.stopPropagation();
-    const cur=getCurrentSubPage();
-    if(!cur||cur.id===RECORD_SUBPAGE_IDS.MORE) return;
-    // Only pop once. Parent more_records (if present) must be revealed — never re-pushed.
-    closeSubPage();
-    if(getCurrentSubPage()?.id!==RECORD_SUBPAGE_IDS.MORE){
-      // Opened from quick-add without more_records underneath.
-      renderMoreModal();
-    }
-    logQuickRecordDebug('back','more-records',getCurrentSubPage()?.id===RECORD_SUBPAGE_IDS.MORE);
-  });
-}
 function renderStepsModal(options={}){
   const recordDate=isValidDateStr(options.date)?options.date:currentViewDate;
   openRecordSubPage(RECORD_SUBPAGE_IDS.STEPS,'步数记录',{
@@ -17030,10 +17089,8 @@ function renderStepsModal(options={}){
       <div class="time-picker" id="qaStepsTimePicker" aria-label="步数记录时间" style="margin-top:10px"></div>
     </div>
     <button class="qa-save-btn" id="qaStepsSave">保存步数</button>
-    ${renderQuickRecordBack()}
   `;
   setupTimePicker('qaStepsTime',recordEntryDateTime(recordDate),{root:shell});
-  bindQuickRecordBack(shell);
   const input=shell.querySelector('#qaStepsInput');
   shell.querySelector('#qaStepsSave').addEventListener('click',()=>{
     const dateTime=normalizeDateTime(getTimePickerValue('qaStepsTime'));
@@ -17090,10 +17147,8 @@ function renderSleepModal(options={}){
       </div>
     </div>
     <button class="qa-save-btn" id="qaSleepSave">保存睡眠</button>
-    ${renderQuickRecordBack()}
   `;
       window.GlassUI?.enhance?.(shell);
-      bindQuickRecordBack(shell);
 
       let mode='range';
       let syncing=false;
@@ -17201,9 +17256,7 @@ function renderUnavailableRecordModal(type){
         <div class="qs-label" style="margin-top:6px">该记录类型尚未开放。为避免创建第二套健康数据结构，本入口仅作说明，暂不支持保存。</div>
       </div>
     </div>
-    ${renderQuickRecordBack()}
   `;
-      bindQuickRecordBack(shell);
     }
   });
 }

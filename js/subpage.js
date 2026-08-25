@@ -124,7 +124,13 @@
     backBtn.className = 'app-subpage__back';
     backBtn.setAttribute('aria-label', '返回');
     backBtn.textContent = '‹ 返回';
-    backBtn.addEventListener('click', () => closeSubPage());
+    backBtn.addEventListener('click', () => {
+      if (typeof options.onBack === 'function') {
+        try { options.onBack(); } catch (err) { console.error('[SubPage] onBack failed:', err); }
+      } else {
+        closeSubPage();
+      }
+    });
 
     const title = document.createElement('h1');
     title.className = 'app-subpage__title';
@@ -205,6 +211,29 @@
   function openSubPage(options = {}) {
     const id = String(options.id || `subpage_${Date.now()}`);
     const host = ensureHost();
+
+    // BUG-006: If id already exists in stack, close pages above it and reuse existing page.
+    // Prevents duplicate instances sharing global state (e.g. foodDraftSession).
+    const existingIndex = stack.findIndex(entry => entry.id === id);
+    if (existingIndex >= 0) {
+      while (stack.length > existingIndex + 1) {
+        const entry = stack.pop();
+        if (typeof entry.options.onClose === 'function') {
+          try { entry.options.onClose(entry.el); } catch (err) { console.error('[SubPage] onClose failed:', err); }
+        }
+        entry.el.remove();
+      }
+      const existing = stack[existingIndex];
+      if (typeof options.render === 'function') {
+        const content = existing.el.querySelector('.app-subpage__content');
+        if (content) options.render(content, existing.el);
+      }
+      if (typeof options.onOpen === 'function') {
+        try { options.onOpen(existing.el); } catch (err) { console.error('[SubPage] onOpen failed:', err); }
+      }
+      showSubPage(existing.el);
+      return existing.el;
+    }
 
     if (stack.length === 0) {
       originAppPage = getActiveAppPageId();
@@ -306,7 +335,9 @@
     }
 
     removeSubPageEl(entry).then(() => {
-      if (!hasRemaining) {
+      // Re-check stack: a new SubPage may have opened during the exit animation.
+      // Using the captured hasRemaining here would hide the host and break the new page.
+      if (stack.length === 0) {
         if (host) {
           host.hidden = true;
           host.setAttribute('aria-hidden', 'true');
@@ -352,6 +383,11 @@
   /** Android WebView back — SubPage layer (chained after AppDialog / AppSheet via installNativeBack). */
   function handleNativeBack() {
     if (isOpen()) {
+      const top = stack[stack.length - 1];
+      if (top && typeof top.options.onBack === 'function') {
+        try { top.options.onBack(); } catch (err) { console.error('[SubPage] onBack failed:', err); }
+        return 'closed';
+      }
       closeSubPage();
       return 'closed';
     }
@@ -416,6 +452,60 @@
     global.__nativeBack = chained;
   }
 
+  /**
+   * Left-edge swipe-to-back for mobile browsers.
+   * Intercepts the browser's swipe-back gesture when a SubPage is open,
+   * so the gesture closes the SubPage instead of navigating away from the page.
+   */
+  function installSwipeBack() {
+    const EDGE_WIDTH = 24;
+    const SWIPE_THRESHOLD = 60;
+    let startX = 0, startY = 0, tracking = false, locked = null;
+
+    document.addEventListener('touchstart', (e) => {
+      if (!isOpen()) return;
+      const touch = e.touches[0];
+      if (!touch || touch.clientX > EDGE_WIDTH) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      tracking = true;
+      locked = null;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!tracking) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (locked === null) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
+      // Only prevent browser gesture for rightward horizontal swipes from left edge
+      if (locked === 'x' && dx > 0) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', (e) => {
+      if (!tracking) return;
+      tracking = false;
+      if (locked !== 'x') return;
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      if (dx > SWIPE_THRESHOLD) {
+        handleNativeBack();
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchcancel', () => {
+      tracking = false;
+      locked = null;
+    }, { passive: true });
+  }
+
   function openSubPageLayoutTest() {
     const blocks = Array.from({ length: 24 }, (_, i) =>
       `<p class="app-subpage-test-line">滚动测试段落 ${i + 1}：用于验证 Content 区域独立滚动，Header 与 Footer 保持固定。</p>`
@@ -467,6 +557,7 @@
   global.AppSubPage = api;
 
   installNativeBack();
+  installSwipeBack();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', installNativeBack);
   }

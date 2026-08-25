@@ -1,4 +1,4 @@
-const CACHE_NAME = 'health-assistant-v12';
+const CACHE_NAME = 'health-assistant-v13';
 
 const STATIC_ASSETS = [
   '/',
@@ -9,6 +9,13 @@ const STATIC_ASSETS = [
   '/assets/logo-192.png',
   '/assets/logo-512.png',
   '/css/app.css',
+  '/js/subpage.js',
+  '/js/sheet.js',
+  '/js/dialog.js',
+  '/js/food-subpage.js',
+  '/js/record-subpage.js',
+  '/js/ledger-subpage.js',
+  '/js/healthConnectSync.js',
   '/js/recipe.js',
   '/js/ai.js',
   '/js/couple.js',
@@ -129,8 +136,8 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       }).catch(() => {
-        return caches.match(request).then((cachedResponse) => {
-          return cachedResponse || caches.match('/index.html');
+        return caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
+          return cachedResponse || caches.match('/index.html', { ignoreSearch: true });
         });
       })
     );
@@ -138,8 +145,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Cache-first for static assets (JS, CSS, images, fonts)
+  // ignoreSearch:true so ?v=xxx version query params still hit the cached file
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
+    caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
 
       return fetch(request).then((networkResponse) => {

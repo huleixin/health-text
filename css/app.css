@@ -2658,6 +2658,7 @@ body.health-compare-page-active .sub-page-header{top:var(--safe-top,0px)}
 /* AI Weekly Report — new presentation layer */
 .ai-weekly-report-card{position:relative;width:100%;box-sizing:border-box}
 .ai-report-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.ai-fallback-hint{margin:0 0 12px;padding:7px 12px;border-radius:8px;background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.2);color:#b87300;font-size:12px;line-height:1.4;text-align:center}
 .ai-report-title-wrap{min-width:0}
 .ai-report-title{display:flex;align-items:center;gap:7px;font-size:17px;font-weight:650;color:var(--txt)}
 .ai-report-title .ui-icon{width:18px;height:18px;flex:0 0 auto}
