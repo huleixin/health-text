@@ -124,7 +124,8 @@
         if (!shell.querySelector('[data-food-sync-form]')) {
           shell.innerHTML = '<div class="food-sync-form-shell" data-food-sync-form></div>';
         }
-      }
+      },
+      footer: '<button class="btn btn-ghost" type="button" onclick="closeFoodSyncModal()">取消</button><button class="btn btn-gold" type="button" id="foodSyncConfirm" onclick="confirmFoodSync()">确认记录</button>'
     });
   }
 

@@ -13,6 +13,11 @@
   const stack = [];
   let originAppPage = null;
   let viewportBound = false;
+  let _inPopstate = false;
+
+  function pushSubPageHistory() {
+    try { history.pushState({ appSubPage: true }, document.title); } catch (_) { /* noop */ }
+  }
 
   function getHost() {
     return document.getElementById(HOST_ID);
@@ -165,12 +170,6 @@
     content.className = 'app-subpage__content';
     content.dataset.subpageContent = options.id;
 
-    if (typeof options.render === 'function') {
-      options.render(content, el);
-    } else if (options.content != null) {
-      mountNode(content, options.content);
-    }
-
     el.appendChild(header);
     el.appendChild(content);
 
@@ -179,6 +178,12 @@
       footer.className = 'app-subpage__footer';
       mountNode(footer, options.footer);
       el.appendChild(footer);
+    }
+
+    if (typeof options.render === 'function') {
+      options.render(content, el);
+    } else if (options.content != null) {
+      mountNode(content, options.content);
     }
 
     content.addEventListener('focusin', (e) => {
@@ -242,6 +247,9 @@
       setBodyActive(true);
       lockScroll();
       bindViewport(host);
+      // Push a history entry so system back gesture (MIUI/ColorOS/OriginOS) fires popstate
+      // instead of navigating away from the page.
+      pushSubPageHistory();
     } else {
       const prev = stack[stack.length - 1];
       if (prev) prev.el.hidden = true;
@@ -332,6 +340,12 @@
     if (!hasRemaining) {
       setBodyActive(false);
       unlockScroll();
+      // Remove the history entry pushed on first SubPage open, so the next
+      // system back gesture exits the page instead of hitting a stale entry.
+      // Skip when this close was triggered by popstate itself.
+      if (!_inPopstate) {
+        try { history.back(); } catch (_) { /* noop */ }
+      }
     }
 
     removeSubPageEl(entry).then(() => {
@@ -506,6 +520,32 @@
     }, { passive: true });
   }
 
+  /**
+   * History API back integration for full-screen gesture navigation.
+   * MIUI / ColorOS / OriginOS / Android 12+ system back gestures fire popstate,
+   * which we intercept to close SubPages in stack order instead of leaving the page.
+   */
+  function installHistoryBack() {
+    global.addEventListener('popstate', () => {
+      if (!isOpen()) return; // no SubPage — let browser navigate normally
+      _inPopstate = true;
+      try {
+        // Use the chained __nativeBack if available (dialog → sheet → subpage → legacy),
+        // otherwise fall back to SubPage-only handling.
+        const handler = typeof global.__nativeBack === 'function'
+          ? global.__nativeBack
+          : handleNativeBack;
+        handler();
+        // If SubPages remain in stack, re-push so the next gesture closes another layer.
+        if (isOpen()) {
+          pushSubPageHistory();
+        }
+      } finally {
+        _inPopstate = false;
+      }
+    });
+  }
+
   function openSubPageLayoutTest() {
     const blocks = Array.from({ length: 24 }, (_, i) =>
       `<p class="app-subpage-test-line">滚动测试段落 ${i + 1}：用于验证 Content 区域独立滚动，Header 与 Footer 保持固定。</p>`
@@ -558,6 +598,7 @@
 
   installNativeBack();
   installSwipeBack();
+  installHistoryBack();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', installNativeBack);
   }

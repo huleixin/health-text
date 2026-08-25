@@ -6790,7 +6790,8 @@ async function retryLedgerAIRecognition(){
 function openCoupleLedgerEditor(expenseId){
   const isEdit=!!expenseId;
   openLedgerEntrySubPage(isEdit?'编辑账单':'记一笔',{
-    render(form){mountCoupleLedgerEditorForm(form,expenseId,isEdit);}
+    render(form){mountCoupleLedgerEditorForm(form,expenseId,isEdit);},
+    footer:`<button class="btn btn-ghost" type="button" id="ledgerExpCancel">取消</button>${isEdit?`<button class="btn btn-ghost" type="button" id="ledgerExpDelete" style="color:var(--red,#f87171)">删除</button>`:''}<button class="btn btn-gold" type="button" id="ledgerExpSave" data-ledger-exp-id="${expenseId||''}">保存</button>`
   });
 }
 function mountCoupleLedgerEditorForm(form,expenseId,isEdit,opts){
@@ -6915,16 +6916,13 @@ function mountCoupleLedgerEditorForm(form,expenseId,isEdit,opts){
       `:''}
     </div>
     </div>
-    <div class="ledger-modal-footer">
-    <div class="couple-form-actions">
-      <button class="btn btn-ghost" type="button" id="ledgerExpCancel">取消</button>
-      ${isEdit?`<button class="btn btn-ghost" type="button" id="ledgerExpDelete" style="color:var(--red,#f87171)">删除</button>`:''}
-      <button class="btn btn-gold" type="button" id="ledgerExpSave" data-ledger-exp-id="${expenseId||''}">保存</button>
-      </div>
     </div>`;
-  renderIcons(form.closest('.app-subpage')||form);
-  form.querySelector('#ledgerExpCancel').addEventListener('click',()=>closeLedgerEditor());
-  form.querySelector('#ledgerExpSave').addEventListener('click',saveCoupleLedgerExpense);
+  const pageEl=form.closest('.app-subpage')||form;
+  renderIcons(pageEl);
+  const cancelBtn=pageEl.querySelector('#ledgerExpCancel');
+  const saveBtn=pageEl.querySelector('#ledgerExpSave');
+  if(cancelBtn) cancelBtn.onclick=()=>closeLedgerEditor();
+  if(saveBtn) saveBtn.onclick=saveCoupleLedgerExpense;
   const amtInput=form.querySelector('#ledgerExpAmount');
   const amtEditBtn=form.querySelector('#ledgerExpAmountEditBtn');
   if(amtInput){
@@ -7015,13 +7013,16 @@ function mountCoupleLedgerEditorForm(form,expenseId,isEdit,opts){
       }
     },currentPid);
   });
-  if(isEdit) form.querySelector('#ledgerExpDelete').addEventListener('click',()=>{
-    if(!confirm('删除这笔账单？')) return;
-    deleteExpense(expenseId);
-    closeLedgerEditor();
-    saveAndRefreshLedger();
-    showToast('账单已删除','success');
-  });
+  if(isEdit){
+    const delBtn=pageEl.querySelector('#ledgerExpDelete');
+    if(delBtn) delBtn.onclick=()=>{
+      if(!confirm('删除这笔账单？')) return;
+      deleteExpense(expenseId);
+      closeLedgerEditor();
+      saveAndRefreshLedger();
+      showToast('账单已删除','success');
+    };
+  }
   refreshLedgerEditorDisplays(form);
 }
 // ===== Ledger DateTime Picker (复用 glass-date-panel 视觉) =====
@@ -7184,7 +7185,8 @@ function continueDietOnlyAfterCancel(){
 function saveCoupleLedgerExpense(){
   const form=getLedgerFormHost();
   if(!form) return;
-  const saveBtn=form.querySelector('#ledgerExpSave');
+  const pageEl=form.closest('.app-subpage')||form;
+  const saveBtn=pageEl.querySelector('#ledgerExpSave');
   const id=saveBtn?.dataset.ledgerExpId||'';
   let amount=parseLedgerAmountInput(form.querySelector('#ledgerExpAmount').value);
   if(!amount){
@@ -7741,13 +7743,7 @@ function renderFoodSyncForm(){
     }
     html+=`</div>`;
   });
-  html+=`<div id="foodSyncSummary"></div></div>
-  <div class="ledger-modal-footer">
-    <div class="couple-form-actions food-sync-actions">
-      <button class="btn btn-ghost" onclick="closeFoodSyncModal()">取消</button>
-      <button class="btn btn-gold" id="foodSyncConfirm" onclick="confirmFoodSync()">确认记录</button>
-    </div>
-  </div>`;
+  html+=`<div id="foodSyncSummary"></div></div>`;
   form.innerHTML=html;
   renderIcons(form);
   bindFoodSyncFormEvents();
@@ -8630,7 +8626,8 @@ function routeToExpenseEditorWithAI(result,withDiet){
       if(aiStatus){aiStatus.style.display='';aiStatus.textContent='AI已智能填充，请确认';aiStatus.style.color='var(--gold-l)';}
       applyLedgerFormFromRecognition(normalized,form,sourceImageURL);
       if(aiEntry) aiEntry.style.display='';
-    }
+    },
+    footer:`<button class="btn btn-ghost" type="button" id="ledgerExpCancel">取消</button><button class="btn btn-gold" type="button" id="ledgerExpSave" data-ledger-exp-id="">保存</button>`
   });
 }
 function openLedgerAllCategories(){
@@ -11039,10 +11036,6 @@ function renderFoodDraftReviewHTML(){
       <div class="food-draft-totals-kcal">${totalLabel}</div>
       ${macroTotals}
     </div>
-    <div class="food-draft-footer">
-      <button type="button" class="btn btn-ghost" data-draft-cancel>取消</button>
-      <button type="button" class="btn btn-gold" data-draft-confirm>确认添加</button>
-    </div>
   </div>`;
   return html;
 }
@@ -11084,8 +11077,11 @@ function bindFoodDraftReview(root,options={}){
     });
   });
   root.querySelector('[data-draft-add-more]')?.addEventListener('click',()=>options.onAddMore?.());
-  root.querySelector('[data-draft-cancel]')?.addEventListener('click',()=>options.onCancel?.());
-  root.querySelector('[data-draft-confirm]')?.addEventListener('click',()=>options.onConfirm?.());
+  const pageEl=root.closest('.app-subpage')||root;
+  const cancelBtn=pageEl.querySelector('[data-draft-cancel]');
+  const confirmBtn=pageEl.querySelector('[data-draft-confirm]');
+  if(cancelBtn) cancelBtn.onclick=()=>options.onCancel?.();
+  if(confirmBtn) confirmBtn.onclick=()=>options.onConfirm?.();
 }
 function handleSearchFoodPick(picked,context){
   const food=prepareFoodPortion({...picked,source:picked.source||'search'});
@@ -11150,6 +11146,16 @@ function renderFoodDraftShell(target){
   const content=target||getFoodFlowContent();
   const s=foodDraftSession;
   if(!content||!s||s.mode!=='search') return;
+  const pageEl=content.closest('.app-subpage');
+  const footer=pageEl?.querySelector('.app-subpage__footer');
+  if(footer){
+    footer.style.display=s.phase==='search'?'none':'';
+    const showEdit=s.phase==='edit';
+    footer.querySelector('[data-draft-cancel]').style.display=showEdit?'none':'';
+    footer.querySelector('[data-draft-confirm]').style.display=showEdit?'none':'';
+    footer.querySelector('[data-draft-edit-back]').style.display=showEdit?'':'none';
+    footer.querySelector('[data-draft-edit-join]').style.display=showEdit?'':'none';
+  }
   if(s.phase==='review'){
     content.innerHTML=`<div class="qa-modal-section">${mealSelectorHTML()}${renderFoodDraftReviewHTML()}</div>`;
     bindMealSelector(content);
@@ -11168,9 +11174,11 @@ function renderFoodDraftShell(target){
       <div id="foodDraftEditHost"></div>
     </div>`;
     bindMealSelector(content);
-    renderFoodDraftEditView(content.querySelector('#foodDraftEditHost'),s.pendingFood,{
+    const editHost=content.querySelector('#foodDraftEditHost');
+    const goBack=()=>{s.phase=foodDraft.length?'review':'search';s.pendingFood=null;renderFoodDraftShell();};
+    renderFoodDraftEditView(editHost,s.pendingFood,{
       showBack:true,
-      onBack:()=>{s.phase=foodDraft.length?'review':'search';s.pendingFood=null;renderFoodDraftShell();},
+      onBack:goBack,
       onJoin:food=>{
         foodDraft.push(food);
         s.pendingFood=null;
@@ -11180,6 +11188,12 @@ function renderFoodDraftShell(target){
         showToast(`已加入 ${food.name}`,'success');
       }
     });
+    editHost.querySelector('.food-draft-edit-actions')?.style.setProperty('display','none');
+    const contentJoinBtn=editHost.querySelector('[data-draft-edit-join]');
+    const backBtn=footer?.querySelector('[data-draft-edit-back]');
+    const joinBtn=footer?.querySelector('[data-draft-edit-join]');
+    if(backBtn) backBtn.onclick=goBack;
+    if(joinBtn) joinBtn.onclick=()=>contentJoinBtn?.click();
     return;
   }
   content.innerHTML=`<div class="qa-modal-section">
@@ -11207,7 +11221,9 @@ function renderFoodDraftShell(target){
     if(e.key==='Escape'){e.stopPropagation();searchInput.value='';renderSearchResults('',context);}
   });
   content.querySelector('[data-draft-go-review]')?.addEventListener('click',()=>{s.phase='review';renderFoodDraftShell();});
-  requestAnimationFrame(()=>searchInput.focus());
+  // Delay focus until after SubPage enter animation (220ms) to avoid keyboard
+  // pop conflicting with the slide-in transition and causing a visible flicker.
+  setTimeout(()=>{if(document.body.contains(searchInput)) searchInput.focus();},260);
 }
 function openFoodDraftSearchOverlay(opts={}){
   cancelPendingFoodSearch();
@@ -11231,7 +11247,7 @@ function openFoodDraftSearchOverlay(opts={}){
       searchInput.addEventListener('keydown',e=>{
         if(e.key==='Escape'){e.stopPropagation();closeFoodSubPageIfTop(FOOD_SUBPAGE_IDS.SEARCH_OVERLAY);}
       });
-      requestAnimationFrame(()=>searchInput.focus());
+      setTimeout(()=>{if(document.body.contains(searchInput)) searchInput.focus();},260);
     }else{
       shell.innerHTML='<div id="foodDraftOverlayEdit"></div>';
       renderFoodDraftEditView(shell.querySelector('#foodDraftOverlayEdit'),pendingFood,{
@@ -16380,7 +16396,7 @@ function renderWaterModal(options={}){
   const remaining=Math.max(goal-todayTotal,0);
 
   openRecordSubPage(RECORD_SUBPAGE_IDS.WATER,'记录饮水',{
-    render(shell){
+    render(shell,pageEl){
       shell.innerHTML=`
     <div class="qa-modal-section">
       <div class="qa-today-stat">
@@ -16407,9 +16423,7 @@ function renderWaterModal(options={}){
         <input type="number" class="qa-modal-input" id="qaWaterCustom" min="1" max="10000" placeholder="输入毫升数">
       </div>
     </div>
-    <button class="qa-save-btn" id="qaWaterSave">保存记录</button>
   `;
-
       let selectedAmount=0;
       shell.querySelectorAll('.qa-quick-btn').forEach(btn=>{
         btn.addEventListener('click',()=>{
@@ -16424,7 +16438,7 @@ function renderWaterModal(options={}){
         selectedAmount=0;
         shell.querySelectorAll('.qa-quick-btn').forEach(b=>b.classList.remove('active'));
       });
-      shell.querySelector('#qaWaterSave').addEventListener('click',()=>{
+      pageEl.querySelector('#qaWaterSave').addEventListener('click',()=>{
         const val=+shell.querySelector('#qaWaterCustom').value||selectedAmount;
         if(!val){
           showToast('请选择或输入饮水量','error');
@@ -16433,7 +16447,8 @@ function renderWaterModal(options={}){
         addWaterRecord(val,recordEntryDateTime(recordDate));
         closeRecordEntrySubPage('water');
       });
-    }
+    },
+    footer:'<button class="qa-save-btn" id="qaWaterSave">保存记录</button>'
   });
 }
 
@@ -16445,7 +16460,7 @@ function renderWeightModal(options={}){
   const prevWeight=latest?.weight;
 
   openRecordSubPage(RECORD_SUBPAGE_IDS.WEIGHT,'记录体重',{
-    render(shell){
+    render(shell,pageEl){
       shell.innerHTML=`
     <div class="qa-modal-section">
       ${prevWeight?`<div class="qa-today-stat"><div><div class="qs-val">${prevWeight}<span style="font-size:12px;color:var(--txt3)"> kg</span></div><div class="qs-label">上次体重</div></div></div>`:''}
@@ -16465,7 +16480,6 @@ function renderWeightModal(options={}){
         </div>
       </div>
     </div>
-    <button class="qa-save-btn" id="qaWeightSave">保存记录</button>
   `;
 
       const wInput=shell.querySelector('#qaWeightInput');
@@ -16485,9 +16499,9 @@ function renderWeightModal(options={}){
         }
       }
       wInput.addEventListener('input',updateBMI);
-      wInput.focus();
+      setTimeout(()=>{if(document.body.contains(wInput)) wInput.focus();},260);
 
-      shell.querySelector('#qaWeightSave').addEventListener('click',()=>{
+      pageEl.querySelector('#qaWeightSave').addEventListener('click',()=>{
         const w=parseFloat(wInput.value);
         if(!w||w<20||w>300){
           showToast('请输入有效的体重（20-300kg）','error');
@@ -16518,7 +16532,8 @@ function renderWeightModal(options={}){
         showToast(`已记录体重 ${w}kg${bodyFat?`，体脂${bodyFat}%`:''}`,'success');
         closeRecordEntrySubPage('weight');
       });
-    }
+    },
+    footer:'<button class="qa-save-btn" id="qaWeightSave">保存记录</button>'
   });
 }
 
@@ -16527,7 +16542,7 @@ function renderExerciseModal(options={}){
   cancelPendingExerciseSearch();
   const recordDate=isValidDateStr(options.date)?options.date:currentViewDate;
   openRecordSubPage(RECORD_SUBPAGE_IDS.EXERCISE,'记录运动',{
-    render(shell){
+    render(shell,pageEl){
       shell.innerHTML=`
     <div class="qa-modal-section">
       <label class="qa-modal-label" for="qaExerciseSearch">搜索运动项目</label>
@@ -16543,7 +16558,6 @@ function renderExerciseModal(options={}){
       <div class="time-picker" id="qaExerciseTimePicker" aria-label="运动记录时间" style="margin-top:10px"></div>
       <div class="qa-est-cal" id="qaExEst" style="display:none"></div>
     </div>
-    <button class="qa-save-btn" id="qaExSave">保存记录</button>
   `;
   setupTimePicker('qaExerciseTime',recordEntryDateTime(recordDate),{root:shell});
 
@@ -16653,14 +16667,15 @@ function renderExerciseModal(options={}){
   renderLocalOptions(getExerciseDB());
   renderSelected();
   updateEst();
-  searchInput.focus();
+  setTimeout(()=>{if(document.body.contains(searchInput)) searchInput.focus();},260);
 
-  shell.querySelector('#qaExSave').addEventListener('click',()=>{
+  pageEl.querySelector('#qaExSave').addEventListener('click',()=>{
     const val=+durInput.value;
     const dateTime=normalizeDateTime(getTimePickerValue('qaExerciseTime'));
     if(saveExerciseRecordEntry(selectedExercise,val,dateTime)) closeRecordEntrySubPage('exercise');
   });
-    }
+    },
+    footer:'<button class="qa-save-btn" id="qaExSave">保存记录</button>'
   });
 }
 
@@ -16702,6 +16717,7 @@ function renderFoodSearchModal(options={}){
   currentMeal=getMealTypeByDateTime(recordEntryDateTime(foodDraftSession.recordDate));
   openFoodSubPage(FOOD_SUBPAGE_IDS.SEARCH,'搜索食物',{
     render(shell){renderFoodDraftShell(shell);},
+    footer:'<button class="btn btn-ghost" type="button" data-draft-cancel>取消</button><button class="btn btn-gold" type="button" data-draft-confirm>确认添加</button><button class="btn btn-ghost" type="button" data-draft-edit-back style="display:none">返回</button><button class="btn btn-gold" type="button" data-draft-edit-join style="display:none">加入本次记录</button>',
     onBack(){
       // BUG-001: In edit phase, Header back returns to search/review instead of closing entire flow
       if(foodDraftSession?.mode==='search'&&foodDraftSession.phase==='edit'){
@@ -16723,30 +16739,22 @@ function renderFoodSearchModal(options={}){
 // --- Voice/AI Modal ---
 function renderVoiceModal(){
   openRecordSubPage(RECORD_SUBPAGE_IDS.VOICE,'语音记录',{
-    render(shell){
+    render(shell,pageEl){
       shell.innerHTML=`
     <div class="qa-modal-section">
       <textarea class="qa-voice-area" id="qaVoiceText" placeholder="点击下方按钮开始语音输入，或直接输入文字说一句，同时记录健康与支出..."></textarea>
       <div class="qa-voice-status" id="qaVoiceStatus">说一句，同时记录健康与支出</div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button type="button" class="qa-quick-btn" id="qaVoiceBtn" style="flex:1;padding:12px;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">
-          <span class="ui-icon" data-icon="mic" style="display:inline-block;vertical-align:middle;margin-right:4px"></span>
-          <span>按住说话</span>
-        </button>
-      </div>
       <div class="qa-est-cal" id="qaAIParseResult" style="display:none"></div>
       <div id="qaDraftList"></div>
     </div>
-    <button type="button" class="qa-save-btn" id="qaVoiceSave" disabled>AI解析</button>
   `;
-  renderIcons(shell);
 
   const textArea=shell.querySelector('#qaVoiceText');
   const statusEl=shell.querySelector('#qaVoiceStatus');
-  const voiceBtn=shell.querySelector('#qaVoiceBtn');
+  const voiceBtn=pageEl.querySelector('#qaVoiceBtn');
   const resultEl=shell.querySelector('#qaAIParseResult');
   const draftList=shell.querySelector('#qaDraftList');
-  const saveBtn=shell.querySelector('#qaVoiceSave');
+  const saveBtn=pageEl.querySelector('#qaVoiceSave');
   let parsedResult=null;
 
   // Do NOT auto-focus textarea on modal open — prevents Android soft keyboard from popping up.
@@ -17047,7 +17055,9 @@ function renderVoiceModal(){
       saveBtn.textContent='确认保存';
     }
   });
-    }
+    },
+    onOpen(el){renderIcons(el);},
+    footer:`<button type="button" class="qa-quick-btn" id="qaVoiceBtn" style="touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none"><span class="ui-icon" data-icon="mic" style="display:inline-block;vertical-align:middle;margin-right:4px"></span><span>按住说话</span></button><button type="button" class="qa-save-btn" id="qaVoiceSave" disabled>AI解析</button>`
   });
 }
 
@@ -17081,23 +17091,23 @@ function saveVoiceDraft(draft,ui={}){
 function renderStepsModal(options={}){
   const recordDate=isValidDateStr(options.date)?options.date:currentViewDate;
   openRecordSubPage(RECORD_SUBPAGE_IDS.STEPS,'步数记录',{
-    render(shell){
+    render(shell,pageEl){
       shell.innerHTML=`
     <div class="qa-modal-section">
       <label class="qa-modal-label" for="qaStepsInput">步数</label>
       <input type="number" class="qa-modal-input" id="qaStepsInput" min="1" max="100000" placeholder="如 8426">
       <div class="time-picker" id="qaStepsTimePicker" aria-label="步数记录时间" style="margin-top:10px"></div>
     </div>
-    <button class="qa-save-btn" id="qaStepsSave">保存步数</button>
   `;
   setupTimePicker('qaStepsTime',recordEntryDateTime(recordDate),{root:shell});
   const input=shell.querySelector('#qaStepsInput');
-  shell.querySelector('#qaStepsSave').addEventListener('click',()=>{
+  pageEl.querySelector('#qaStepsSave').addEventListener('click',()=>{
     const dateTime=normalizeDateTime(getTimePickerValue('qaStepsTime'));
     if(saveStepsRecordEntry(input.value,dateTime)) closeRecordEntrySubPage('steps');
   });
-  input.focus();
-    }
+  setTimeout(()=>{if(document.body.contains(input)) input.focus();},260);
+    },
+    footer:'<button class="qa-save-btn" id="qaStepsSave">保存步数</button>'
   });
 }
 function renderSleepModal(options={}){
@@ -17105,7 +17115,7 @@ function renderSleepModal(options={}){
   const defaults=buildSleepInputDefaults(recordDate);
   const durationParts=splitSleepDurationParts(defaults.duration);
   openRecordSubPage(RECORD_SUBPAGE_IDS.SLEEP,'睡眠记录',{
-    render(shell){
+    render(shell,pageEl){
       shell.innerHTML=`
     <div class="qa-modal-section">
       <div class="meal-seg" id="qaSleepModeSeg" role="tablist" aria-label="睡眠录入模式">
@@ -17146,7 +17156,6 @@ function renderSleepModal(options={}){
         <input class="qa-modal-input" id="qaSleepReferenceDate" type="date" value="${escapeHTML(defaults.endDate||recordDate)}">
       </div>
     </div>
-    <button class="qa-save-btn" id="qaSleepSave">保存睡眠</button>
   `;
       window.GlassUI?.enhance?.(shell);
 
@@ -17227,7 +17236,7 @@ function renderSleepModal(options={}){
       });
       applyMode('range');
 
-      shell.querySelector('#qaSleepSave').addEventListener('click',()=>{
+      pageEl.querySelector('#qaSleepSave').addEventListener('click',()=>{
         const endTime=getCompactTime('qaSleepEnd',defaults.endTime);
         const referenceDate=currentEndDate();
         const startTime=mode==='duration'
@@ -17241,7 +17250,8 @@ function renderSleepModal(options={}){
         });
         if(saved) closeRecordEntrySubPage('sleep');
       });
-    }
+    },
+    footer:'<button class="qa-save-btn" id="qaSleepSave">保存睡眠</button>'
   });
 }
 function renderUnavailableRecordModal(type){
