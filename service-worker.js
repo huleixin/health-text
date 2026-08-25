@@ -1,4 +1,6 @@
-const CACHE_NAME = 'health-assistant-v13';
+const CACHE_NAME = 'health-assistant-v14';
+
+const ASSET_VERSION = 'v14';
 
 const STATIC_ASSETS = [
   '/',
@@ -8,18 +10,18 @@ const STATIC_ASSETS = [
   '/assets/logo-180.png',
   '/assets/logo-192.png',
   '/assets/logo-512.png',
-  '/css/app.css',
-  '/js/subpage.js',
-  '/js/sheet.js',
-  '/js/dialog.js',
-  '/js/food-subpage.js',
-  '/js/record-subpage.js',
-  '/js/ledger-subpage.js',
-  '/js/healthConnectSync.js',
-  '/js/recipe.js',
-  '/js/ai.js',
-  '/js/couple.js',
-  '/js/sync.js'
+  `/css/app.css?v=${ASSET_VERSION}`,
+  `/js/subpage.js?v=${ASSET_VERSION}`,
+  `/js/sheet.js?v=${ASSET_VERSION}`,
+  `/js/dialog.js?v=${ASSET_VERSION}`,
+  `/js/food-subpage.js?v=${ASSET_VERSION}`,
+  `/js/record-subpage.js?v=${ASSET_VERSION}`,
+  `/js/ledger-subpage.js?v=${ASSET_VERSION}`,
+  `/js/healthConnectSync.js?v=${ASSET_VERSION}`,
+  `/js/recipe.js?v=${ASSET_VERSION}`,
+  `/js/ai.js?v=${ASSET_VERSION}`,
+  `/js/couple.js?v=${ASSET_VERSION}`,
+  `/js/sync.js?v=${ASSET_VERSION}`
 ];
 
 const OPTIONAL_STATIC_ASSETS = [
@@ -136,8 +138,8 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       }).catch(() => {
-        return caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
-          return cachedResponse || caches.match('/index.html', { ignoreSearch: true });
+        return caches.match(request).then((cachedResponse) => {
+          return cachedResponse || caches.match('/index.html');
         });
       })
     );
@@ -145,9 +147,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Cache-first for static assets (JS, CSS, images, fonts)
-  // ignoreSearch:true so ?v=xxx version query params still hit the cached file
+  // Version query strings (?v=) are significant — changing them busts the cache.
   event.respondWith(
-    caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
+    caches.match(request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
 
       return fetch(request).then((networkResponse) => {
