@@ -3873,16 +3873,17 @@ function getDailyCompletionDetails(profile,date){
     weight:hasWeight?20:0,
     food:hasFood?20:0,
     exercise:hasExercise?20:0,
-    sleep:Math.min(20,Math.round((sleepMinutes/420)*20)),
-    water:waterGoal?Math.min(20,Math.round((waterTotal/waterGoal)*20)):0
+    sleep:hasSleep?20:0,
+    water:hasWater?20:0
   };
-  const percent=Math.max(0,Math.min(100,Object.values(items).reduce((sum,v)=>sum+v,0)));
+  const recordedCount=[hasWeight,hasFood,hasExercise,hasSleep,hasWater].filter(Boolean).length;
+  const percent=Math.round(recordedCount/5*100);
   const done=[
     hasWeight?'体重':'',
     hasFood?'饮食':'',
     hasExercise?'运动':'',
-    sleepMinutes>=420?'睡眠达标':(hasSleep?'睡眠记录':''),
-    waterGoal&&waterTotal>=waterGoal?'饮水达标':(hasWater?'饮水记录':'')
+    hasSleep?'睡眠':'',
+    hasWater?'饮水':''
   ].filter(Boolean);
   return {
     percent,
@@ -4104,6 +4105,22 @@ function bindWeekRailDrag(){
 function clampPercent(v){
   return Math.max(0,Math.min(100,Math.round(Number(v)||0)));
 }
+// 饮食质量分：基于实际摄入偏离动态目标的程度，而非简单的摄入/目标比率。
+// 超标和不足都扣分，超标越多扣分越重。解决"吃越多分越高"的逻辑错误。
+function calculateDietQualityScore(intakeCalories,targetCalories){
+  const intake=Number(intakeCalories)||0;
+  const target=Number(targetCalories)||0;
+  if(target<=0) return 50;
+  if(intake<=0) return 0;
+  const deviation=(intake-target)/target;
+  const absDev=Math.abs(deviation);
+  let score;
+  if(absDev<=0.10){score=100;}
+  else if(absDev<=0.25){score=95-(absDev-0.10)*100;}
+  else if(absDev<=0.50){score=80-(absDev-0.25)*120;}
+  else{score=Math.max(15,50-(absDev-0.50)*70);}
+  return Math.round(score);
+}
 function getRecentDateList(days=7,endDate=currentViewDate){
   const [y,m,d]=endDate.split('-').map(Number);
   const base=new Date(y,m-1,d);
@@ -4224,7 +4241,7 @@ function getHealthSnapshot(profile,date=currentViewDate){
   const goalStrategy=healthGoal.strategy||{};
   const exerciseTarget=Number(goalStrategy.exercise_days)>=4?40:30;
   const sleepTarget=Number(goalStrategy.sleep_target)||420;
-  const dietPct=targetCals>0?clampPercent(intakeCalories/targetCals*100):0;
+  const dietPct=calculateDietQualityScore(intakeCalories,targetCals);
   const exercisePct=clampPercent(exerciseMinutes/exerciseTarget*100);
   const sleepPct=clampPercent(sleepMinutes/sleepTarget*100);
   const waterPct=waterGoal>0?clampPercent(waterTotal/waterGoal*100):0;
@@ -10837,10 +10854,10 @@ function bindFoodQuantityEditor(root,foods,idx,options={}){
   const card=root.classList?.contains('food-portion-card')?root:root.closest?.('.food-portion-card');
   const editor=root.classList?.contains('fq-editor')?root:root.querySelector?.('.fq-editor');
   if(!editor||editor.dataset.fqBound==='1') return;
-  window.GlassUI?.enhance?.(editor);
+  try{window.GlassUI?.enhance?.(editor);}catch(e){console.warn('[FQ] GlassUI.enhance failed:',e);}
   editor.dataset.fqBound='1';
   if(!Number.isFinite(idx)) idx=Number(editor.dataset.fqIndex);
-  foods[idx]=prepareFoodPortion(foods[idx]);
+  try{foods[idx]=prepareFoodPortion(foods[idx]);}catch(e){console.warn('[FQ] prepareFoodPortion failed for idx',idx,e);}
   const refreshFn=options.refresh||(card?refreshFoodPortionCardDisplay:refreshFoodQuantityEditor);
   const refreshTarget=card||editor;
   const syncMeasureFields=(refreshOptions={})=>{
