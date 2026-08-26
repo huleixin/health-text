@@ -10614,11 +10614,11 @@ function foodQuantityEditorHTML(food,index=0){
     <div class="form-group fq-field" data-quantity-mode-field${quantityMode?'':' hidden'}>
       <label>数量</label>
       <div class="ds-stepper" role="group" aria-label="数量">
-        <button class="ds-stepper-btn" type="button" data-portion-action="minus" aria-label="减少">−</button>
+        <button class="ds-stepper-btn" type="button" data-portion-action="minus" aria-label="减少" onclick="if(window._fqStepperClick)window._fqStepperClick('minus',this.closest('.fq-editor'))">−</button>
         <label class="ds-stepper-input-wrap">
           <input class="ds-stepper-input" data-portion-quantity data-glass-enhanced="stepper" type="number" min="${quantityMode?1:0.1}" step="${quantityMode?1:0.1}" inputmode="${quantityMode?'numeric':'decimal'}" value="${normalizeFoodQuantityAmount(amt.value)}" aria-label="数量">
         </label>
-        <button class="ds-stepper-btn" type="button" data-portion-action="plus" aria-label="增加">+</button>
+        <button class="ds-stepper-btn" type="button" data-portion-action="plus" aria-label="增加" onclick="if(window._fqStepperClick)window._fqStepperClick('plus',this.closest('.fq-editor'))">+</button>
       </div>
     </div>
     <div class="form-group fq-field">
@@ -10850,6 +10850,30 @@ function commitFoodQuantityEditorValues(editor,food){
   food.userAdjustedWeight=true;
   return syncFoodQuantityFields(food);
 }
+// Global stepper handler — called via inline onclick, bypasses all addEventListener timing issues.
+window._fqStepperClick=function(action,editorEl){
+  if(!editorEl||!editorEl._fqUpdateQuantity) return;
+  try{
+    const qtyInput=editorEl.querySelector('[data-portion-quantity]');
+    qtyInput?.blur();
+    const foods=editorEl._foods;
+    const idx=editorEl._foodIdx;
+    if(!foods||idx==null) return;
+    const amt=getFoodRecordAmount(foods[idx]);
+    const discrete=isDiscreteFoodMeasureUnit(amt.unit);
+    const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
+    const decimals=discrete?0:2;
+    let nextVal;
+    if(action==='minus'){
+      const minVal=discrete?1:0.1;
+      nextVal=Math.max(minVal,+(amt.value-step).toFixed(decimals));
+    }else{
+      nextVal=+(amt.value+step).toFixed(decimals);
+    }
+    editorEl._fqUpdateQuantity(nextVal);
+    if(qtyInput) qtyInput.value=nextVal;
+  }catch(err){console.error('[FQ stepper]',err);}
+};
 function bindFoodQuantityEditor(root,foods,idx,options={}){
   const card=root.classList?.contains('food-portion-card')?root:root.closest?.('.food-portion-card');
   const editor=root.classList?.contains('fq-editor')?root:root.querySelector?.('.fq-editor');
@@ -10879,6 +10903,10 @@ function bindFoodQuantityEditor(root,foods,idx,options={}){
     f.userAdjustedWeight=true;
     syncMeasureFields(refreshOptions);
   };
+  // Store references for inline onclick handler (bypasses addEventListener timing issues)
+  editor._foods=foods;
+  editor._foodIdx=idx;
+  editor._fqUpdateQuantity=updateQuantity;
   const updateMeasureUnit=(unit)=>{
     const f=foods[idx];
     const amt=getFoodRecordAmount(f);
@@ -10963,33 +10991,7 @@ function bindFoodQuantityEditor(root,foods,idx,options={}){
     if(input) input.value=roundFoodValue(converted,nextUnit==='kg'?3:2);
     updateReferenceWeight(converted,nextUnit);
   });
-  // Use event delegation on editor — robust against DOM replacement and mobile focus quirks.
-  editor.addEventListener('click',(e)=>{
-    const btn=e.target.closest('[data-portion-action]');
-    if(!btn) return;
-    const action=btn.dataset.portionAction;
-    if(action!=='minus'&&action!=='plus') return;
-    e.preventDefault();
-    const qtyInput=editor.querySelector('[data-portion-quantity]');
-    qtyInput?.blur();
-    try{
-      const amt=getFoodRecordAmount(foods[idx]);
-      const discrete=isDiscreteFoodMeasureUnit(amt.unit);
-      const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
-      const decimals=discrete?0:2;
-      let nextVal;
-      if(action==='minus'){
-        const minVal=discrete?1:0.1;
-        nextVal=Math.max(minVal,+(amt.value-step).toFixed(decimals));
-      }else{
-        nextVal=+(amt.value+step).toFixed(decimals);
-      }
-      updateQuantity(nextVal);
-      // Force display update (mobile focus quirk: refreshFoodPortionCardDisplay may skip when input retains focus)
-      if(qtyInput) qtyInput.value=nextVal;
-    }catch(err){console.error('[FQ stepper]',err);}
-  });
-  // Legacy direct bindings kept for compatibility (detail/delete/collapse handled below)
+  // +/- buttons handled by inline onclick → window._fqStepperClick (stores refs on editor)
   if(card){
     card.querySelector('[data-portion-action="detail"]')?.addEventListener('click',e=>{
       const panel=card.querySelector('[data-food-detail]');
