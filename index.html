@@ -10964,6 +10964,7 @@ function bindFoodQuantityEditor(root,foods,idx,options={}){
     updateReferenceWeight(converted,nextUnit);
   });
   editor.querySelector('[data-portion-action="minus"]')?.addEventListener('click',()=>{
+    editor.querySelector('[data-portion-quantity]')?.blur();
     const amt=getFoodRecordAmount(foods[idx]);
     const discrete=isDiscreteFoodMeasureUnit(amt.unit);
     const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
@@ -10972,6 +10973,7 @@ function bindFoodQuantityEditor(root,foods,idx,options={}){
     updateQuantity(Math.max(minVal,+(amt.value-step).toFixed(decimals)));
   });
   editor.querySelector('[data-portion-action="plus"]')?.addEventListener('click',()=>{
+    editor.querySelector('[data-portion-quantity]')?.blur();
     const amt=getFoodRecordAmount(foods[idx]);
     const discrete=isDiscreteFoodMeasureUnit(amt.unit);
     const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
