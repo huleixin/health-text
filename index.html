@@ -66,7 +66,7 @@ html:not([data-boot-ready]) .app{
   },{passive:false});
 })();
 </script>
-<link rel="stylesheet" href="./css/app.css?v=v14">
+<link rel="stylesheet" href="./css/app.css?v=v15">
 <style id="ai-record-entry-critical">
 #qaSmartRecordHost .ai-record-main{
   width:100%;min-width:0;box-sizing:border-box;margin-bottom:12px;padding:9px 11px 11px;
@@ -581,12 +581,12 @@ html:not([data-boot-ready]) .app{
 <div class="toast-container" id="toastContainer"></div>
 <div id="appSubPageHost" class="app-subpage-host" hidden aria-hidden="true"></div>
 
-<script src="./js/subpage.js?v=v14"></script>
-<script src="./js/sheet.js?v=v14"></script>
-<script src="./js/dialog.js?v=v14"></script>
-<script src="./js/food-subpage.js?v=v14"></script>
-<script src="./js/record-subpage.js?v=v14"></script>
-<script src="./js/ledger-subpage.js?v=v14"></script>
+<script src="./js/subpage.js?v=v15"></script>
+<script src="./js/sheet.js?v=v15"></script>
+<script src="./js/dialog.js?v=v15"></script>
+<script src="./js/food-subpage.js?v=v15"></script>
+<script src="./js/record-subpage.js?v=v15"></script>
+<script src="./js/ledger-subpage.js?v=v15"></script>
 <script>
 // App-like: suppress context menu (long-press copy/select/share) on non-editable UI.
 // Input/textarea/contenteditable are excluded so paste/select still works. (req 17)
@@ -16348,7 +16348,7 @@ function renderPhotoModal(kind='food'){
     return;
   }
   openFoodSubPage(FOOD_SUBPAGE_IDS.AI_FLOW,'食物识别',{
-    render(shell){
+    render(shell,pageEl){
       shell.innerHTML=`
       <div class="qa-source-label">选择图片来源</div>
       <div class="qa-source-list">
@@ -16367,8 +16367,14 @@ function renderPhotoModal(kind='food'){
       <input type="file" id="qaGalleryInput" class="photo-input-native" accept="image/*" aria-label="从相册选择">`;
       renderIcons(shell);
       bindPhotoModalInputs('food',shell);
-    }
+      pageEl?.querySelector('.app-subpage__footer')?.style.setProperty('display','none');
+    },
+    footer:'<button class="btn btn-ghost" type="button" id="aiRescanBtn" onclick="rescanFoodAI()">重新识别</button><button class="btn btn-gold" type="button" data-draft-confirm>确认添加</button>'
   });
+}
+function rescanFoodAI(){
+  const url=foodDraftSession?.photoURL||_pendingImageURL;
+  if(url){foodDraft=[];foodDraftSession=null;startAIAnalysis(url);}
 }
 function bindPhotoModalInputs(recordKind,root){
   const scope=root||getOrderRecognitionContent()||getRecordFlowContent();
@@ -18424,11 +18430,11 @@ function finishAppBoot(){
 }
 /* Phase 5: on-demand / idle module loader — does not block first paint */
 const APP_MODULE_SRCS={
-  recipe:'./js/recipe.js?v=v14',
-  ai:'./js/ai.js?v=v14',
-  couple:'./js/couple.js?v=v14',
-  sync:'./js/sync.js?v=v14',
-  healthConnect:'./js/healthConnectSync.js?v=v14'
+  recipe:'./js/recipe.js?v=v15',
+  ai:'./js/ai.js?v=v15',
+  couple:'./js/couple.js?v=v15',
+  sync:'./js/sync.js?v=v15',
+  healthConnect:'./js/healthConnectSync.js?v=v15'
 };
 const _appModulePromises=Object.create(null);
 function loadAppModule(name){

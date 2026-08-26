@@ -1956,18 +1956,16 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
     ${mealSelectorHTML()}
     <div id="aiFoodDraftHost"></div>`;
   bindMealSelector(content);
-  // Ensure SubPage footer exists with 重新识别 + 确认添加
+  // Ensure SubPage footer is visible (created at initial open; hidden during loading/scanning)
   const pageEl=content.closest('.app-subpage');
   let footer=pageEl?.querySelector('.app-subpage__footer');
   if(!footer){
     footer=document.createElement('footer');
     footer.className='app-subpage__footer';
+    footer.innerHTML='<button class="btn btn-ghost" type="button" id="aiRescanBtn" onclick="rescanFoodAI()">重新识别</button><button class="btn btn-gold" type="button" data-draft-confirm>确认添加</button>';
     pageEl?.appendChild(footer);
   }
   footer.style.display='';
-  footer.innerHTML=`
-    <button class="btn btn-ghost" type="button" id="aiRescanBtn">重新识别</button>
-    <button class="btn btn-gold" type="button" data-draft-confirm>确认添加</button>`;
   const host=document.getElementById('aiFoodDraftHost');
   host.innerHTML=renderFoodDraftReviewHTML();
   const refreshAI=()=>renderAIResults(photoURL,targetProfileId,{detailReady});
@@ -2004,12 +2002,6 @@ function renderAIResults(photoURL,targetProfileId=aiAnalysisTargetProfileId,{det
       clearPhotoZone();
     },
     onConfirm:()=>confirmFoodDraft({mode:'ai',targetProfileId})
-  });
-  const rescanBtn=footer?.querySelector('#aiRescanBtn')||document.getElementById('aiRescanBtn');
-  rescanBtn?.addEventListener('click',()=>{
-    foodDraft=[];
-    foodDraftSession=null;
-    startAIAnalysis(photoURL,targetProfileId);
   });
 }
 
