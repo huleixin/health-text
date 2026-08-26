@@ -1,6 +1,6 @@
-const CACHE_NAME = 'health-assistant-v15';
+const CACHE_NAME = 'health-assistant-v16';
 
-const ASSET_VERSION = 'v15';
+const ASSET_VERSION = 'v16';
 
 const STATIC_ASSETS = [
   '/',
