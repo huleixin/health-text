@@ -10963,23 +10963,33 @@ function bindFoodQuantityEditor(root,foods,idx,options={}){
     if(input) input.value=roundFoodValue(converted,nextUnit==='kg'?3:2);
     updateReferenceWeight(converted,nextUnit);
   });
-  editor.querySelector('[data-portion-action="minus"]')?.addEventListener('click',()=>{
-    editor.querySelector('[data-portion-quantity]')?.blur();
-    const amt=getFoodRecordAmount(foods[idx]);
-    const discrete=isDiscreteFoodMeasureUnit(amt.unit);
-    const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
-    const minVal=discrete?1:0.1;
-    const decimals=discrete?0:2;
-    updateQuantity(Math.max(minVal,+(amt.value-step).toFixed(decimals)));
+  // Use event delegation on editor — robust against DOM replacement and mobile focus quirks.
+  editor.addEventListener('click',(e)=>{
+    const btn=e.target.closest('[data-portion-action]');
+    if(!btn) return;
+    const action=btn.dataset.portionAction;
+    if(action!=='minus'&&action!=='plus') return;
+    e.preventDefault();
+    const qtyInput=editor.querySelector('[data-portion-quantity]');
+    qtyInput?.blur();
+    try{
+      const amt=getFoodRecordAmount(foods[idx]);
+      const discrete=isDiscreteFoodMeasureUnit(amt.unit);
+      const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
+      const decimals=discrete?0:2;
+      let nextVal;
+      if(action==='minus'){
+        const minVal=discrete?1:0.1;
+        nextVal=Math.max(minVal,+(amt.value-step).toFixed(decimals));
+      }else{
+        nextVal=+(amt.value+step).toFixed(decimals);
+      }
+      updateQuantity(nextVal);
+      // Force display update (mobile focus quirk: refreshFoodPortionCardDisplay may skip when input retains focus)
+      if(qtyInput) qtyInput.value=nextVal;
+    }catch(err){console.error('[FQ stepper]',err);}
   });
-  editor.querySelector('[data-portion-action="plus"]')?.addEventListener('click',()=>{
-    editor.querySelector('[data-portion-quantity]')?.blur();
-    const amt=getFoodRecordAmount(foods[idx]);
-    const discrete=isDiscreteFoodMeasureUnit(amt.unit);
-    const step=discrete?1:(isMassMeasureUnit(amt.unit)?(amt.unit==='kg'?0.1:10):0.1);
-    const decimals=discrete?0:2;
-    updateQuantity(+(amt.value+step).toFixed(decimals));
-  });
+  // Legacy direct bindings kept for compatibility (detail/delete/collapse handled below)
   if(card){
     card.querySelector('[data-portion-action="detail"]')?.addEventListener('click',e=>{
       const panel=card.querySelector('[data-food-detail]');
